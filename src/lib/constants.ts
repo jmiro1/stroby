@@ -9,7 +9,18 @@ export const NICHES = [
   "Design & Product",
   "HR & Leadership",
   "Creator Economy",
-  "Other B2B",
+  "Health & Wellness",
+  "Real Estate",
+  "Travel & Hospitality",
+  "Food & Beverage",
+  "Fashion & Beauty",
+  "Sports & Fitness",
+  "Education & Learning",
+  "Entertainment & Media",
+  "Sustainability & Climate",
+  "Crypto & Web3",
+  "Dev Tools & Engineering",
+  "Other",
 ] as const;
 
 export type Niche = (typeof NICHES)[number];

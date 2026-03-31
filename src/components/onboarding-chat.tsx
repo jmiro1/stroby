@@ -44,6 +44,9 @@ interface Step {
   inputType: StepInputType;
   options?: readonly string[];
   placeholder?: string;
+  /** Only show this step if formData[conditionField] === conditionValue */
+  conditionField?: string;
+  conditionValue?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,9 +80,10 @@ const INFLUENCER_STEPS: Step[] = [
   { question: "What's your name?", field: "owner_name", inputType: "text", placeholder: "e.g., Jane Doe" },
   { question: "Drop a link to your content so we can check it out.", field: "url", inputType: "text", placeholder: "https://..." },
   { question: "What niche best describes your content?", field: "primary_niche", inputType: "select", options: NICHES },
+  { question: "What's your niche? Describe it briefly.", field: "custom_niche", inputType: "text", placeholder: "e.g., Pet care, Automotive, Gaming...", conditionField: "primary_niche", conditionValue: "Other" },
   { question: "Tell me about your audience — who are they and what do they care about?", field: "description", inputType: "textarea", placeholder: "e.g., CMOs and growth leads at B2B SaaS companies..." },
   { question: "How large is your audience? (subscribers, followers, etc.)", field: "audience_size", inputType: "number", placeholder: "e.g., 15000" },
-  { question: "What's your typical engagement rate? (% or just describe it)", field: "engagement_rate", inputType: "text", placeholder: "e.g., 42% open rate, or ~5% engagement" },
+  { question: "What's your typical engagement rate? The more detail you give, the better we can match you.", field: "engagement_rate", inputType: "text", placeholder: "e.g., 42% open rate, 5% CTR, 10k avg views" },
   { question: "What types of brand partnerships interest you?", field: "partnership_types", inputType: "multi-checkbox", options: PARTNERSHIP_TYPES },
   { question: "What do you typically charge per partnership? (or type 'not sure yet')", field: "price_per_placement", inputType: "text", placeholder: "e.g., $500 or not sure yet" },
   { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
@@ -93,6 +97,7 @@ const BUSINESS_STEPS: Step[] = [
   { question: "In a sentence or two, what does your company sell?", field: "product_description", inputType: "textarea", placeholder: "e.g., Email automation software for e-commerce brands" },
   { question: "Who's your ideal customer?", field: "target_customer", inputType: "textarea", placeholder: "e.g., DTC brand founders doing $1M-$10M revenue" },
   { question: "What niche are you targeting?", field: "primary_niche", inputType: "select", options: NICHES },
+  { question: "What's your niche? Describe it briefly.", field: "custom_niche", inputType: "text", placeholder: "e.g., Pet care, Automotive, Gaming...", conditionField: "primary_niche", conditionValue: "Other" },
   { question: "What kind of audience do you want to get in front of?", field: "description", inputType: "textarea", placeholder: "e.g., Marketing decision-makers at mid-market companies..." },
   { question: "What's your monthly budget for sponsorships or partnerships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
   { question: "What's the main goal for this campaign?", field: "campaign_goal", inputType: "select", options: CAMPAIGN_GOALS },
@@ -421,23 +426,6 @@ export default function OnboardingChat() {
 
   // ── Survey flow ──
 
-  const advanceToNextStep = useCallback(
-    (nextStepIndex: number, updatedMessages: ChatMessage[], updatedData: Record<string, unknown>) => {
-      if (userType && userType !== "other") {
-        saveDraft({ userType, step: nextStepIndex, data: updatedData, messages: updatedMessages });
-      }
-      setIsTyping(true);
-      setTimeout(() => {
-        if (nextStepIndex < steps.length) {
-          setMessages((prev) => [...prev, { role: "bot", content: steps[nextStepIndex].question }]);
-          setCurrentStep(nextStepIndex);
-        }
-        setIsTyping(false);
-      }, 400);
-    },
-    [steps, userType]
-  );
-
   const submitData = useCallback(
     async (finalData: Record<string, unknown>) => {
       setIsSubmitting(true);
@@ -475,6 +463,44 @@ export default function OnboardingChat() {
       }, 400);
     },
     [userType]
+  );
+
+  // Find next step that isn't skipped by a condition
+  function findNextStep(fromIndex: number, data: Record<string, unknown>): number {
+    let idx = fromIndex;
+    while (idx < steps.length) {
+      const s = steps[idx];
+      if (s.conditionField && s.conditionValue) {
+        if (data[s.conditionField] !== s.conditionValue) {
+          idx++;
+          continue;
+        }
+      }
+      break;
+    }
+    return idx;
+  }
+
+  const advanceToNextStep = useCallback(
+    (nextStepIndex: number, updatedMessages: ChatMessage[], updatedData: Record<string, unknown>) => {
+      const actualNext = findNextStep(nextStepIndex, updatedData);
+      if (userType && userType !== "other") {
+        saveDraft({ userType, step: actualNext, data: updatedData, messages: updatedMessages });
+      }
+      if (actualNext >= steps.length) {
+        submitData(updatedData);
+        return;
+      }
+      setIsTyping(true);
+      setTimeout(() => {
+        if (actualNext < steps.length) {
+          setMessages((prev) => [...prev, { role: "bot", content: steps[actualNext].question }]);
+          setCurrentStep(actualNext);
+        }
+        setIsTyping(false);
+      }, 400);
+    },
+    [steps, userType, submitData]
   );
 
   const handleSubmit = useCallback(() => {
@@ -524,12 +550,7 @@ export default function OnboardingChat() {
     setSelectValue("");
     setCheckedValues([]);
 
-    const nextStep = currentStep + 1;
-    if (nextStep >= steps.length) {
-      submitData(updatedData);
-    } else {
-      advanceToNextStep(nextStep, newMessages, updatedData);
-    }
+    advanceToNextStep(currentStep + 1, newMessages, updatedData);
   }, [isFreeChat, sendFreeMessage, steps, currentStep, inputValue, selectValue, checkedValues, formData, messages, advanceToNextStep, submitData]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
