@@ -36,7 +36,8 @@ type StepInputType =
   | "number"
   | "textarea"
   | "select"
-  | "multi-checkbox";
+  | "multi-checkbox"
+  | "consent";
 
 interface Step {
   question: string;
@@ -88,7 +89,8 @@ const INFLUENCER_STEPS: Step[] = [
   { question: "What other type of partnership are you interested in?", field: "custom_partnership", inputType: "text", placeholder: "e.g., Webinar co-hosting, Event sponsorship...", conditionField: "partnership_types", conditionValue: "Other" },
   { question: "What do you typically charge per partnership? (or type 'not sure yet')", field: "price_per_placement", inputType: "text", placeholder: "e.g., $500 or not sure yet" },
   { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
-  { question: "Last one — what's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
+  { question: "What's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
+  { question: "Last step — do you agree to our Terms & Conditions?", field: "terms_accepted", inputType: "consent" },
 ];
 
 const BUSINESS_STEPS: Step[] = [
@@ -104,7 +106,8 @@ const BUSINESS_STEPS: Step[] = [
   { question: "What's the main goal for this campaign?", field: "campaign_goal", inputType: "select", options: CAMPAIGN_GOALS },
   { question: "How soon are you looking to get started?", field: "timeline", inputType: "select", options: TIMELINES },
   { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
-  { question: "Last one — what's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
+  { question: "What's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
+  { question: "Last step — do you agree to our Terms & Conditions?", field: "terms_accepted", inputType: "consent" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -702,6 +705,49 @@ export default function OnboardingChat() {
             <Button onClick={handleSubmit} disabled={checkedValues.length === 0} className="w-full rounded-full" size="default">
               <Send className="size-4" />
               <span>Confirm selection</span>
+            </Button>
+          </div>
+        );
+
+      case "consent":
+        return (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              By clicking &ldquo;I Agree&rdquo;, you agree to our{" "}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Terms &amp; Conditions
+              </a>{" "}
+              and{" "}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Privacy Policy
+              </a>
+              .
+            </p>
+            <Button
+              onClick={() => {
+                const step = steps[currentStep];
+                if (!step) return;
+                const newMessages: ChatMessage[] = [...messages, { role: "user", content: "I agree to the Terms & Conditions" }];
+                setMessages(newMessages);
+                const updatedData = { ...formData, [step.field]: "accepted" };
+                setFormData(updatedData);
+                advanceToNextStep(currentStep + 1, newMessages, updatedData);
+              }}
+              className="w-full rounded-full"
+              size="default"
+            >
+              <CheckCircle2 className="size-4" />
+              I Agree
             </Button>
           </div>
         );

@@ -29,7 +29,7 @@ export default function AboutPage() {
       {/* Navigation */}
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="relative size-9 overflow-hidden rounded-lg bg-primary">
               <Image
                 src="/logo-emoji.png"
@@ -50,7 +50,7 @@ export default function AboutPage() {
             <span className="text-xl font-semibold tracking-tight">
               Stroby
             </span>
-          </div>
+          </Link>
           <Link href="/">
             <Button size="default">
               Get Started
@@ -459,13 +459,13 @@ export default function AboutPage() {
               <span className="text-base font-semibold">Stroby.ai</span>
             </div>
             <nav className="flex gap-6 text-base text-muted-foreground">
-              <a href="#" className="transition-colors hover:text-foreground">
+              <Link href="/privacy" className="transition-colors hover:text-foreground">
                 Privacy
-              </a>
-              <a href="#" className="transition-colors hover:text-foreground">
+              </Link>
+              <Link href="/terms" className="transition-colors hover:text-foreground">
                 Terms
-              </a>
-              <a href="#" className="transition-colors hover:text-foreground">
+              </Link>
+              <a href="mailto:hello@stroby.ai" className="transition-colors hover:text-foreground">
                 Contact
               </a>
             </nav>
