@@ -259,7 +259,7 @@ export default function OnboardingChat() {
         {
           role: "bot",
           content:
-            "Hey! I'm Stroby, your AI sponsorship matchmaker. Tell me who you are and I'll get you set up in under 3 minutes.",
+            "Hey! I'm Stroby, your AI Superconnector for all things Marketing. Tell me who you are and I'll connect you with relevant businesses, influencers, or other people that would be valuable for you.",
         },
       ]);
       setIsTyping(false);
