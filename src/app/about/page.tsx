@@ -155,12 +155,6 @@ export default function AboutPage() {
                   Join Stroby for free and let AI bring vetted brands directly
                   to you. No outreach needed.
                 </p>
-                <Link href="/">
-                  <Button className="mt-8" size="lg" variant="outline">
-                    Get Started
-                    <ArrowRight data-icon="inline-end" />
-                  </Button>
-                </Link>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
@@ -189,13 +183,13 @@ export default function AboutPage() {
                 ].map((item) => (
                   <div
                     key={item.title}
-                    className="rounded-xl border bg-card p-6 transition-shadow hover:shadow-md"
+                    className="rounded-xl border bg-card p-8 transition-shadow hover:shadow-md"
                   >
-                    <div className="mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
-                      <item.icon className="size-6 text-primary" />
+                    <div className="mb-4 flex size-14 items-center justify-center rounded-xl bg-primary/10">
+                      <item.icon className="size-7 text-primary" />
                     </div>
-                    <h3 className="text-lg font-semibold">{item.title}</h3>
-                    <p className="mt-1 text-base text-muted-foreground">
+                    <h3 className="text-xl font-semibold">{item.title}</h3>
+                    <p className="mt-2 text-base text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
@@ -238,13 +232,13 @@ export default function AboutPage() {
                 ].map((item) => (
                   <div
                     key={item.title}
-                    className="rounded-xl border bg-card p-6 transition-shadow hover:shadow-md"
+                    className="rounded-xl border bg-card p-8 transition-shadow hover:shadow-md"
                   >
-                    <div className="mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
-                      <item.icon className="size-6 text-primary" />
+                    <div className="mb-4 flex size-14 items-center justify-center rounded-xl bg-primary/10">
+                      <item.icon className="size-7 text-primary" />
                     </div>
-                    <h3 className="text-lg font-semibold">{item.title}</h3>
-                    <p className="mt-1 text-base text-muted-foreground">
+                    <h3 className="text-xl font-semibold">{item.title}</h3>
+                    <p className="mt-2 text-base text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
@@ -261,12 +255,6 @@ export default function AboutPage() {
                   Skip the guesswork. Stroby matches you with verified
                   influencers that fit your niche, audience, and budget.
                 </p>
-                <Link href="/">
-                  <Button className="mt-8" size="lg">
-                    Get Started
-                    <ArrowRight data-icon="inline-end" />
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>
@@ -416,11 +404,10 @@ export default function AboutPage() {
         <section className="border-t bg-primary/5 py-20 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 text-center sm:px-6">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Ready to get started?
+              Join the fastest growing network of brands and influencers.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-              Join the marketplace that makes brand partnerships simple,
-              transparent, and risk-free.
+              Whether you&apos;re a solo creator or a Fortune 500, Stroby levels the playing field. No minimum audience size, no gatekeeping — just smart AI matching that works for everyone.
             </p>
             <div className="mt-10">
               <Link href="/">
