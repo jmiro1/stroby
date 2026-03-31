@@ -17,8 +17,6 @@ import {
   BUDGET_RANGES,
   CAMPAIGN_GOALS,
   TIMELINES,
-  AD_FORMATS,
-  FREQUENCIES,
 } from "@/lib/constants";
 import { Send, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -26,7 +24,7 @@ import { Send, CheckCircle2, Loader2 } from "lucide-react";
 // Types
 // ---------------------------------------------------------------------------
 
-type UserType = "newsletter" | "business" | null;
+type UserType = "business" | "influencer" | "other" | null;
 
 interface ChatMessage {
   role: "bot" | "user";
@@ -52,34 +50,54 @@ interface Step {
 // Step definitions
 // ---------------------------------------------------------------------------
 
-const NEWSLETTER_STEPS: Step[] = [
-  { question: "What's your newsletter called?", field: "newsletter_name", inputType: "text", placeholder: "e.g., The Morning Brew" },
-  { question: "And your name?", field: "owner_name", inputType: "text", placeholder: "e.g., Jane Doe" },
-  { question: "What's the newsletter URL?", field: "url", inputType: "text", placeholder: "https://..." },
-  { question: "What's your primary niche?", field: "primary_niche", inputType: "select", options: NICHES },
-  { question: "Briefly describe your audience and typical topics.", field: "description", inputType: "textarea", placeholder: "e.g., Marketing managers at mid-size SaaS companies..." },
-  { question: "How many subscribers do you have?", field: "subscriber_count", inputType: "number", placeholder: "e.g., 15000" },
-  { question: "What's your average open rate? (as a percentage, e.g., 42)", field: "avg_open_rate", inputType: "number", placeholder: "e.g., 42" },
-  { question: "What's your average click-through rate? (e.g., 3.5)", field: "avg_ctr", inputType: "number", placeholder: "e.g., 3.5" },
-  { question: "How much do you charge per placement in USD? (or type 'not sure')", field: "price_per_placement", inputType: "text", placeholder: "e.g., 500 or not sure" },
-  { question: "What ad formats do you accept?", field: "ad_formats", inputType: "multi-checkbox", options: AD_FORMATS },
-  { question: "How often do you publish?", field: "frequency", inputType: "select", options: FREQUENCIES },
-  { question: "What's your email address?", field: "email", inputType: "text", placeholder: "you@example.com" },
+const PLATFORMS = [
+  "Newsletter",
+  "YouTube",
+  "Instagram",
+  "TikTok",
+  "Podcast",
+  "Blog",
+  "LinkedIn",
+  "X / Twitter",
+  "Other",
+] as const;
+
+const PARTNERSHIP_TYPES = [
+  "Sponsored content",
+  "Product reviews",
+  "Affiliate deals",
+  "Brand ambassador",
+  "Dedicated sends",
+  "Other",
+] as const;
+
+const INFLUENCER_STEPS: Step[] = [
+  { question: "What platform is your audience on?", field: "platform", inputType: "select", options: PLATFORMS },
+  { question: "What's your channel or account name?", field: "channel_name", inputType: "text", placeholder: "e.g., The Marketing Brief" },
+  { question: "What's your name?", field: "owner_name", inputType: "text", placeholder: "e.g., Jane Doe" },
+  { question: "Drop a link to your content so we can check it out.", field: "url", inputType: "text", placeholder: "https://..." },
+  { question: "What niche best describes your content?", field: "primary_niche", inputType: "select", options: NICHES },
+  { question: "Tell me about your audience — who are they and what do they care about?", field: "description", inputType: "textarea", placeholder: "e.g., CMOs and growth leads at B2B SaaS companies..." },
+  { question: "How large is your audience? (subscribers, followers, etc.)", field: "audience_size", inputType: "number", placeholder: "e.g., 15000" },
+  { question: "What's your typical engagement rate? (% or just describe it)", field: "engagement_rate", inputType: "text", placeholder: "e.g., 42% open rate, or ~5% engagement" },
+  { question: "What types of brand partnerships interest you?", field: "partnership_types", inputType: "multi-checkbox", options: PARTNERSHIP_TYPES },
+  { question: "What do you typically charge per partnership? (or type 'not sure yet')", field: "price_per_placement", inputType: "text", placeholder: "e.g., $500 or not sure yet" },
+  { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "Last one — what's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
 ];
 
 const BUSINESS_STEPS: Step[] = [
   { question: "What's your company name?", field: "company_name", inputType: "text", placeholder: "e.g., Acme Corp" },
   { question: "What's your name?", field: "contact_name", inputType: "text", placeholder: "e.g., Jane Doe" },
-  { question: "What's your role?", field: "contact_role", inputType: "text", placeholder: "e.g., Head of Marketing" },
-  { question: "What does your company sell or offer?", field: "product_description", inputType: "textarea", placeholder: "Describe your product or service..." },
-  { question: "Who's your ideal customer?", field: "target_customer", inputType: "textarea", placeholder: "e.g., Series A+ startup founders in the US..." },
-  { question: "What's your primary niche?", field: "primary_niche", inputType: "select", options: NICHES },
-  { question: "Describe the kind of newsletter audience you want to reach.", field: "description", inputType: "textarea", placeholder: "e.g., Technical decision-makers at B2B companies..." },
-  { question: "What's your monthly marketing budget for newsletter sponsorships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
-  { question: "What's your main campaign goal?", field: "campaign_goal", inputType: "select", options: CAMPAIGN_GOALS },
-  { question: "What's your timeline?", field: "timeline", inputType: "select", options: TIMELINES },
-  { question: "What's your email address?", field: "email", inputType: "text", placeholder: "you@example.com" },
+  { question: "What's your role there?", field: "contact_role", inputType: "text", placeholder: "e.g., Head of Marketing" },
+  { question: "In a sentence or two, what does your company sell?", field: "product_description", inputType: "textarea", placeholder: "e.g., Email automation software for e-commerce brands" },
+  { question: "Who's your ideal customer?", field: "target_customer", inputType: "textarea", placeholder: "e.g., DTC brand founders doing $1M-$10M revenue" },
+  { question: "What niche are you targeting?", field: "primary_niche", inputType: "select", options: NICHES },
+  { question: "What kind of audience do you want to get in front of?", field: "description", inputType: "textarea", placeholder: "e.g., Marketing decision-makers at mid-market companies..." },
+  { question: "What's your monthly budget for sponsorships or partnerships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
+  { question: "What's the main goal for this campaign?", field: "campaign_goal", inputType: "select", options: CAMPAIGN_GOALS },
+  { question: "How soon are you looking to get started?", field: "timeline", inputType: "select", options: TIMELINES },
+  { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "Last one — what's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
 ];
 
@@ -90,7 +108,7 @@ const BUSINESS_STEPS: Step[] = [
 const STORAGE_KEY = "stroby_onboarding";
 
 interface SavedDraft {
-  userType: "newsletter" | "business";
+  userType: "business" | "influencer";
   step: number;
   data: Record<string, unknown>;
   messages: ChatMessage[];
@@ -126,7 +144,6 @@ function BotAvatar() {
         height={32}
         className="size-full object-cover"
         onError={(e) => {
-          // Fallback if logo-emoji.png doesn't exist yet
           const target = e.currentTarget;
           target.style.display = "none";
           if (target.parentElement) {
@@ -190,12 +207,15 @@ export default function OnboardingChat() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [showRoleSelect, setShowRoleSelect] = useState(true);
+  // For "other" free-form chat mode
+  const [isFreeChat, setIsFreeChat] = useState(false);
+  const [chatHistory, setChatHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const steps = userType === "newsletter" ? NEWSLETTER_STEPS : BUSINESS_STEPS;
+  const steps = userType === "influencer" ? INFLUENCER_STEPS : BUSINESS_STEPS;
 
   // Scroll to bottom
   useEffect(() => {
@@ -207,15 +227,19 @@ export default function OnboardingChat() {
 
   // Focus input when step changes
   useEffect(() => {
-    if (!isTyping && !isComplete && !isSubmitting && userType) {
+    if (!isTyping && !isComplete && !isSubmitting && (userType || isFreeChat)) {
       const timer = setTimeout(() => {
+        if (isFreeChat) {
+          inputRef.current?.focus();
+          return;
+        }
         const step = steps[currentStep];
         if (step?.inputType === "textarea") textareaRef.current?.focus();
         else if (step?.inputType === "text" || step?.inputType === "number") inputRef.current?.focus();
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [isTyping, currentStep, isComplete, isSubmitting, steps, userType]);
+  }, [isTyping, currentStep, isComplete, isSubmitting, steps, userType, isFreeChat]);
 
   // Initialize with greeting
   const hasInitialized = useRef(false);
@@ -223,7 +247,7 @@ export default function OnboardingChat() {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
-    // Check for saved draft
+    // Check for saved draft (only for survey flows)
     const draft = loadDraft();
     if (draft && draft.step > 0) {
       setUserType(draft.userType);
@@ -232,7 +256,7 @@ export default function OnboardingChat() {
       setCurrentStep(draft.step);
       setShowRoleSelect(false);
 
-      const draftSteps = draft.userType === "newsletter" ? NEWSLETTER_STEPS : BUSINESS_STEPS;
+      const draftSteps = draft.userType === "influencer" ? INFLUENCER_STEPS : BUSINESS_STEPS;
       setIsTyping(true);
       setTimeout(() => {
         setMessages((prev) => [
@@ -252,7 +276,7 @@ export default function OnboardingChat() {
       return;
     }
 
-    // Fresh start — show greeting
+    // Fresh start
     setIsTyping(true);
     setTimeout(() => {
       setMessages([
@@ -267,22 +291,47 @@ export default function OnboardingChat() {
   }, []);
 
   // Handle role selection
-  function selectRole(type: "newsletter" | "business") {
-    const label = type === "newsletter" ? "I'm a Newsletter Owner" : "I'm a Business";
-    const greeting =
-      type === "newsletter"
-        ? "Great! Let's get your newsletter set up to start receiving sponsor matches."
-        : "Great! Let's find the perfect newsletters for your brand.";
+  function selectRole(type: "business" | "influencer" | "other") {
+    const labels: Record<string, string> = {
+      business: "I represent a business",
+      influencer: "I have an engaged audience",
+      other: "Other",
+    };
 
-    const selectedSteps = type === "newsletter" ? NEWSLETTER_STEPS : BUSINESS_STEPS;
+    setShowRoleSelect(false);
+    setMessages((prev) => [...prev, { role: "user", content: labels[type] }]);
+
+    if (type === "other") {
+      // Free-form Claude conversation
+      setUserType("other");
+      setIsFreeChat(true);
+
+      const firstAssistantMsg = "Nice! Tell me a bit about yourself — what do you do and what kind of connections are you looking for?";
+      const initialHistory: { role: "user" | "assistant"; content: string }[] = [
+        { role: "user", content: "Other" },
+        { role: "assistant", content: firstAssistantMsg },
+      ];
+      setChatHistory(initialHistory);
+
+      setIsTyping(true);
+      setTimeout(() => {
+        setMessages((prev) => [...prev, { role: "bot", content: firstAssistantMsg }]);
+        setIsTyping(false);
+      }, 400);
+      return;
+    }
+
+    const greetings: Record<string, string> = {
+      business: "Great! Let's find the right creators and channels to get your brand in front of the right audience. Quick survey — takes about 2 minutes.",
+      influencer: "Awesome! Let's get you set up so brands can find and partner with you. Quick survey — takes about 2 minutes.",
+    };
+
+    const selectedSteps = type === "influencer" ? INFLUENCER_STEPS : BUSINESS_STEPS;
 
     setUserType(type);
-    setShowRoleSelect(false);
-    setMessages((prev) => [...prev, { role: "user", content: label }]);
-
     setIsTyping(true);
     setTimeout(() => {
-      setMessages((prev) => [...prev, { role: "bot", content: greeting }]);
+      setMessages((prev) => [...prev, { role: "bot", content: greetings[type] }]);
       setIsTyping(false);
       setIsTyping(true);
       setTimeout(() => {
@@ -295,10 +344,86 @@ export default function OnboardingChat() {
     }, 400);
   }
 
-  // Advance to next step
+  // ── Free-form chat (Claude API) ──
+
+  const sendFreeMessage = useCallback(async () => {
+    const text = inputValue.trim();
+    if (!text || isSubmitting) return;
+
+    const userMsg = text;
+    setInputValue("");
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+
+    const updatedHistory = [...chatHistory, { role: "user" as const, content: userMsg }];
+    setChatHistory(updatedHistory);
+
+    setIsTyping(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: updatedHistory }),
+      });
+
+      if (!res.ok) throw new Error("Chat request failed");
+
+      const data = await res.json();
+      const botReply = data.message || "Sorry, I didn't catch that. Could you try again?";
+
+      setChatHistory((prev) => [...prev, { role: "assistant", content: botReply }]);
+      setMessages((prev) => [...prev, { role: "bot", content: botReply }]);
+      setIsTyping(false);
+
+      if (data.complete && data.profileData) {
+        // Profile extracted — submit to onboard API
+        setIsSubmitting(true);
+        setIsTyping(true);
+        setTimeout(async () => {
+          setMessages((prev) => [...prev, { role: "bot", content: "Saving your profile..." }]);
+          setIsTyping(false);
+
+          try {
+            const onboardRes = await fetch("/api/onboard", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ userType: "other", data: data.profileData }),
+            });
+
+            if (!onboardRes.ok) throw new Error("Onboard failed");
+
+            clearDraft();
+            setIsComplete(true);
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "bot",
+                content: "You're all set! We'll send your connections and updates via WhatsApp. Tap below to say hi.",
+              },
+            ]);
+          } catch {
+            setMessages((prev) => [
+              ...prev,
+              { role: "bot", content: "Something went wrong saving your info. Please try again." },
+            ]);
+            setIsSubmitting(false);
+          }
+        }, 400);
+      }
+    } catch {
+      setIsTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        { role: "bot", content: "Something went wrong. Please try again." },
+      ]);
+    }
+  }, [inputValue, chatHistory, isSubmitting]);
+
+  // ── Survey flow ──
+
   const advanceToNextStep = useCallback(
     (nextStepIndex: number, updatedMessages: ChatMessage[], updatedData: Record<string, unknown>) => {
-      if (userType) {
+      if (userType && userType !== "other") {
         saveDraft({ userType, step: nextStepIndex, data: updatedData, messages: updatedMessages });
       }
       setIsTyping(true);
@@ -313,7 +438,6 @@ export default function OnboardingChat() {
     [steps, userType]
   );
 
-  // Submit final data
   const submitData = useCallback(
     async (finalData: Record<string, unknown>) => {
       setIsSubmitting(true);
@@ -338,8 +462,7 @@ export default function OnboardingChat() {
             ...prev,
             {
               role: "bot",
-              content:
-                "You're all set! We'll send your matches and updates via WhatsApp. Tap below to say hi and get started.",
+              content: "You're all set! We'll send your matches and updates via WhatsApp. Tap below to say hi and get started.",
             },
           ]);
         } catch {
@@ -354,8 +477,13 @@ export default function OnboardingChat() {
     [userType]
   );
 
-  // Handle user answer
   const handleSubmit = useCallback(() => {
+    // Free chat mode
+    if (isFreeChat) {
+      sendFreeMessage();
+      return;
+    }
+
     const step = steps[currentStep];
     if (!step) return;
 
@@ -402,7 +530,7 @@ export default function OnboardingChat() {
     } else {
       advanceToNextStep(nextStep, newMessages, updatedData);
     }
-  }, [steps, currentStep, inputValue, selectValue, checkedValues, formData, messages, advanceToNextStep, submitData]);
+  }, [isFreeChat, sendFreeMessage, steps, currentStep, inputValue, selectValue, checkedValues, formData, messages, advanceToNextStep, submitData]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -422,7 +550,28 @@ export default function OnboardingChat() {
   // ---------------------------------------------------------------------------
 
   function renderInput() {
-    if (isComplete || isSubmitting || isTyping || !userType) return null;
+    if (isComplete || isSubmitting || isTyping) return null;
+
+    // Free chat mode — always show text input
+    if (isFreeChat) {
+      return (
+        <div className="flex items-center gap-2">
+          <Input
+            ref={inputRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            className="h-10 flex-1 rounded-full border-muted-foreground/20 bg-muted/50 text-sm"
+          />
+          <Button size="icon" onClick={handleSubmit} disabled={!inputValue.trim()} className="size-10 shrink-0 rounded-full">
+            <Send className="size-4" />
+          </Button>
+        </div>
+      );
+    }
+
+    if (!userType) return null;
 
     const step = steps[currentStep];
     if (!step) return null;
@@ -563,15 +712,14 @@ export default function OnboardingChat() {
         </div>
         <div>
           <p className="text-sm font-semibold text-primary-foreground">Stroby</p>
-          <p className="text-xs text-primary-foreground/70">AI Sponsorship Matchmaker</p>
+          <p className="text-xs text-primary-foreground/70">AI Superconnector</p>
         </div>
       </div>
 
       {/* Chat messages */}
       <div
         ref={scrollRef}
-        className="flex flex-1 flex-col gap-3 overflow-y-auto bg-[url('/chat-bg.png')] bg-cover px-3 py-4"
-        style={{ backgroundImage: "none", backgroundColor: "var(--color-background)" }}
+        className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-4"
       >
         {messages.map((msg, i) => (
           <MessageBubble key={i} message={msg} />
@@ -582,16 +730,22 @@ export default function OnboardingChat() {
         {showRoleSelect && !isTyping && messages.length > 0 && (
           <div className="flex flex-col gap-2 pl-10">
             <button
-              onClick={() => selectRole("newsletter")}
-              className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-primary/10"
-            >
-              I&apos;m a Newsletter Owner
-            </button>
-            <button
               onClick={() => selectRole("business")}
               className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-primary/10"
             >
-              I&apos;m a Business
+              I represent a business
+            </button>
+            <button
+              onClick={() => selectRole("influencer")}
+              className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              I have an engaged audience
+            </button>
+            <button
+              onClick={() => selectRole("other")}
+              className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-left text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              Other
             </button>
           </div>
         )}
@@ -627,7 +781,7 @@ export default function OnboardingChat() {
       {!isComplete && !showRoleSelect && (
         <div className="border-t bg-background px-3 py-2.5">
           {renderInput()}
-          {!isTyping && !isSubmitting && userType && currentStep < steps.length && (
+          {!isFreeChat && !isTyping && !isSubmitting && userType && currentStep < steps.length && (
             <div className="mt-2 flex items-center gap-2">
               <div className="h-1 flex-1 rounded-full bg-muted">
                 <div
