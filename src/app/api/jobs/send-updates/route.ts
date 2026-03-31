@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { sendWhatsAppMessage } from "@/lib/twilio";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -63,9 +64,7 @@ export async function POST(request: NextRequest) {
       if (msgError) {
         console.error("Failed to log update message:", msgError);
       } else {
-        // TODO: Send actual WhatsApp message via Twilio
-        // import { sendWhatsAppMessage } from "@/lib/twilio";
-        // await sendWhatsAppMessage(newsletter.phone, updateText);
+        await sendWhatsAppMessage(newsletter.phone, updateText);
         updatesSent++;
       }
     }
