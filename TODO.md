@@ -40,6 +40,13 @@
 - [ ] Submit to Google Search Console + sitemap
 - [ ] Landing page copy polish, add real network stats once available
 
+## Priority 6: WhatsApp Landing Page
+- [ ] Create a "Message me on WhatsApp" landing page (like boardy.ai/scan page)
+- [ ] Stroby character, headline, and a big WhatsApp CTA button linking to the Stroby WhatsApp number
+- [ ] SEO-optimized so it's findable on Google (meta tags, JSON-LD, sitemap entry)
+- [ ] **Blocked on:** WhatsApp Business number being set up and linked via Twilio
+- [ ] Reference: https://scan.boardy.ai/?url=http%3A%2F%2Fwhatsapp.boardy.ai%2Fr%2Fhomepage
+
 ## Infrastructure / Config (needs your input)
 - [ ] Add API keys to Vercel env vars: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, ANTHROPIC_API_KEY
 - [ ] Add CRON_SECRET to Vercel for cron job auth
