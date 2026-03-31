@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { handleInboundMessage, processAgentResponse } from "@/lib/ai-agent";
+import { sendWhatsAppMessage } from "@/lib/twilio";
 
 // TODO: Validate Twilio signature using X-Twilio-Signature header
 // import twilio from "twilio";
@@ -77,15 +79,36 @@ export async function POST(request: NextRequest) {
         console.error("Failed to log inbound WhatsApp message:", error);
       }
 
-      // TODO: Integrate Claude AI agent to process the message and generate a response
-      // 1. Retrieve conversation history from agent_messages
-      // 2. Build context with user profile data
-      // 3. Call Claude API for intelligent response
-      // 4. Send response via Twilio WhatsApp API
-      // 5. Log outbound message to agent_messages
+      // Process the message through the AI agent
+      const agentResult = await handleInboundMessage(
+        phone,
+        body || "",
+        mediaUrl0 || undefined
+      );
+
+      // Process the response for any actions (match acceptance, ratings, etc.)
+      const responseText = await processAgentResponse(
+        phone,
+        userType,
+        userId,
+        agentResult.response
+      );
+
+      // Send the response via WhatsApp
+      // TODO: For production, ensure Twilio is fully configured
+      const messageSidOut = await sendWhatsAppMessage(phone, responseText);
+      if (messageSidOut) {
+        console.log("Sent WhatsApp response:", messageSidOut);
+      } else {
+        console.log("WhatsApp message not sent (Twilio not configured). Response:", responseText);
+      }
     } else {
       console.warn("WhatsApp message from unmatched number:", phone);
-      // TODO: Consider creating a pending profile or sending a signup link
+
+      // Send a default response for unknown numbers
+      const defaultResponse =
+        "Hi! I'm Stroby, your AI sponsorship matchmaker. Visit stroby.ai to get started.";
+      await sendWhatsAppMessage(phone, defaultResponse);
     }
 
     // Return empty TwiML response (acknowledgment)
