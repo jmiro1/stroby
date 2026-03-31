@@ -84,7 +84,8 @@ const INFLUENCER_STEPS: Step[] = [
   { question: "Tell me about your audience — who are they and what do they care about?", field: "description", inputType: "textarea", placeholder: "e.g., CMOs and growth leads at B2B SaaS companies..." },
   { question: "How large is your audience? (subscribers, followers, etc.)", field: "audience_size", inputType: "number", placeholder: "e.g., 15000" },
   { question: "What's your typical engagement rate? The more detail you give, the better we can match you.", field: "engagement_rate", inputType: "text", placeholder: "e.g., 42% open rate, 5% CTR, 10k avg views" },
-  { question: "What types of brand partnerships interest you?", field: "partnership_types", inputType: "multi-checkbox", options: PARTNERSHIP_TYPES },
+  { question: "What types of brand partnerships interest you? (pick as many as you want)", field: "partnership_types", inputType: "multi-checkbox", options: PARTNERSHIP_TYPES },
+  { question: "What other type of partnership are you interested in?", field: "custom_partnership", inputType: "text", placeholder: "e.g., Webinar co-hosting, Event sponsorship...", conditionField: "partnership_types", conditionValue: "Other" },
   { question: "What do you typically charge per partnership? (or type 'not sure yet')", field: "price_per_placement", inputType: "text", placeholder: "e.g., $500 or not sure yet" },
   { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "Last one — what's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
@@ -471,7 +472,11 @@ export default function OnboardingChat() {
     while (idx < steps.length) {
       const s = steps[idx];
       if (s.conditionField && s.conditionValue) {
-        if (data[s.conditionField] !== s.conditionValue) {
+        const val = data[s.conditionField];
+        const matches = Array.isArray(val)
+          ? val.includes(s.conditionValue)
+          : val === s.conditionValue;
+        if (!matches) {
           idx++;
           continue;
         }
