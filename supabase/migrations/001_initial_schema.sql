@@ -3,7 +3,7 @@
 -- ============================================================
 
 -- Enable required extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- gen_random_uuid() is built-in to PostgreSQL 13+, no extension needed
 
 -- ============================================================
 -- updated_at trigger function
@@ -20,7 +20,7 @@ $$ LANGUAGE plpgsql;
 -- 1. newsletter_profiles
 -- ============================================================
 CREATE TABLE newsletter_profiles (
-  id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   newsletter_name      TEXT NOT NULL,
   owner_name           TEXT NOT NULL,
   email                TEXT NOT NULL UNIQUE,
@@ -54,7 +54,7 @@ CREATE TRIGGER set_newsletter_profiles_updated_at
 -- 2. business_profiles
 -- ============================================================
 CREATE TABLE business_profiles (
-  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_name       TEXT NOT NULL,
   contact_name       TEXT NOT NULL,
   contact_role       TEXT,
@@ -83,7 +83,7 @@ CREATE TRIGGER set_business_profiles_updated_at
 -- 3. introductions
 -- ============================================================
 CREATE TABLE introductions (
-  id                       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   business_id              UUID NOT NULL REFERENCES business_profiles(id),
   newsletter_id            UUID NOT NULL REFERENCES newsletter_profiles(id),
   status                   TEXT NOT NULL CHECK (status IN (
@@ -114,7 +114,7 @@ CREATE TRIGGER set_introductions_updated_at
 -- 4. transactions
 -- ============================================================
 CREATE TABLE transactions (
-  id                       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   introduction_id          UUID NOT NULL REFERENCES introductions(id),
   business_id              UUID REFERENCES business_profiles(id),
   newsletter_id            UUID REFERENCES newsletter_profiles(id),
@@ -152,7 +152,7 @@ CREATE TRIGGER set_transactions_updated_at
 -- 5. utm_clicks
 -- ============================================================
 CREATE TABLE utm_clicks (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   transaction_id  UUID REFERENCES transactions(id),
   utm_slug        TEXT NOT NULL,
   clicked_at      TIMESTAMPTZ DEFAULT now(),
@@ -165,7 +165,7 @@ CREATE TABLE utm_clicks (
 -- 6. agent_messages
 -- ============================================================
 CREATE TABLE agent_messages (
-  id                       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_type                TEXT CHECK (user_type IN ('newsletter', 'business')),
   user_id                  UUID,
   phone                    TEXT NOT NULL,
