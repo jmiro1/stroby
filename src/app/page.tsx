@@ -40,16 +40,16 @@ export default function HomePage() {
     <>
       {/* Navigation */}
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-              <Zap className="size-4 text-primary-foreground" />
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary">
+              <Zap className="size-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold tracking-tight">
+            <span className="text-xl font-semibold tracking-tight">
               Stroby
             </span>
           </div>
-          <Button size="sm" onClick={() => openChat("business")}>
+          <Button size="default" onClick={() => openChat("business")}>
             Get Started
           </Button>
         </div>
@@ -68,7 +68,7 @@ export default function HomePage() {
                 Find your perfect newsletter sponsorship match{" "}
                 <span className="text-primary">in minutes</span>
               </h1>
-              <p className="mt-6 text-lg text-muted-foreground sm:text-xl">
+              <p className="mt-6 text-xl text-muted-foreground sm:text-2xl">
                 AI-powered matching. Verified metrics. Payment guaranteed.
               </p>
               <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
@@ -101,7 +101,7 @@ export default function HomePage() {
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
                 How it works
               </h2>
-              <p className="mt-4 text-muted-foreground">
+              <p className="mt-4 text-lg text-muted-foreground">
                 From sign-up to sponsorship in three simple steps.
               </p>
             </div>
@@ -130,14 +130,14 @@ export default function HomePage() {
                 },
               ].map((item) => (
                 <div key={item.step} className="relative text-center">
-                  <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10">
-                    <item.icon className="size-7 text-primary" />
+                  <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary/10">
+                    <item.icon className="size-8 text-primary" />
                   </div>
-                  <span className="mb-2 inline-block text-xs font-semibold uppercase tracking-wider text-primary">
+                  <span className="mb-2 inline-block text-sm font-semibold uppercase tracking-wider text-primary">
                     Step {item.step}
                   </span>
-                  <h3 className="text-lg font-semibold">{item.title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
+                  <h3 className="text-xl font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-base text-muted-foreground">
                     {item.description}
                   </p>
                 </div>
@@ -157,7 +157,7 @@ export default function HomePage() {
                 <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
                   Turn your audience into revenue
                 </h2>
-                <p className="mt-4 text-muted-foreground">
+                <p className="mt-4 text-lg text-muted-foreground">
                   Join Stroby for free and let AI bring vetted sponsors directly
                   to you. No outreach needed.
                 </p>
@@ -198,13 +198,13 @@ export default function HomePage() {
                 ].map((item) => (
                   <div
                     key={item.title}
-                    className="rounded-xl border bg-card p-5 transition-shadow hover:shadow-md"
+                    className="rounded-xl border bg-card p-6 transition-shadow hover:shadow-md"
                   >
-                    <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                      <item.icon className="size-5 text-primary" />
+                    <div className="mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
+                      <item.icon className="size-6 text-primary" />
                     </div>
-                    <h3 className="font-semibold">{item.title}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <h3 className="text-lg font-semibold">{item.title}</h3>
+                    <p className="mt-1 text-base text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
@@ -247,13 +247,13 @@ export default function HomePage() {
                 ].map((item) => (
                   <div
                     key={item.title}
-                    className="rounded-xl border bg-card p-5 transition-shadow hover:shadow-md"
+                    className="rounded-xl border bg-card p-6 transition-shadow hover:shadow-md"
                   >
-                    <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10">
-                      <item.icon className="size-5 text-primary" />
+                    <div className="mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10">
+                      <item.icon className="size-6 text-primary" />
                     </div>
-                    <h3 className="font-semibold">{item.title}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <h3 className="text-lg font-semibold">{item.title}</h3>
+                    <p className="mt-1 text-base text-muted-foreground">
                       {item.description}
                     </p>
                   </div>
@@ -266,7 +266,7 @@ export default function HomePage() {
                 <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
                   Reach your ideal audience, guaranteed
                 </h2>
-                <p className="mt-4 text-muted-foreground">
+                <p className="mt-4 text-lg text-muted-foreground">
                   Skip the guesswork. Stroby matches you with verified
                   newsletters that fit your niche, audience, and budget.
                 </p>
@@ -305,10 +305,10 @@ export default function HomePage() {
                   key={item.label}
                   className="flex items-center justify-center gap-3"
                 >
-                  <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-                    <item.icon className="size-5 text-primary" />
+                  <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+                    <item.icon className="size-6 text-primary" />
                   </div>
-                  <span className="font-medium">{item.label}</span>
+                  <span className="text-lg font-medium">{item.label}</span>
                 </div>
               ))}
             </div>
@@ -322,7 +322,7 @@ export default function HomePage() {
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
                 Frequently asked questions
               </h2>
-              <p className="mt-4 text-muted-foreground">
+              <p className="mt-4 text-lg text-muted-foreground">
                 Everything you need to know about Stroby.
               </p>
             </div>
@@ -441,7 +441,7 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Ready to get started?
             </h2>
-            <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
+            <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
               Join the marketplace that makes newsletter sponsorships simple,
               transparent, and risk-free.
             </p>
@@ -473,12 +473,12 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
-              <div className="flex size-6 items-center justify-center rounded-md bg-primary">
-                <Zap className="size-3 text-primary-foreground" />
+              <div className="flex size-7 items-center justify-center rounded-md bg-primary">
+                <Zap className="size-4 text-primary-foreground" />
               </div>
-              <span className="text-sm font-semibold">Stroby.ai</span>
+              <span className="text-base font-semibold">Stroby.ai</span>
             </div>
-            <nav className="flex gap-6 text-sm text-muted-foreground">
+            <nav className="flex gap-6 text-base text-muted-foreground">
               <a href="#" className="transition-colors hover:text-foreground">
                 Privacy
               </a>
