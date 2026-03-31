@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -65,56 +66,62 @@ interface Step {
 const NEWSLETTER_STEPS: Step[] = [
   {
     question: "What's your newsletter called?",
-    field: "newsletterName",
+    field: "newsletter_name",
     inputType: "text",
     placeholder: "e.g., The Morning Brew",
   },
   {
-    question: "What's the URL?",
+    question: "And your name?",
+    field: "owner_name",
+    inputType: "text",
+    placeholder: "e.g., Jane Doe",
+  },
+  {
+    question: "What's the newsletter URL?",
     field: "url",
     inputType: "text",
     placeholder: "https://...",
   },
   {
     question: "What's your primary niche?",
-    field: "niche",
+    field: "primary_niche",
     inputType: "select",
     options: NICHES,
   },
   {
     question: "Briefly describe your audience and typical topics.",
-    field: "audienceDescription",
+    field: "description",
     inputType: "textarea",
     placeholder: "e.g., Marketing managers at mid-size SaaS companies...",
   },
   {
     question: "How many subscribers do you have?",
-    field: "subscribers",
+    field: "subscriber_count",
     inputType: "number",
     placeholder: "e.g., 15000",
   },
   {
-    question: "What's your average open rate? (e.g., 42)",
-    field: "openRate",
+    question: "What's your average open rate? (as a percentage, e.g., 42)",
+    field: "avg_open_rate",
     inputType: "number",
     placeholder: "e.g., 42",
   },
   {
     question: "What's your average click-through rate? (e.g., 3.5)",
-    field: "clickRate",
+    field: "avg_ctr",
     inputType: "number",
     placeholder: "e.g., 3.5",
   },
   {
     question:
-      "How much do you charge per placement? (in USD, or type 'not sure')",
-    field: "pricing",
+      "How much do you charge per placement in USD? (or type 'not sure')",
+    field: "price_per_placement",
     inputType: "text",
-    placeholder: "e.g., $500 or not sure",
+    placeholder: "e.g., 500 or not sure",
   },
   {
     question: "What ad formats do you accept?",
-    field: "adFormats",
+    field: "ad_formats",
     inputType: "multi-checkbox",
     options: AD_FORMATS,
   },
@@ -131,9 +138,8 @@ const NEWSLETTER_STEPS: Step[] = [
     placeholder: "you@example.com",
   },
   {
-    question:
-      "What's your WhatsApp number? (with country code, e.g., +1...)",
-    field: "whatsapp",
+    question: "Last one — what's your WhatsApp number? (with country code)",
+    field: "phone",
     inputType: "text",
     placeholder: "+1 555 123 4567",
   },
@@ -142,51 +148,56 @@ const NEWSLETTER_STEPS: Step[] = [
 const BUSINESS_STEPS: Step[] = [
   {
     question: "What's your company name?",
-    field: "companyName",
+    field: "company_name",
     inputType: "text",
     placeholder: "e.g., Acme Corp",
   },
   {
-    question: "What's your name and role?",
-    field: "nameAndRole",
+    question: "What's your name?",
+    field: "contact_name",
     inputType: "text",
-    placeholder: "e.g., Jane Doe, Head of Marketing",
+    placeholder: "e.g., Jane Doe",
+  },
+  {
+    question: "What's your role?",
+    field: "contact_role",
+    inputType: "text",
+    placeholder: "e.g., Head of Marketing",
   },
   {
     question: "What does your company sell or offer?",
-    field: "offering",
+    field: "product_description",
     inputType: "textarea",
     placeholder: "Describe your product or service...",
   },
   {
     question: "Who's your ideal customer?",
-    field: "idealCustomer",
+    field: "target_customer",
     inputType: "textarea",
     placeholder: "e.g., Series A+ startup founders in the US...",
   },
   {
     question: "What's your primary niche?",
-    field: "niche",
+    field: "primary_niche",
     inputType: "select",
     options: NICHES,
   },
   {
-    question:
-      "Describe the kind of newsletter audience you want to reach.",
-    field: "targetAudience",
+    question: "Describe the kind of newsletter audience you want to reach.",
+    field: "description",
     inputType: "textarea",
     placeholder: "e.g., Technical decision-makers at B2B companies...",
   },
   {
     question:
       "What's your monthly marketing budget for newsletter sponsorships?",
-    field: "budget",
+    field: "budget_range",
     inputType: "select",
     options: BUDGET_RANGES,
   },
   {
     question: "What's your main campaign goal?",
-    field: "campaignGoal",
+    field: "campaign_goal",
     inputType: "select",
     options: CAMPAIGN_GOALS,
   },
@@ -203,16 +214,54 @@ const BUSINESS_STEPS: Step[] = [
     placeholder: "you@example.com",
   },
   {
-    question:
-      "What's your WhatsApp number? (with country code, e.g., +1...)",
-    field: "whatsapp",
+    question: "Last one — what's your WhatsApp number? (with country code)",
+    field: "phone",
     inputType: "text",
     placeholder: "+1 555 123 4567",
   },
 ];
 
 // ---------------------------------------------------------------------------
-// Typing indicator
+// LocalStorage helpers
+// ---------------------------------------------------------------------------
+
+const STORAGE_KEY = "stroby_onboarding";
+
+interface SavedDraft {
+  userType: "newsletter" | "business";
+  step: number;
+  data: Record<string, unknown>;
+  messages: ChatMessage[];
+}
+
+function saveDraft(draft: SavedDraft) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // localStorage may be unavailable
+  }
+}
+
+function loadDraft(): SavedDraft | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as SavedDraft;
+  } catch {
+    return null;
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // noop
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
 // ---------------------------------------------------------------------------
 
 function TypingIndicator() {
@@ -238,10 +287,6 @@ function BotAvatar() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Message bubble
-// ---------------------------------------------------------------------------
-
 function MessageBubble({ message }: { message: ChatMessage }) {
   if (message.role === "bot") {
     return (
@@ -253,7 +298,6 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       </div>
     );
   }
-
   return (
     <div className="flex justify-end">
       <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm text-primary-foreground">
@@ -272,6 +316,7 @@ export default function ChatWidget({
   onOpenChange,
   userType,
 }: ChatWidgetProps) {
+  const router = useRouter();
   const steps = userType === "newsletter" ? NEWSLETTER_STEPS : BUSINESS_STEPS;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -288,18 +333,17 @@ export default function ChatWidget({
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Scroll to bottom whenever messages, typing, or step changes
+  // Scroll to bottom
   useEffect(() => {
     const el = scrollRef.current;
     if (el) {
-      // Use requestAnimationFrame for reliable scroll after render
       requestAnimationFrame(() => {
         el.scrollTop = el.scrollHeight;
       });
     }
   }, [messages, isTyping, currentStep, isComplete]);
 
-  // Focus input when step changes and typing finishes
+  // Focus input when step changes
   useEffect(() => {
     if (!isTyping && !isComplete && !isSubmitting) {
       const timer = setTimeout(() => {
@@ -317,21 +361,57 @@ export default function ChatWidget({
     }
   }, [isTyping, currentStep, isComplete, isSubmitting, steps]);
 
-  // Send the first bot message when the widget opens
+  // Initialize — check for saved draft or start fresh
   const hasInitialized = useRef(false);
   useEffect(() => {
     if (isOpen && userType && !hasInitialized.current) {
       hasInitialized.current = true;
+
+      // Check for saved draft
+      const draft = loadDraft();
+      if (draft && draft.userType === userType && draft.step > 0) {
+        // Resume from saved draft
+        setMessages(draft.messages);
+        setFormData(draft.data);
+        setCurrentStep(draft.step);
+
+        // Show a "welcome back" message + current question
+        setIsTyping(true);
+        setTimeout(() => {
+          const resumeMessages = [
+            ...draft.messages,
+            {
+              role: "bot" as const,
+              content:
+                "Welcome back! Let's pick up where we left off.",
+            },
+          ];
+          setMessages(resumeMessages);
+          setIsTyping(false);
+
+          setIsTyping(true);
+          setTimeout(() => {
+            setMessages((prev) => [
+              ...prev,
+              { role: "bot", content: steps[draft.step].question },
+            ]);
+            setIsTyping(false);
+          }, 400);
+        }, 300);
+        return;
+      }
+
+      // Fresh start
       const greeting =
         userType === "newsletter"
-          ? "Hey! I'm Stroby. Let's get your newsletter set up to receive sponsorships. I'll ask you a few questions."
-          : "Hey! I'm Stroby. Let's find the perfect newsletters for your brand. I'll ask you a few questions.";
+          ? "Hey! I'm Stroby, your AI sponsorship matchmaker. Let's get your newsletter set up to start receiving sponsor matches. This takes about 3 minutes."
+          : "Hey! I'm Stroby, your AI sponsorship matchmaker. Let's find the perfect newsletters for your brand. This takes about 3 minutes.";
 
       setIsTyping(true);
       const t1 = setTimeout(() => {
         setMessages([{ role: "bot", content: greeting }]);
         setIsTyping(false);
-        // Then show the first question
+
         setIsTyping(true);
         const t2 = setTimeout(() => {
           setMessages((prev) => [
@@ -346,11 +426,11 @@ export default function ChatWidget({
     }
   }, [isOpen, userType, steps]);
 
-  // Reset state when closed
+  // Reset when closed (but keep draft in localStorage)
   useEffect(() => {
     if (!isOpen) {
-      // Small delay so sheet animation finishes before clearing
       const t = setTimeout(() => {
+        // Only clear UI state, draft stays in localStorage
         setMessages([]);
         setCurrentStep(0);
         setFormData({});
@@ -366,9 +446,19 @@ export default function ChatWidget({
     }
   }, [isOpen]);
 
-  // Advance to next step with typing indicator
+  // Advance to next step
   const advanceToNextStep = useCallback(
-    (nextStepIndex: number) => {
+    (nextStepIndex: number, updatedMessages: ChatMessage[], updatedData: Record<string, unknown>) => {
+      // Save draft to localStorage
+      if (userType) {
+        saveDraft({
+          userType,
+          step: nextStepIndex,
+          data: updatedData,
+          messages: updatedMessages,
+        });
+      }
+
       setIsTyping(true);
       setTimeout(() => {
         if (nextStepIndex < steps.length) {
@@ -381,10 +471,10 @@ export default function ChatWidget({
         setIsTyping(false);
       }, 400);
     },
-    [steps]
+    [steps, userType]
   );
 
-  // Submit final data
+  // Submit final data and redirect to welcome page
   const submitData = useCallback(
     async (finalData: Record<string, unknown>) => {
       setIsSubmitting(true);
@@ -393,7 +483,7 @@ export default function ChatWidget({
       setTimeout(async () => {
         setMessages((prev) => [
           ...prev,
-          { role: "bot", content: "Great, let me save your info..." },
+          { role: "bot", content: "Perfect — saving your profile..." },
         ]);
         setIsTyping(false);
 
@@ -401,10 +491,16 @@ export default function ChatWidget({
           const res = await fetch("/api/onboard", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...finalData, userType }),
+            body: JSON.stringify({ userType, data: finalData }),
           });
 
           if (!res.ok) throw new Error("Failed to submit");
+
+          const result = await res.json();
+          const profileId = result.id;
+
+          // Clear the draft since we're done
+          clearDraft();
 
           setIsComplete(true);
           setMessages((prev) => [
@@ -412,27 +508,32 @@ export default function ChatWidget({
             {
               role: "bot",
               content:
-                "You're all set! Check your WhatsApp \u2014 Stroby will message you shortly.",
+                "You're all set! Redirecting you to your dashboard...",
             },
           ]);
+
+          // Redirect to welcome page after a brief pause
+          setTimeout(() => {
+            onOpenChange(false);
+            router.push(`/welcome/${profileId}?type=${userType}`);
+          }, 1200);
         } catch {
           setMessages((prev) => [
             ...prev,
             {
               role: "bot",
               content:
-                "Something went wrong. Please try again or reach out to us directly.",
+                "Something went wrong saving your info. Please try again.",
             },
           ]);
-        } finally {
           setIsSubmitting(false);
         }
       }, 400);
     },
-    [userType]
+    [userType, onOpenChange, router]
   );
 
-  // Handle user answer submission
+  // Handle user answer
   const handleSubmit = useCallback(() => {
     const step = steps[currentStep];
     if (!step) return;
@@ -452,7 +553,7 @@ export default function ChatWidget({
         const v = inputValue.trim();
         if (!v) return;
         displayValue = v;
-        dataValue = parseFloat(v);
+        dataValue = v; // keep as string, API will parse
         break;
       }
       case "textarea": {
@@ -477,7 +578,11 @@ export default function ChatWidget({
     }
 
     // Add user message
-    setMessages((prev) => [...prev, { role: "user", content: displayValue }]);
+    const newMessages: ChatMessage[] = [
+      ...messages,
+      { role: "user", content: displayValue },
+    ];
+    setMessages(newMessages);
 
     // Update form data
     const updatedData = { ...formData, [step.field]: dataValue };
@@ -492,7 +597,7 @@ export default function ChatWidget({
     if (nextStep >= steps.length) {
       submitData(updatedData);
     } else {
-      advanceToNextStep(nextStep);
+      advanceToNextStep(nextStep, newMessages, updatedData);
     }
   }, [
     steps,
@@ -501,11 +606,12 @@ export default function ChatWidget({
     selectValue,
     checkedValues,
     formData,
+    messages,
     advanceToNextStep,
     submitData,
   ]);
 
-  // Handle enter key for text/number inputs
+  // Enter key handler
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -513,7 +619,6 @@ export default function ChatWidget({
     }
   };
 
-  // Toggle a checkbox value
   const toggleCheckbox = (value: string) => {
     setCheckedValues((prev) =>
       prev.includes(value)
@@ -523,7 +628,7 @@ export default function ChatWidget({
   };
 
   // ---------------------------------------------------------------------------
-  // Render the current input
+  // Render input for current step
   // ---------------------------------------------------------------------------
 
   function renderInput() {
@@ -606,7 +711,10 @@ export default function ChatWidget({
       case "select":
         return (
           <div className="flex items-center gap-2">
-            <Select value={selectValue} onValueChange={(v) => setSelectValue(v ?? "")}>
+            <Select
+              value={selectValue}
+              onValueChange={(v) => setSelectValue(v ?? "")}
+            >
               <SelectTrigger className="h-10 w-full flex-1 rounded-xl">
                 <SelectValue placeholder="Select an option..." />
               </SelectTrigger>
@@ -684,14 +792,10 @@ export default function ChatWidget({
             <div className="flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
               <MessageSquare className="size-3.5" />
             </div>
-            {userType === "newsletter"
-              ? "Newsletter Onboarding"
-              : "Business Onboarding"}
+            Chat with Stroby
           </SheetTitle>
           <SheetDescription className="sr-only">
-            {userType === "newsletter"
-              ? "Set up your newsletter to receive sponsorships"
-              : "Find the perfect newsletters for your brand"}
+            Onboarding chat with Stroby AI assistant
           </SheetDescription>
         </SheetHeader>
 
@@ -705,16 +809,14 @@ export default function ChatWidget({
           ))}
           {isTyping && <TypingIndicator />}
 
-          {/* Success state */}
           {isComplete && (
             <div className="my-4 flex flex-col items-center gap-3 text-center">
-              <div className="flex size-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                <CheckCircle2 className="size-6 text-green-600 dark:text-green-400" />
+              <div className="flex size-12 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle2 className="size-6 text-green-600" />
               </div>
             </div>
           )}
 
-          {/* Submitting state */}
           {isSubmitting && !isTyping && (
             <div className="flex items-center justify-center py-2">
               <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -722,18 +824,17 @@ export default function ChatWidget({
           )}
         </div>
 
-        {/* Input area at bottom */}
+        {/* Input area */}
         {!isComplete && (
           <div className="border-t bg-background px-4 py-3">
             {renderInput()}
-            {/* Progress indicator */}
             {!isTyping && !isSubmitting && currentStep < steps.length && (
               <div className="mt-2 flex items-center gap-2">
                 <div className="h-1 flex-1 rounded-full bg-muted">
                   <div
                     className="h-1 rounded-full bg-primary transition-all duration-300"
                     style={{
-                      width: `${((currentStep) / steps.length) * 100}%`,
+                      width: `${(currentStep / steps.length) * 100}%`,
                     }}
                   />
                 </div>

@@ -37,36 +37,39 @@ export async function POST(request: NextRequest) {
 
     if (userType === "newsletter") {
       const openRate =
-        data.avg_open_rate != null
+        data.avg_open_rate != null && data.avg_open_rate !== ""
           ? parseFloat(data.avg_open_rate) / 100
           : null;
       const ctr =
-        data.avg_ctr != null ? parseFloat(data.avg_ctr) / 100 : null;
+        data.avg_ctr != null && data.avg_ctr !== ""
+          ? parseFloat(data.avg_ctr) / 100
+          : null;
 
       const priceRaw = data.price_per_placement;
-      const priceCents =
-        priceRaw && priceRaw !== "not sure"
-          ? Math.round(parseFloat(priceRaw) * 100)
-          : null;
+      let priceCents: number | null = null;
+      if (priceRaw && priceRaw !== "not sure") {
+        const parsed = parseFloat(String(priceRaw).replace(/[$,]/g, ""));
+        if (!isNaN(parsed)) priceCents = Math.round(parsed * 100);
+      }
 
       const { data: profile, error } = await supabase
         .from("newsletter_profiles")
         .insert({
           newsletter_name: data.newsletter_name,
-          url: data.url,
+          owner_name: data.owner_name || data.email?.split("@")[0] || "Owner",
+          url: data.url || null,
           primary_niche: data.primary_niche,
-          description: data.description,
+          description: data.description || null,
           subscriber_count: data.subscriber_count
-            ? parseInt(data.subscriber_count, 10)
+            ? parseInt(String(data.subscriber_count), 10)
             : null,
           avg_open_rate: openRate,
           avg_ctr: ctr,
           price_per_placement: priceCents,
-          ad_formats: data.ad_formats,
-          frequency: data.frequency,
+          ad_formats: data.ad_formats || null,
+          frequency: data.frequency || null,
           email: data.email,
           phone: data.phone,
-          owner_name: data.owner_name || data.email?.split("@")[0] || "Owner",
           onboarding_status: "widget_complete",
         })
         .select("id")
@@ -88,15 +91,15 @@ export async function POST(request: NextRequest) {
         .from("business_profiles")
         .insert({
           company_name: data.company_name,
-          contact_name: data.contact_name,
-          contact_role: data.contact_role,
-          product_description: data.product_description,
-          target_customer: data.target_customer,
+          contact_name: data.contact_name || data.email?.split("@")[0] || "Contact",
+          contact_role: data.contact_role || null,
+          product_description: data.product_description || null,
+          target_customer: data.target_customer || null,
           primary_niche: data.primary_niche,
-          description: data.description,
-          budget_range: BUDGET_MAP[data.budget_range] ?? data.budget_range,
-          campaign_goal: GOAL_MAP[data.campaign_goal] ?? data.campaign_goal,
-          timeline: TIMELINE_MAP[data.timeline] ?? data.timeline,
+          description: data.description || null,
+          budget_range: BUDGET_MAP[data.budget_range] ?? data.budget_range ?? null,
+          campaign_goal: GOAL_MAP[data.campaign_goal] ?? data.campaign_goal ?? null,
+          timeline: TIMELINE_MAP[data.timeline] ?? data.timeline ?? null,
           email: data.email,
           phone: data.phone,
           onboarding_status: "widget_complete",
