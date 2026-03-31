@@ -1,7 +1,5 @@
 {
   "crons": [
-    { "path": "/api/jobs/run-matching", "schedule": "0 */6 * * *" },
-    { "path": "/api/jobs/check-appeals", "schedule": "0 9 * * *" },
-    { "path": "/api/jobs/send-updates", "schedule": "0 10 * * 1" }
+    { "path": "/api/jobs/run-matching", "schedule": "0 8 * * *" }
   ]
 }
