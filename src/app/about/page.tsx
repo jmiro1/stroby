@@ -70,8 +70,8 @@ export default function AboutPage() {
                 AI-Powered Matching
               </Badge>
               <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Find your perfect influencers to match with{" "}
-                <span className="text-primary">in minutes</span>
+                Chat with me, <span className="text-primary">Stroby</span>.
+                I&apos;ll find you perfect influencers and businesses.
               </h1>
               <p className="mt-6 text-xl text-muted-foreground sm:text-2xl">
                 AI-powered matching. Verified metrics. Payment guaranteed.
@@ -145,7 +145,7 @@ export default function AboutPage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="grid items-center gap-12 lg:grid-cols-2">
               <div>
-                <Badge variant="outline" className="mb-4">
+                <Badge variant="outline" className="mb-4 text-base px-4 py-1.5">
                   For Influencers &amp; Creators
                 </Badge>
                 <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -167,7 +167,7 @@ export default function AboutPage() {
                   {
                     icon: DollarSign,
                     title: "Free to join",
-                    description: "No upfront cost to get started.",
+                    description: "No upfront cost to get started. We work on fees when proper placements are made and everyone's happy.",
                   },
                   {
                     icon: Sparkles,
@@ -251,7 +251,7 @@ export default function AboutPage() {
                 ))}
               </div>
               <div className="order-1 lg:order-2">
-                <Badge variant="outline" className="mb-4">
+                <Badge variant="outline" className="mb-4 text-base px-4 py-1.5">
                   For Businesses
                 </Badge>
                 <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
