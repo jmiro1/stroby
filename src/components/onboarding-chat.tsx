@@ -738,7 +738,7 @@ export default function OnboardingChat() {
         </div>
         <div>
           <p className="text-sm font-semibold text-primary-foreground">Stroby</p>
-          <p className="text-xs text-primary-foreground/70">AI Superconnector</p>
+          <p className="text-xs text-primary-foreground/70">Your Marketing-Focussed AI Superconnector</p>
         </div>
       </div>
 

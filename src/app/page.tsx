@@ -55,7 +55,7 @@ export default function HomePage() {
         {/* Center content */}
         <main className="flex flex-1 flex-col items-center justify-center px-4">
           {/* Character image */}
-          <div className="relative mb-6 size-32 sm:size-40">
+          <div className="relative mb-6 size-32 overflow-hidden rounded-3xl sm:size-40">
             <Image
               src="/logo-emoji.png"
               alt="Stroby AI"
@@ -76,7 +76,7 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1 className="text-center text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-            Hey, I&apos;m Stroby
+            Hey, I&apos;m <span className="text-primary">Stroby</span>
           </h1>
           <p className="mt-3 max-w-md text-center text-lg text-muted-foreground sm:text-xl">
             Your AI Superconnector for brand distribution.
