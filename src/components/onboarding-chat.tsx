@@ -176,7 +176,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     return (
       <div className="flex items-start gap-2.5">
         <BotAvatar />
-        <div className="max-w-[80%] rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
+        <div className="max-w-[80%] whitespace-pre-line rounded-2xl rounded-tl-sm bg-muted px-4 py-2.5 text-sm text-foreground">
           {message.content}
         </div>
       </div>
@@ -283,7 +283,7 @@ export default function OnboardingChat() {
         {
           role: "bot",
           content:
-            "Hey! I'm Stroby, your AI Superconnector for all things marketing distribution. Tell me who you are and I'll connect you with relevant businesses, influencers, or other people that would be valuable for you.",
+            "Hey! I'm Stroby, your AI Superconnector for brand distribution. I connect awesome companies to influencers and vice versa.\n\nTell me who you are and I'll connect you with relevant businesses, influencers, or other people that would be valuable for you.",
         },
       ]);
       setIsTyping(false);
