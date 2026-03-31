@@ -20,7 +20,7 @@ export default function HomePage() {
         <header className="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-6">
           <Link
             href="/about"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="text-base font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             About
           </Link>
