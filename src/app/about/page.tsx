@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -22,61 +21,42 @@ import {
   Lock,
   Target,
   ArrowRight,
-  ArrowLeft,
-  Mail,
 } from "lucide-react";
-import ChatWidget from "@/components/chat-widget";
-
-type UserType = "newsletter" | "business" | null;
 
 export default function AboutPage() {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [userType, setUserType] = useState<UserType>(null);
-
-  function openChat(type: UserType) {
-    setUserType(type);
-    setChatOpen(true);
-  }
-
   return (
     <>
       {/* Navigation */}
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/"
-              className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <ArrowLeft className="size-4" />
-              <span className="text-sm">Back</span>
-            </Link>
-            <div className="flex items-center gap-2">
-              <div className="relative size-9 overflow-hidden rounded-lg bg-primary">
-                <Image
-                  src="/logo-emoji.png"
-                  alt="Stroby"
-                  width={36}
-                  height={36}
-                  className="size-full object-cover"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    target.style.display = "none";
-                    if (target.parentElement) {
-                      target.parentElement.innerHTML =
-                        '<div class="flex size-full items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-foreground"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></div>';
-                    }
-                  }}
-                />
-              </div>
-              <span className="text-xl font-semibold tracking-tight">
-                Stroby
-              </span>
+          <div className="flex items-center gap-2">
+            <div className="relative size-9 overflow-hidden rounded-lg bg-primary">
+              <Image
+                src="/logo-emoji.png"
+                alt="Stroby"
+                width={36}
+                height={36}
+                className="size-full object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = "none";
+                  if (target.parentElement) {
+                    target.parentElement.innerHTML =
+                      '<div class="flex size-full items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-foreground"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></div>';
+                  }
+                }}
+              />
             </div>
+            <span className="text-xl font-semibold tracking-tight">
+              Stroby
+            </span>
           </div>
-          <Button size="default" onClick={() => openChat("business")}>
-            Get Started
-          </Button>
+          <Link href="/">
+            <Button size="default">
+              Get Started
+              <ArrowRight data-icon="inline-end" />
+            </Button>
+          </Link>
         </div>
       </header>
 
@@ -87,33 +67,22 @@ export default function AboutPage() {
           <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 sm:py-28 lg:py-36">
             <div className="mx-auto max-w-3xl text-center">
               <Badge variant="secondary" className="mb-6">
-                AI-Powered Sponsorship Matching
+                AI-Powered Matching
               </Badge>
               <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Find your perfect newsletter sponsorship match{" "}
+                Find your perfect influencers to match with{" "}
                 <span className="text-primary">in minutes</span>
               </h1>
               <p className="mt-6 text-xl text-muted-foreground sm:text-2xl">
                 AI-powered matching. Verified metrics. Payment guaranteed.
               </p>
-              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto"
-                  onClick={() => openChat("newsletter")}
-                >
-                  <Mail data-icon="inline-start" />
-                  I&apos;m a Newsletter Owner
-                </Button>
-                <Button
-                  size="lg"
-                  className="w-full sm:w-auto"
-                  onClick={() => openChat("business")}
-                >
-                  I&apos;m a Business
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
+              <div className="mt-10">
+                <Link href="/">
+                  <Button size="lg">
+                    Get Started
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
@@ -127,7 +96,7 @@ export default function AboutPage() {
                 How it works
               </h2>
               <p className="mt-4 text-lg text-muted-foreground">
-                From sign-up to sponsorship in three simple steps.
+                From sign-up to your first match in three simple steps.
               </p>
             </div>
             <div className="mt-16 grid gap-8 sm:grid-cols-3">
@@ -137,14 +106,14 @@ export default function AboutPage() {
                   step: "1",
                   title: "Sign up in 5 minutes",
                   description:
-                    "Tell our AI about your newsletter or business through a quick chat.",
+                    "Tell our AI about yourself through a quick chat.",
                 },
                 {
                   icon: Sparkles,
                   step: "2",
                   title: "Get matched instantly",
                   description:
-                    "Our AI finds the perfect sponsors or newsletters based on niche, audience, and budget.",
+                    "Our AI finds the perfect partners based on niche, audience, and budget.",
                 },
                 {
                   icon: Shield,
@@ -171,46 +140,43 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* For Newsletter Owners Section */}
+        {/* For Influencers Section */}
         <section className="py-20 sm:py-24">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="grid items-center gap-12 lg:grid-cols-2">
               <div>
                 <Badge variant="outline" className="mb-4">
-                  For Newsletter Owners
+                  For Influencers &amp; Creators
                 </Badge>
                 <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
                   Turn your audience into revenue
                 </h2>
                 <p className="mt-4 text-lg text-muted-foreground">
-                  Join Stroby for free and let AI bring vetted sponsors directly
+                  Join Stroby for free and let AI bring vetted brands directly
                   to you. No outreach needed.
                 </p>
-                <Button
-                  className="mt-8"
-                  size="lg"
-                  variant="outline"
-                  onClick={() => openChat("newsletter")}
-                >
-                  <Mail data-icon="inline-start" />
-                  Join as Newsletter Owner
-                </Button>
+                <Link href="/">
+                  <Button className="mt-8" size="lg" variant="outline">
+                    Get Started
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                </Link>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 {[
                   {
                     icon: DollarSign,
                     title: "Free to join",
-                    description: "No upfront cost to list your newsletter.",
+                    description: "No upfront cost to get started.",
                   },
                   {
                     icon: Sparkles,
-                    title: "Passive sponsor income",
+                    title: "Passive brand deals",
                     description: "AI finds sponsors for you automatically.",
                   },
                   {
                     icon: CheckCircle,
-                    title: "Vetted sponsors only",
+                    title: "Vetted brands only",
                     description:
                       "Every business is reviewed for quality and fit.",
                   },
@@ -249,13 +215,13 @@ export default function AboutPage() {
                     icon: Target,
                     title: "AI-powered matching",
                     description:
-                      "Find relevant newsletters instantly with smart AI.",
+                      "Find the right influencers instantly with smart AI.",
                   },
                   {
                     icon: BarChart3,
                     title: "Verified metrics",
                     description:
-                      "Real subscriber data you can trust, verified by API.",
+                      "Real audience data you can trust, verified by API.",
                   },
                   {
                     icon: Shield,
@@ -293,16 +259,14 @@ export default function AboutPage() {
                 </h2>
                 <p className="mt-4 text-lg text-muted-foreground">
                   Skip the guesswork. Stroby matches you with verified
-                  newsletters that fit your niche, audience, and budget.
+                  influencers that fit your niche, audience, and budget.
                 </p>
-                <Button
-                  className="mt-8"
-                  size="lg"
-                  onClick={() => openChat("business")}
-                >
-                  Find Newsletters
-                  <ArrowRight data-icon="inline-end" />
-                </Button>
+                <Link href="/">
+                  <Button className="mt-8" size="lg">
+                    Get Started
+                    <ArrowRight data-icon="inline-end" />
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
@@ -314,7 +278,7 @@ export default function AboutPage() {
             <div className="grid gap-8 sm:grid-cols-3">
               {[
                 { icon: Lock, label: "Payments held in escrow" },
-                { icon: BarChart3, label: "Verified newsletter metrics" },
+                { icon: BarChart3, label: "Verified audience metrics" },
                 { icon: Shield, label: "Placement guarantee" },
               ].map((item) => (
                 <div
@@ -349,7 +313,7 @@ export default function AboutPage() {
                   <AccordionContent>
                     <p>
                       Stroby uses AI to match businesses with the most relevant
-                      newsletters based on niche, audience demographics, and
+                      influencers and creators based on niche, audience demographics, and
                       budget. Both sides opt in before a deal is made. Payments
                       are held in escrow until the placement runs and proof of
                       performance is submitted.
@@ -360,7 +324,7 @@ export default function AboutPage() {
                   <AccordionTrigger>How much does it cost?</AccordionTrigger>
                   <AccordionContent>
                     <p>
-                      Stroby is completely free for newsletter owners. For
+                      Stroby is completely free for influencers and creators. For
                       businesses, we charge a 15% commission on each transaction.
                       There are no upfront fees, subscriptions, or hidden costs.
                     </p>
@@ -368,12 +332,11 @@ export default function AboutPage() {
                 </AccordionItem>
                 <AccordionItem>
                   <AccordionTrigger>
-                    How do you verify newsletter metrics?
+                    How do you verify metrics?
                   </AccordionTrigger>
                   <AccordionContent>
                     <p>
-                      We use direct API integrations with major email service
-                      providers (like Beehiiv, ConvertKit, and Mailchimp) to pull
+                      We use direct API integrations with major platforms to pull
                       real subscriber and engagement data. For platforms without
                       API access, we use verified screenshot submissions with
                       timestamp validation.
@@ -386,9 +349,8 @@ export default function AboutPage() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <p>
-                      If a newsletter&apos;s actual performance metrics fall
-                      significantly short of what was promised (e.g., open rates,
-                      subscriber count), Stroby will issue a partial or full
+                      If actual performance metrics fall
+                      significantly short of what was promised, Stroby will issue a partial or full
                       refund to the business from the escrowed funds.
                     </p>
                   </AccordionContent>
@@ -399,11 +361,10 @@ export default function AboutPage() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <p>
-                      When a sponsorship is booked, the business pays into
+                      When a partnership is booked, the business pays into
                       Stroby&apos;s escrow. The funds are held securely while the
-                      placement runs. Once the newsletter submits proof of
-                      placement and metrics are verified, the funds are released
-                      to the newsletter owner.
+                      placement runs. Once proof of placement is submitted and metrics are verified, the funds are released
+                      to the influencer.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
@@ -425,10 +386,10 @@ export default function AboutPage() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <p>
-                      Stroby currently supports B2B, SaaS, Marketing, Fintech,
-                      AI/ML, Developer Tools, and more. We&apos;re continuously
-                      expanding our marketplace. If your niche isn&apos;t listed,
-                      sign up anyway and our AI will work to find you the best
+                      Stroby currently supports SaaS, Marketing, Sales, Fintech,
+                      AI, E-commerce, Design, and more. We&apos;re continuously
+                      expanding. If your niche isn&apos;t listed,
+                      sign up anyway and our AI will find you the best
                       possible matches.
                     </p>
                   </AccordionContent>
@@ -439,7 +400,7 @@ export default function AboutPage() {
                   </AccordionTrigger>
                   <AccordionContent>
                     <p>
-                      Yes! Agencies are welcome on Stroby. You can onboard each
+                      Yes! Agencies are welcome. You can onboard each
                       of your clients individually, manage multiple campaigns,
                       and take advantage of our AI matching across all of your
                       accounts.
@@ -458,27 +419,16 @@ export default function AboutPage() {
               Ready to get started?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-              Join the marketplace that makes newsletter sponsorships simple,
+              Join the marketplace that makes brand partnerships simple,
               transparent, and risk-free.
             </p>
-            <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Button
-                variant="outline"
-                size="lg"
-                className="w-full sm:w-auto"
-                onClick={() => openChat("newsletter")}
-              >
-                <Mail data-icon="inline-start" />
-                I&apos;m a Newsletter Owner
-              </Button>
-              <Button
-                size="lg"
-                className="w-full sm:w-auto"
-                onClick={() => openChat("business")}
-              >
-                I&apos;m a Business
-                <ArrowRight data-icon="inline-end" />
-              </Button>
+            <div className="mt-10">
+              <Link href="/">
+                <Button size="lg">
+                  Get Started
+                  <ArrowRight data-icon="inline-end" />
+                </Button>
+              </Link>
             </div>
           </div>
         </section>
@@ -525,13 +475,6 @@ export default function AboutPage() {
           </div>
         </div>
       </footer>
-
-      {/* Chat Widget (for CTA buttons) */}
-      <ChatWidget
-        isOpen={chatOpen}
-        onOpenChange={setChatOpen}
-        userType={userType}
-      />
     </>
   );
 }
