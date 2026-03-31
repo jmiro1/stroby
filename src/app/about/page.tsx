@@ -71,7 +71,7 @@ export default function AboutPage() {
               </Badge>
               <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
                 Chat with me, <span className="text-primary">Stroby</span>.
-                I&apos;ll find you perfect influencers and businesses.
+                I&apos;ll connect you with perfect influencers and businesses.
               </h1>
               <p className="mt-6 text-xl text-muted-foreground sm:text-2xl">
                 AI-powered matching. Verified metrics. Payment guaranteed.
