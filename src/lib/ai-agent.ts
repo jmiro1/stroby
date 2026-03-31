@@ -157,6 +157,85 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
   return { response: responseText };
 }
 
+// Acceptance phrases
+const ACCEPT_PHRASES = [
+  "yes",
+  "accept",
+  "sounds good",
+  "let's do it",
+  "lets do it",
+  "interested",
+  "sure",
+  "go ahead",
+  "absolutely",
+  "yeah",
+  "yep",
+  "yup",
+  "ok",
+  "okay",
+  "connect us",
+  "introduce us",
+  "i'm in",
+  "im in",
+  "do it",
+];
+
+// Decline phrases
+const DECLINE_PHRASES = [
+  "no",
+  "decline",
+  "not right now",
+  "pass",
+  "skip",
+  "not interested",
+  "no thanks",
+  "no thank you",
+  "nah",
+  "nope",
+  "maybe later",
+  "not now",
+];
+
+// "Tell me more" phrases
+const MORE_INFO_PHRASES = [
+  "tell me more",
+  "more info",
+  "more details",
+  "details",
+  "what else",
+  "can you tell me more",
+  "elaborate",
+];
+
+function detectIntent(
+  content: string
+): "accept" | "decline" | "tell_me_more" | null {
+  const normalized = content.toLowerCase().trim();
+
+  // Check "tell me more" first (more specific)
+  for (const phrase of MORE_INFO_PHRASES) {
+    if (normalized === phrase || normalized.includes(phrase)) {
+      return "tell_me_more";
+    }
+  }
+
+  // Check acceptance
+  for (const phrase of ACCEPT_PHRASES) {
+    if (normalized === phrase || normalized.includes(phrase)) {
+      return "accept";
+    }
+  }
+
+  // Check decline
+  for (const phrase of DECLINE_PHRASES) {
+    if (normalized === phrase || normalized.includes(phrase)) {
+      return "decline";
+    }
+  }
+
+  return null;
+}
+
 export async function processAgentResponse(
   phone: string,
   userType: "newsletter" | "business",
@@ -166,7 +245,6 @@ export async function processAgentResponse(
   const supabase = createServiceClient();
 
   // Check for action keywords in the user's last inbound message
-  // Fetch the latest inbound message to analyze
   const { data: lastInbound } = await supabase
     .from("agent_messages")
     .select("content")
@@ -178,49 +256,52 @@ export async function processAgentResponse(
 
   if (lastInbound?.content) {
     const content = (lastInbound.content as string).toLowerCase().trim();
+    const intent = detectIntent(content);
 
-    // Check for match acceptance
-    if (
-      content === "yes" ||
-      content === "accept" ||
-      content.includes("accept the match")
-    ) {
-      const introColumn =
-        userType === "newsletter" ? "newsletter_id" : "business_id";
-      const statusColumn =
-        userType === "newsletter"
-          ? "newsletter_accepted"
-          : "business_accepted";
-
-      await supabase
-        .from("introductions")
-        .update({ [statusColumn]: true, status: "pending" })
-        .eq(introColumn, userId)
-        .eq("status", "suggested")
-        .order("created_at", { ascending: false })
-        .limit(1);
-    }
-
-    // Check for match decline
-    if (
-      content === "no" ||
-      content === "decline" ||
-      content.includes("decline the match") ||
-      content.includes("not interested")
-    ) {
+    if (intent) {
       const introColumn =
         userType === "newsletter" ? "newsletter_id" : "business_id";
 
-      await supabase
+      // Determine which statuses to look for based on user type
+      const pendingStatuses =
+        userType === "business"
+          ? ["suggested"]
+          : ["business_accepted"]; // Newsletter responds to business_accepted intros
+
+      // Find the most recent pending introduction for this user
+      const { data: pendingIntro } = await supabase
         .from("introductions")
-        .update({ status: "declined" })
+        .select("id, status")
         .eq(introColumn, userId)
-        .eq("status", "suggested")
+        .in("status", pendingStatuses)
         .order("created_at", { ascending: false })
-        .limit(1);
+        .limit(1)
+        .maybeSingle();
+
+      if (pendingIntro) {
+        // Call the respond endpoint logic directly
+        const respondPayload = {
+          introductionId: pendingIntro.id,
+          responderId: userId,
+          responderType: userType,
+          response: intent,
+        };
+
+        try {
+          const baseUrl =
+            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+          await fetch(`${baseUrl}/api/introductions/respond`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(respondPayload),
+          });
+        } catch (err) {
+          console.error("Failed to process introduction response:", err);
+        }
+      }
     }
 
-    // Check for rating (1-5)
+    // Check for rating (1-5) - independent of introduction responses
     const ratingMatch = content.match(/^(\d)(?:\s*(?:\/5|out of 5|stars?))?$/);
     if (ratingMatch) {
       const rating = parseInt(ratingMatch[1], 10);
@@ -236,7 +317,7 @@ export async function processAgentResponse(
           .from("introductions")
           .update({ [ratingColumn]: rating })
           .eq(introColumn, userId)
-          .in("status", ["completed", "active"])
+          .in("status", ["completed", "introduced"])
           .order("created_at", { ascending: false })
           .limit(1);
       }
