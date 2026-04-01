@@ -1,12 +1,12 @@
 # Stroby.ai — MVP TODO List
 
-## Priority 1: Chat Widget Hybrid AI Upgrade
-- [ ] Build `/api/chat` endpoint that sends user messages to Claude
-- [ ] AI conversation phase: free-form chat to determine if user is newsletter owner or business
-- [ ] Claude extracts context from natural language (e.g., "I run a SaaS newsletter" → newsletter owner)
-- [ ] Once user type is confirmed, transition to structured survey (current step-by-step form)
-- [ ] Handle edge cases: user picks wrong CTA button, gives mixed signals, changes mind
-- [ ] AI should pre-fill survey fields from anything already mentioned in conversation
+## ~~Priority 1: Chat Widget Hybrid AI Upgrade~~ DONE
+- [x] Build `/api/chat` endpoint that sends user messages to Claude
+- [x] Three onboarding paths: Business survey, Influencer survey, free-form Claude chat ("Other")
+- [x] Claude extracts profile data from natural conversation (name, location, objectives, what they offer, etc.)
+- [x] Dedicated `other_profiles` table with rich data for future matching
+- [x] Conditional survey steps (e.g., "Other" niche → follow-up question)
+- [x] Terms & Conditions consent step at end of all surveys
 
 ## ~~Priority 2: Double Opt-In Introduction Flow (Phase 7)~~ DONE
 - [x] Matching job sends WhatsApp match suggestions to businesses
@@ -32,31 +32,50 @@
 - [x] `/verify/[newsletterId]` page with tabbed form (Beehiiv/ConvertKit/Screenshot)
 - [x] 10% tolerance comparison, API is source of truth
 
-## Priority 5: Polish & Launch (Phase 11)
+## ~~Priority 5a: Frontend Redesign~~ DONE
+- [x] Boardy-style homepage with character image, "Hey, I'm Stroby", Message button
+- [x] WhatsApp-style inline onboarding chat in phone mockup
+- [x] Marketing content moved to /about page
+- [x] Terms & Conditions page (`/terms`)
+- [x] Privacy Policy page (`/privacy`) — GDPR/CCPA/PIPEDA compliant
+- [x] SEO updated everywhere (title, meta, OG, Twitter, JSON-LD, sitemap)
+- [x] Stroby character as logo, chat avatar, and favicon
+
+## Priority 5b: Polish & Launch
+- [ ] Create OG image (1200x630 PNG at /public/og-image.png) — use the Stroby character
+- [ ] Submit to Google Search Console + sitemap
 - [ ] End-to-end testing with test accounts (needs API keys)
 - [ ] Error handling for all edge cases (PRD Section 18)
 - [ ] Rate limit enforcement (max 3 suggestions/week/business, max 2 intro requests/week/newsletter)
-- [ ] Create OG image (1200x630 PNG at /public/og-image.png)
-- [ ] Submit to Google Search Console + sitemap
-- [ ] Landing page copy polish, add real network stats once available
 
-## Priority 6: WhatsApp Landing Page
+## Priority 6: WhatsApp Setup (NEXT UP)
+- [ ] Sign up for Twilio account
+- [ ] Set up Twilio WhatsApp Business Profile (requires Facebook Business verification)
+- [ ] Get approved WhatsApp sender number
+- [ ] Add env vars to Vercel: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER`
+- [ ] Set Twilio webhook → `https://stroby.ai/api/webhooks/whatsapp`
+- [ ] Submit 6 WhatsApp message templates to Twilio for approval (PRD Section 11.2)
+- [ ] Test end-to-end: onboard → match → WhatsApp intro → accept/decline
+
+## Priority 7: WhatsApp Landing Page
 - [ ] Create a "Message me on WhatsApp" landing page (like boardy.ai/scan page)
-- [ ] Stroby character, headline, and a big WhatsApp CTA button linking to the Stroby WhatsApp number
-- [ ] SEO-optimized so it's findable on Google (meta tags, JSON-LD, sitemap entry)
-- [ ] **Blocked on:** WhatsApp Business number being set up and linked via Twilio
-- [ ] Reference: https://scan.boardy.ai/?url=http%3A%2F%2Fwhatsapp.boardy.ai%2Fr%2Fhomepage
+- [ ] Stroby character, headline, and a big WhatsApp CTA button
+- [ ] SEO-optimized (meta tags, JSON-LD, sitemap entry)
+- [ ] **Blocked on:** WhatsApp number being live (Priority 6)
 
-## Infrastructure / Config (needs your input)
-- [ ] Add API keys to Vercel env vars: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, ANTHROPIC_API_KEY
-- [ ] Add CRON_SECRET to Vercel for cron job auth
+## Priority 8: Stripe Setup
+- [ ] Add Stripe API keys to Vercel: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+- [ ] Set up Stripe webhook endpoint → `https://stroby.ai/api/webhooks/stripe`
+- [ ] Test escrow flow end-to-end
+
+## Infrastructure / Config
+- [ ] Add `CRON_SECRET` to Vercel for cron job auth
 - [ ] Consider Vercel Pro upgrade for more cron jobs (currently limited to 1 daily)
-- [ ] Set up Stripe webhook endpoint in Stripe dashboard → https://stroby.ai/api/webhooks/stripe
-- [ ] Set up Twilio WhatsApp webhook → https://stroby.ai/api/webhooks/whatsapp
-- [ ] Submit WhatsApp message templates to Twilio for approval (6 templates in PRD Section 11.2)
+- [ ] Add `ANTHROPIC_API_KEY` to Vercel env vars (may already be set)
 
 ## Notes
 - All communication is WhatsApp messaging only — no phone calls (international accessibility)
 - Vercel Hobby plan: 1 daily cron max. Daily job runs matching + appeal checks + placement reminders
 - PRD is at /Users/joaquimmiro/Downloads/prd_2.md
 - Supabase project: stroby-mvp (ref: uiizesgmliefjuvmpxeg)
+- 3 DB tables: `newsletter_profiles` (influencers), `business_profiles` (businesses), `other_profiles` (everyone else)
