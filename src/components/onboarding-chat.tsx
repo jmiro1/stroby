@@ -829,7 +829,7 @@ export default function OnboardingChat() {
               <CheckCircle2 className="size-6 text-green-600" />
             </div>
             <a
-              href="https://wa.me/message/stroby"
+              href="https://wa.me/541171587882?text=Hey%20Stroby!"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg transition-transform hover:scale-105"
