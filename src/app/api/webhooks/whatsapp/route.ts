@@ -5,12 +5,14 @@ import { sendWhatsAppMessage } from "@/lib/twilio";
 
 // ── GET: Meta webhook verification (required for setup) ──
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const mode = searchParams.get("hub.mode");
-  const token = searchParams.get("hub.verify_token");
-  const challenge = searchParams.get("hub.challenge");
+  const url = new URL(request.url);
+  const mode = url.searchParams.get("hub.mode");
+  const token = url.searchParams.get("hub.verify_token");
+  const challenge = url.searchParams.get("hub.challenge");
 
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "stroby-verify-token";
+
+  console.log("Webhook verification attempt:", { mode, token: token?.slice(0, 5), challenge: challenge?.slice(0, 10), expected: verifyToken.slice(0, 5) });
 
   if (mode === "subscribe" && token === verifyToken) {
     return new Response(challenge, { status: 200 });
