@@ -131,14 +131,20 @@ export async function POST(request: NextRequest) {
 
     // "Other" flow — from free-form Claude chat
     if (userType === "other") {
-      // Store in newsletter_profiles as a catch-all for now
       const { data: profile, error } = await supabase
-        .from("newsletter_profiles")
+        .from("other_profiles")
         .insert({
-          newsletter_name: data.organization || data.name || "Other",
-          owner_name: data.name || data.email?.split("@")[0] || "User",
-          primary_niche: data.niche || "Other",
-          description: `${data.description || ""} Looking for: ${data.looking_for || ""}`.trim(),
+          name: data.name || data.email?.split("@")[0] || "User",
+          role: data.role || null,
+          organization: data.organization || null,
+          location: data.location || null,
+          description: data.description || null,
+          objectives: data.objectives || null,
+          looking_for: data.looking_for || null,
+          can_offer: data.can_offer || null,
+          niche: data.niche || "Other",
+          website: data.website || null,
+          linkedin: data.linkedin || null,
           email: data.email || null,
           phone: data.phone || null,
           onboarding_status: "widget_complete",
