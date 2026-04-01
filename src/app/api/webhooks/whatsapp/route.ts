@@ -10,9 +10,7 @@ export async function GET(request: NextRequest) {
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
 
-  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN || "stroby-verify-token";
-
-  console.log("Webhook verification attempt:", { mode, token: token?.slice(0, 5), challenge: challenge?.slice(0, 10), expected: verifyToken.slice(0, 5) });
+  const verifyToken = "stroby-verify-token";
 
   if (mode === "subscribe" && token === verifyToken) {
     return new Response(challenge, { status: 200 });
