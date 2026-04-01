@@ -12,24 +12,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const seoDescription =
+  "Hey, I'm Stroby! An AI Superconnector connecting businesses, influencers and other curious humans through real conversations and warm introductions on WhatsApp. Get the right brand placements for your business, and the right products to represent for your audience.";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://stroby.ai"),
   title: {
-    default: "Stroby - AI-Powered Newsletter Sponsorship Marketplace",
+    default: "Stroby - AI Superconnector for Brand Distribution",
     template: "%s | Stroby",
   },
-  description:
-    "Find and book verified newsletter sponsorships in minutes. AI matching, escrow payments, and placement guarantees for B2B marketers.",
+  description: seoDescription,
   keywords: [
-    "newsletter sponsorship",
-    "newsletter advertising",
-    "sponsor a newsletter",
-    "newsletter marketplace",
-    "B2B newsletter ads",
-    "newsletter monetization",
-    "AI sponsorship matching",
-    "email newsletter sponsorship",
-    "newsletter ad platform",
+    "brand distribution",
+    "influencer marketing",
+    "influencer matching",
+    "AI influencer platform",
+    "brand partnerships",
+    "creator sponsorships",
+    "AI matchmaker",
+    "connect with influencers",
+    "brand placement",
+    "marketing distribution",
+    "WhatsApp business",
     "Stroby",
   ],
   icons: {
@@ -57,9 +61,8 @@ export const metadata: Metadata = {
     canonical: "https://stroby.ai",
   },
   openGraph: {
-    title: "Stroby - AI-Powered Newsletter Sponsorship Marketplace",
-    description:
-      "Find and book verified newsletter sponsorships in minutes. AI matching, escrow payments, and placement guarantees for B2B marketers.",
+    title: "Stroby - AI Superconnector for Brand Distribution",
+    description: seoDescription,
     url: "https://stroby.ai",
     siteName: "Stroby",
     type: "website",
@@ -69,15 +72,14 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Stroby - AI-Powered Newsletter Sponsorship Marketplace",
+        alt: "Stroby - AI Superconnector for Brand Distribution",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stroby - AI-Powered Newsletter Sponsorship Marketplace",
-    description:
-      "Find and book verified newsletter sponsorships in minutes. AI matching, escrow payments, and placement guarantees for B2B marketers.",
+    title: "Stroby - AI Superconnector for Brand Distribution",
+    description: seoDescription,
     images: ["/og-image.png"],
   },
 };
@@ -102,10 +104,13 @@ export default function RootLayout({
                 "@type": "Organization",
                 name: "Stroby",
                 url: "https://stroby.ai",
-                logo: "https://stroby.ai/og-image.png",
+                logo: "https://stroby.ai/logo-emoji.png",
                 description:
-                  "AI-powered newsletter sponsorship marketplace. Find and book verified newsletter sponsorships in minutes.",
-                sameAs: [],
+                  "AI Superconnector for brand distribution. Connecting businesses, influencers and creators through real conversations and warm introductions on WhatsApp.",
+                sameAs: [
+                  "https://linkedin.com/company/stroby-ai",
+                  "https://x.com/stroby_ai",
+                ],
               },
               {
                 "@context": "https://schema.org",
@@ -113,12 +118,7 @@ export default function RootLayout({
                 name: "Stroby",
                 url: "https://stroby.ai",
                 description:
-                  "Find and book verified newsletter sponsorships in minutes. AI matching, escrow payments, and placement guarantees for B2B marketers.",
-                potentialAction: {
-                  "@type": "SearchAction",
-                  target: "https://stroby.ai/?q={search_term_string}",
-                  "query-input": "required name=search_term_string",
-                },
+                  "AI Superconnector connecting businesses, influencers and other curious humans through real conversations and warm introductions on WhatsApp. Get the right brand placements for your business, and the right products to represent for your audience.",
               },
               {
                 "@context": "https://schema.org",
@@ -129,7 +129,7 @@ export default function RootLayout({
                     name: "How does Stroby work?",
                     acceptedAnswer: {
                       "@type": "Answer",
-                      text: "Stroby uses AI to match businesses with the most relevant newsletters based on niche, audience demographics, and budget. Both sides opt in before a deal is made. Payments are held in escrow until the placement runs and proof of performance is submitted.",
+                      text: "Stroby uses AI to match businesses with the most relevant influencers and creators based on niche, audience demographics, and budget. Both sides opt in before a deal is made. Payments are held in escrow until the placement runs and proof of performance is submitted.",
                     },
                   },
                   {
@@ -137,15 +137,15 @@ export default function RootLayout({
                     name: "How much does Stroby cost?",
                     acceptedAnswer: {
                       "@type": "Answer",
-                      text: "Stroby is completely free for newsletter owners. For businesses, we charge a 15% commission on each transaction. There are no upfront fees, subscriptions, or hidden costs.",
+                      text: "Stroby is completely free for influencers and creators. For businesses, we charge a commission on each successful transaction. There are no upfront fees, subscriptions, or hidden costs.",
                     },
                   },
                   {
                     "@type": "Question",
-                    name: "How do you verify newsletter metrics?",
+                    name: "How do you verify metrics?",
                     acceptedAnswer: {
                       "@type": "Answer",
-                      text: "We use direct API integrations with major email service providers (like Beehiiv, ConvertKit, and Mailchimp) to pull real subscriber and engagement data. For platforms without API access, we use verified screenshot submissions with timestamp validation.",
+                      text: "We use direct API integrations with major platforms to pull real audience and engagement data. For platforms without API access, we use verified screenshot submissions with timestamp validation.",
                     },
                   },
                   {
@@ -153,7 +153,7 @@ export default function RootLayout({
                     name: "What is the placement guarantee?",
                     acceptedAnswer: {
                       "@type": "Answer",
-                      text: "If a newsletter's actual performance metrics fall significantly short of what was promised (e.g., open rates, subscriber count), Stroby will issue a partial or full refund to the business from the escrowed funds.",
+                      text: "If actual performance metrics fall significantly short of what was promised, Stroby will issue a partial or full refund to the business from the escrowed funds.",
                     },
                   },
                   {
@@ -161,7 +161,7 @@ export default function RootLayout({
                     name: "How does the escrow system work?",
                     acceptedAnswer: {
                       "@type": "Answer",
-                      text: "When a sponsorship is booked, the business pays into Stroby's escrow. The funds are held securely while the placement runs. Once the newsletter submits proof of placement and metrics are verified, the funds are released to the newsletter owner.",
+                      text: "When a partnership is booked, the business pays into Stroby's escrow. The funds are held securely while the placement runs. Once proof of placement is submitted and metrics are verified, the funds are released to the influencer or creator.",
                     },
                   },
                   {
@@ -177,7 +177,7 @@ export default function RootLayout({
                     name: "What niches does Stroby support?",
                     acceptedAnswer: {
                       "@type": "Answer",
-                      text: "Stroby currently supports B2B, SaaS, Marketing, Fintech, AI/ML, Developer Tools, and more. We're continuously expanding our marketplace.",
+                      text: "Stroby supports SaaS, Marketing, Sales, Fintech, AI, E-commerce, Health & Wellness, Travel, Fashion, Sports, Education, Entertainment, and many more. If your niche isn't listed, sign up anyway — our AI will find you the best matches.",
                     },
                   },
                   {
@@ -185,7 +185,7 @@ export default function RootLayout({
                     name: "Can I use Stroby if I'm an agency?",
                     acceptedAnswer: {
                       "@type": "Answer",
-                      text: "Yes! Agencies are welcome on Stroby. You can onboard each of your clients individually, manage multiple campaigns, and take advantage of our AI matching across all of your accounts.",
+                      text: "Yes! Agencies are welcome. You can onboard each of your clients individually, manage multiple campaigns, and take advantage of our AI matching across all of your accounts.",
                     },
                   },
                 ],
