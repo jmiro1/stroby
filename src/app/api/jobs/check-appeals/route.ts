@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { sendPlacementReminders } from "@/app/api/placements/remind/route";
 
 export async function POST(request: NextRequest) {

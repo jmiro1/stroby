@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { handleInboundMessage, processAgentResponse } from "@/lib/ai-agent";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // ── GET: Meta webhook verification (required for setup) ──
 export async function GET(request: NextRequest) {

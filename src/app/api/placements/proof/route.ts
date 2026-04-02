@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 /**
  * Calculate a date that is N business days from the given date (skips weekends).

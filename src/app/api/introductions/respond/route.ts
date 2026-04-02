@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppMessage, sendWhatsAppSmart } from "@/lib/whatsapp";
 
 // Helper to get creator profile from either table
 async function getCreatorProfile(
@@ -113,7 +113,8 @@ export async function POST(request: NextRequest) {
           creatorMessage = `Hi ${creator.name}! A business wants to partner with you:\n\n🏢 ${business.company_name}\n🎯 Niche: ${business.primary_niche || "General"}\n📝 ${business.product_description || "N/A"}\n👤 Target: ${business.target_customer || "N/A"}\n\nMatch score: ${((intro.match_score as number) * 100).toFixed(0)}%\nWhy: ${intro.match_reasoning}\n\nWant me to connect you? Reply YES, NO, or TELL ME MORE.`;
         }
 
-        const messageSid = await sendWhatsAppMessage(creator.phone, creatorMessage);
+        const matchContext = `🏢 ${business.company_name}\n🎯 ${business.primary_niche || "General"}\n📝 ${business.product_description || "N/A"}\nMatch score: ${((intro.match_score as number) * 100).toFixed(0)}%\nWhy: ${intro.match_reasoning}`;
+        const messageSid = await sendWhatsAppSmart(creator.phone, creatorMessage, "match_confirmation", [creator.name, matchContext]);
 
         await supabase.from("agent_messages").insert({
           direction: "outbound",

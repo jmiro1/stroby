@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppSmart } from "@/lib/whatsapp";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
       if (msgError) {
         console.error("Failed to log update message:", msgError);
       } else {
-        await sendWhatsAppMessage(newsletter.phone, updateText);
+        const updateSummary = `${count} new ${count === 1 ? "business" : "businesses"} in ${newsletter.primary_niche} joined this week looking for newsletter sponsorships. We're working on finding the best matches for you. Stay tuned!`;
+        await sendWhatsAppSmart(newsletter.phone, updateText, "weekly_update", [newsletter.newsletter_name || "there", updateSummary]);
         updatesSent++;
       }
     }

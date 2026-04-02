@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { findMatchesForBusiness } from "@/lib/matching";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppSmart } from "@/lib/whatsapp";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -102,9 +102,24 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      const messageSid = await sendWhatsAppMessage(
+      // Build template param {{2}} — the match description portion
+      let matchDesc: string;
+      if (match.creatorType === "newsletter" && match.newsletter) {
+        const nl = match.newsletter;
+        const priceDisplay = nl.price_per_placement
+          ? `$${(nl.price_per_placement / 100).toFixed(0)}`
+          : "TBD";
+        matchDesc = `📰 ${nl.newsletter_name}\n🎯 Niche: ${nl.primary_niche || "General"}\n👥 ${nl.subscriber_count || "N/A"} subscribers | ${nl.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy: ${match.reasoning}`;
+      } else {
+        const cr = match.otherProfile!;
+        matchDesc = `🎨 ${cr.name}${cr.role ? ` (${cr.role})` : ""}${cr.organization ? ` at ${cr.organization}` : ""}\n🎯 Niche: ${cr.niche || "General"}\n📝 ${cr.description || "N/A"}\n💡 Offers: ${cr.can_offer || "N/A"}\n\nWhy: ${match.reasoning}`;
+      }
+
+      const messageSid = await sendWhatsAppSmart(
         business.phone,
-        messageBody
+        messageBody,
+        "match_found",
+        [business.contact_name || business.company_name, matchDesc]
       );
 
       await supabase.from("agent_messages").insert({

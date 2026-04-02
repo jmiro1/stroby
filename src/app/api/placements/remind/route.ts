@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppSmart } from "@/lib/whatsapp";
 
 export { sendPlacementReminders };
 
@@ -67,7 +67,8 @@ async function sendPlacementReminders(supabase: ReturnType<typeof createServiceC
 
     const reminderText = `Hi ${ownerName}! Just a reminder: the placement for ${companyName} in ${newsletterName} was scheduled for ${formattedDate}.\n\nOnce it's live, please send me a screenshot of your analytics and confirm the tracking link was included. This triggers the payment release.`;
 
-    await sendWhatsAppMessage(newsletter.phone, reminderText);
+    const reminderDetails = `The placement for ${companyName} in ${newsletterName} was scheduled for ${formattedDate}. Once it's live, send me a screenshot of your analytics and confirm the tracking link was included. This triggers the payment release.`;
+    await sendWhatsAppSmart(newsletter.phone, reminderText, "placement_reminder", [ownerName, reminderDetails]);
 
     await supabase.from("agent_messages").insert({
       direction: "outbound",

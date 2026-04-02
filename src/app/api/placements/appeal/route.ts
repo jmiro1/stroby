@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 export async function POST(request: NextRequest) {
   const supabase = createServiceClient();

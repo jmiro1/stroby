@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppSmart } from "@/lib/whatsapp";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Send feedback request to business (if not already rated)
     if (intro.business_rating == null && business?.phone) {
       const businessMsg = `How did your placement in ${newsletter?.newsletter_name ?? "the newsletter"} go? Rate 1-5 (5 = perfect fit). Would you book again? Any other feedback?`;
-      await sendWhatsAppMessage(business.phone, businessMsg);
+      await sendWhatsAppSmart(business.phone, businessMsg, "follow_up", [business.company_name]);
 
       await supabase.from("agent_messages").insert({
         direction: "outbound",
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     // Send feedback request to newsletter (if not already rated)
     if (intro.newsletter_rating == null && newsletter?.phone) {
       const newsletterMsg = `How was working with ${business?.company_name ?? "the business"}? Rate 1-5 (5 = great experience). Any feedback?`;
-      await sendWhatsAppMessage(newsletter.phone, newsletterMsg);
+      await sendWhatsAppSmart(newsletter.phone, newsletterMsg, "follow_up", [newsletter.newsletter_name]);
 
       await supabase.from("agent_messages").insert({
         direction: "outbound",

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
-import { sendWhatsAppMessage } from "@/lib/twilio";
+import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import crypto from "crypto";
 
 function generateUtmSlug(): string {
