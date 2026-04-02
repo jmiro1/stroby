@@ -41,9 +41,11 @@ export async function sendWhatsAppMessage(
 ): Promise<string | null> {
   const config = getConfig();
   if (!config) {
-    console.warn("WhatsApp Cloud API not configured, skipping message");
+    console.warn("WhatsApp Cloud API not configured. PHONE_ID:", process.env.WHATSAPP_PHONE_NUMBER_ID ? "set" : "MISSING", "TOKEN:", process.env.WHATSAPP_ACCESS_TOKEN ? "set" : "MISSING");
     return null;
   }
+
+  console.log("Sending WhatsApp to:", cleanPhone(to), "via phone ID:", config.phoneNumberId.slice(0, 6) + "...");
 
   try {
     const res = await fetch(
