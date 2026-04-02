@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-const WA_LINK = "https://wa.me/5491176345405?text=Hey%20Stroby!";
+const WA_LINK = "https://wa.me/message/2QFL7QR7EBZTD1";
 
 export default function WhatsAppPage() {
   const [clicked, setClicked] = useState(false);

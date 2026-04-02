@@ -87,7 +87,7 @@ function ConfirmationContent() {
                 : "Your WhatsApp is now connected to Stroby. I'll message you whenever I find a great match."}
             </p>
             <a
-              href="https://wa.me/5491176345405?text=I%20just%20verified!"
+              href="https://wa.me/message/2QFL7QR7EBZTD1"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-3 rounded-full bg-[#25D366] px-8 py-4 text-lg font-semibold text-white shadow-xl transition-all hover:scale-105"
