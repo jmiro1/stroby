@@ -3,6 +3,11 @@ import { createServiceClient } from "@/lib/supabase";
 import { handleInboundMessage, processAgentResponse } from "@/lib/ai-agent";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { getStripe } from "@/lib/stripe";
+import {
+  handleOnboardingMessage,
+  createProfileFromOnboarding,
+  linkExistingAccount,
+} from "@/lib/whatsapp-onboarding";
 
 // ── GET: Meta webhook verification (required for setup) ──
 export async function GET(request: NextRequest) {
@@ -210,11 +215,74 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      console.warn("WhatsApp message from unregistered number:", phoneWithPlus);
+      // Unregistered number — run WhatsApp-native onboarding
+      // Log inbound message (no user_id yet)
+      await supabase.from("agent_messages").insert({
+        direction: "inbound",
+        user_type: null,
+        user_id: null,
+        phone: phoneWithPlus,
+        content: body,
+        whatsapp_message_id: messageId,
+      });
 
-      const defaultResponse =
-        "Hey! I'm Stroby, your AI Superconnector for brand distribution. Visit stroby.ai to get started!";
-      await sendWhatsAppMessage(phoneWithPlus, defaultResponse);
+      const result = await handleOnboardingMessage(phoneWithPlus, body);
+
+      // Handle account linking
+      if (result.linkAccount && result.linkData) {
+        const linkResult = await linkExistingAccount(phoneWithPlus, result.linkData);
+        let linkResponse: string;
+        if (linkResult.found) {
+          linkResponse = `Found your account — *${linkResult.name}*! I've updated your phone number to this WhatsApp. You're all set, feel free to message me anytime about matches!`;
+        } else {
+          linkResponse = "I couldn't find an account with that info. Want to try a different email or phone? Or we can set up a new profile right here!";
+        }
+        await sendWhatsAppMessage(phoneWithPlus, linkResponse);
+        await supabase.from("agent_messages").insert({
+          direction: "outbound",
+          user_type: null,
+          user_id: null,
+          phone: phoneWithPlus,
+          content: linkResponse,
+          message_type: "onboarding",
+        });
+      }
+      // Handle profile completion
+      else if (result.profileComplete && result.profileData) {
+        const profile = await createProfileFromOnboarding(phoneWithPlus, result.profileData);
+
+        // Send the AI's confirmation message
+        await sendWhatsAppMessage(phoneWithPlus, result.response);
+        await supabase.from("agent_messages").insert({
+          direction: "outbound",
+          user_type: profile?.userType || null,
+          user_id: profile?.id || null,
+          phone: phoneWithPlus,
+          content: result.response,
+          message_type: "onboarding",
+        });
+
+        if (profile) {
+          // Update all previous onboarding messages with the new user_id
+          await supabase
+            .from("agent_messages")
+            .update({ user_id: profile.id, user_type: profile.userType })
+            .eq("phone", phoneWithPlus)
+            .is("user_id", null);
+        }
+      }
+      // Normal onboarding conversation (still collecting info)
+      else {
+        await sendWhatsAppMessage(phoneWithPlus, result.response);
+        await supabase.from("agent_messages").insert({
+          direction: "outbound",
+          user_type: null,
+          user_id: null,
+          phone: phoneWithPlus,
+          content: result.response,
+          message_type: "onboarding",
+        });
+      }
     }
 
     // Always return 200 to Meta to prevent retries
