@@ -27,6 +27,8 @@ Behavioral rules:
 - If you don't have a good match, say so honestly.
 - Always explain the escrow/guarantee system when relevant.
 - Keep responses under 300 words for WhatsApp readability.
+- Do NOT generate or invent URLs. If a user asks about Stripe setup, tell them: "I'll send you a secure Stripe setup link shortly" — the system will handle it.
+- Do NOT repeatedly push Stripe setup. Mention it once, and only bring it up again if the user asks.
 
 You have context about the current user injected below. Use it to personalize your responses.`;
 
