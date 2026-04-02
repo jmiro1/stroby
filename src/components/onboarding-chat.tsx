@@ -77,6 +77,7 @@ const PARTNERSHIP_TYPES = [
 ] as const;
 
 const INFLUENCER_STEPS: Step[] = [
+  { question: "Before we start — how did you hear about Stroby?", field: "referral_source", inputType: "text", placeholder: "e.g., A friend, Twitter, Google, a podcast..." },
   { question: "What platform is your audience on?", field: "platform", inputType: "select", options: PLATFORMS },
   { question: "What's your channel or account name?", field: "channel_name", inputType: "text", placeholder: "e.g., The Marketing Brief" },
   { question: "What's your name?", field: "owner_name", inputType: "text", placeholder: "e.g., Jane Doe" },
@@ -95,6 +96,7 @@ const INFLUENCER_STEPS: Step[] = [
 ];
 
 const BUSINESS_STEPS: Step[] = [
+  { question: "Before we start — how did you hear about Stroby?", field: "referral_source", inputType: "text", placeholder: "e.g., A friend, Twitter, Google, a podcast..." },
   { question: "What's your company name?", field: "company_name", inputType: "text", placeholder: "e.g., Acme Corp" },
   { question: "What's your name?", field: "contact_name", inputType: "text", placeholder: "e.g., Jane Doe" },
   { question: "What's your role there?", field: "contact_role", inputType: "text", placeholder: "e.g., Head of Marketing" },

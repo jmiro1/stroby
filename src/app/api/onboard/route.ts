@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
           frequency: data.frequency || null,
           email: data.email,
           phone: data.phone,
+          referral_source: data.referral_source || null,
           onboarding_status: "widget_complete",
         })
         .select("id")
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
           partner_preference: PARTNER_PREF_MAP[data.partner_preference] ?? data.partner_preference ?? "all",
           email: data.email,
           phone: data.phone,
+          referral_source: data.referral_source || null,
           onboarding_status: "widget_complete",
         })
         .select("id")
@@ -154,6 +156,7 @@ export async function POST(request: NextRequest) {
           linkedin: data.linkedin || null,
           email: data.email || null,
           phone: data.phone || null,
+          referral_source: data.referral_source || null,
           onboarding_status: "widget_complete",
         })
         .select("id")
