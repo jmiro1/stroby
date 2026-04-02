@@ -50,7 +50,8 @@ type StepInputType =
   | "number"
   | "textarea"
   | "select"
-  | "multi-checkbox";
+  | "multi-checkbox"
+  | "consent";
 
 interface Step {
   question: string;
@@ -221,10 +222,15 @@ const BUSINESS_STEPS: Step[] = [
     placeholder: "you@example.com",
   },
   {
-    question: "Last one — what's your WhatsApp number? (with country code)",
+    question: "What's your WhatsApp number? (with country code)",
     field: "phone",
     inputType: "text",
     placeholder: "+1 555 123 4567",
+  },
+  {
+    question: "Last step — do you agree to our Terms & Conditions?",
+    field: "terms_accepted",
+    inputType: "consent",
   },
 ];
 
@@ -582,6 +588,11 @@ export default function ChatWidget({
         dataValue = checkedValues;
         break;
       }
+      case "consent": {
+        displayValue = "I agree to the Terms & Conditions";
+        dataValue = "accepted";
+        break;
+      }
     }
 
     // Add user message
@@ -774,6 +785,41 @@ export default function ChatWidget({
             >
               <Send className="size-4" />
               <span>Confirm selection</span>
+            </Button>
+          </div>
+        );
+
+      case "consent":
+        return (
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              By clicking &ldquo;I Agree&rdquo;, you agree to our{" "}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Terms &amp; Conditions
+              </a>{" "}
+              and{" "}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                Privacy Policy
+              </a>
+              .
+            </p>
+            <Button
+              onClick={handleSubmit}
+              className="w-full rounded-xl"
+              size="lg"
+            >
+              <CheckCircle2 className="size-4" />
+              <span>I Agree</span>
             </Button>
           </div>
         );
