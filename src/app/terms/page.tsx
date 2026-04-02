@@ -40,7 +40,7 @@ export default function TermsPage() {
           Terms &amp; Conditions
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated: March 31, 2026
+          Last updated: April 2, 2026
         </p>
 
         <div className="prose prose-neutral mt-10 max-w-none dark:prose-invert [&_h2]:mt-10 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-medium">
@@ -107,9 +107,9 @@ export default function TermsPage() {
             We use third-party services to operate the platform, including:
           </p>
           <ul>
+            <li><strong>Meta / WhatsApp Business Platform</strong> for WhatsApp messaging</li>
             <li><strong>Supabase</strong> for data storage</li>
             <li><strong>Stripe</strong> for payment processing</li>
-            <li><strong>Twilio</strong> for WhatsApp messaging</li>
             <li><strong>Anthropic (Claude)</strong> for AI-powered matching and conversation</li>
             <li><strong>Vercel</strong> for hosting</li>
           </ul>
