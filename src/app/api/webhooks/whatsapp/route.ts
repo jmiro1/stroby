@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     const message = value.messages[0];
-    const phone = message.from; // e.g., "541171587882" (no + prefix from Meta)
+    const phone = message.from; // e.g., "15551682562" (no + prefix from Meta)
     const phoneWithPlus = `+${phone}`;
     const body = message.text?.body || "";
     const messageId = message.id;
