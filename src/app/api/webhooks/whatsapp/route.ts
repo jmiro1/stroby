@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { handleInboundMessage, processAgentResponse } from "@/lib/ai-agent";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { getStripe } from "@/lib/stripe";
 
 // ── GET: Meta webhook verification (required for setup) ──
 export async function GET(request: NextRequest) {
@@ -115,12 +116,68 @@ export async function POST(request: NextRequest) {
         agentResult.response
       );
 
+      // Strip the [SEND_STRIPE_LINK] marker before sending
+      const shouldSendStripeLink = responseText.includes("[SEND_STRIPE_LINK]");
+      const cleanResponse = responseText.replace(/\[SEND_STRIPE_LINK\]/g, "").trim();
+
       // Send the response via WhatsApp
-      const outMessageId = await sendWhatsAppMessage(phoneWithPlus, responseText);
+      const outMessageId = await sendWhatsAppMessage(phoneWithPlus, cleanResponse);
       if (outMessageId) {
         console.log("Sent WhatsApp response:", outMessageId);
       } else {
-        console.log("WhatsApp message not sent. Response:", responseText);
+        console.log("WhatsApp message not sent. Response:", cleanResponse);
+      }
+
+      // Auto-generate and send Stripe Connect link if requested
+      if (shouldSendStripeLink && userType === "newsletter" && userId) {
+        try {
+          const stripe = getStripe();
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+
+          // Check if already connected
+          const { data: nlProfile } = await supabase
+            .from("newsletter_profiles")
+            .select("stripe_account_id, email")
+            .eq("id", userId)
+            .single();
+
+          if (nlProfile && !nlProfile.stripe_account_id) {
+            const account = await stripe.accounts.create({
+              type: "express",
+              email: nlProfile.email || undefined,
+              metadata: { profile_id: userId },
+            });
+
+            await supabase
+              .from("newsletter_profiles")
+              .update({ stripe_account_id: account.id })
+              .eq("id", userId);
+
+            const accountLink = await stripe.accountLinks.create({
+              account: account.id,
+              refresh_url: `${appUrl}/stripe/connect?refresh=true&id=${userId}`,
+              return_url: `${appUrl}/stripe/connect/complete?id=${userId}`,
+              type: "account_onboarding",
+            });
+
+            const stripeMsg = `Here's your secure Stripe setup link:\n\n${accountLink.url}\n\nThis connects your account so you can receive payments through Stroby's escrow. It's optional — you can always work out payment directly with partners instead.`;
+            await sendWhatsAppMessage(phoneWithPlus, stripeMsg);
+
+            await supabase.from("agent_messages").insert({
+              direction: "outbound",
+              user_type: "newsletter",
+              user_id: userId,
+              phone: phoneWithPlus,
+              content: stripeMsg,
+              message_type: "stripe_connect",
+            });
+          } else if (nlProfile?.stripe_account_id) {
+            await sendWhatsAppMessage(phoneWithPlus, "Your Stripe is already connected! You're all set to receive payments through escrow.");
+          }
+        } catch (err) {
+          console.error("Failed to generate Stripe link:", err);
+          await sendWhatsAppMessage(phoneWithPlus, "Sorry, I had trouble generating your Stripe link. Try again in a moment!");
+        }
       }
     } else {
       console.warn("WhatsApp message from unregistered number:", phoneWithPlus);
