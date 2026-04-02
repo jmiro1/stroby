@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
+import { readOnboardingMessages } from "./secure-messages";
 
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -60,16 +61,8 @@ export async function handleOnboardingMessage(
   phone: string,
   messageBody: string
 ): Promise<OnboardingResult> {
-  const supabase = createServiceClient();
-
-  // Fetch conversation history for this phone (unregistered users have user_id = null)
-  const { data: recentMessages } = await supabase
-    .from("agent_messages")
-    .select("direction, content")
-    .eq("phone", phone)
-    .is("user_id", null)
-    .order("created_at", { ascending: true })
-    .limit(10);
+  // Fetch conversation history (decrypted)
+  const recentMessages = await readOnboardingMessages(phone, 10);
 
   // Build messages array
   const messages: Anthropic.MessageParam[] = [];

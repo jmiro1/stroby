@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
+import { readDecryptedMessages, insertMessage } from "./secure-messages";
 
 // Lazy-loaded Anthropic client
 let _anthropic: Anthropic | null = null;
@@ -90,13 +91,8 @@ export async function handleInboundMessage(
   const profile = newsletterProfile || businessProfile;
   const userId = profile.id as string;
 
-  // Fetch last 20 messages for conversation history
-  const { data: recentMessages } = await supabase
-    .from("agent_messages")
-    .select("direction, content, created_at")
-    .or(`user_id.eq.${userId}`)
-    .order("created_at", { ascending: true })
-    .limit(10);
+  // Fetch last 10 messages for conversation history (decrypted)
+  const recentMessages = await readDecryptedMessages(userId, 10);
 
   // Fetch pending introductions for this user
   const introColumn =
@@ -346,8 +342,8 @@ export async function processAgentResponse(
     }
   }
 
-  // Log the outbound message
-  await supabase.from("agent_messages").insert({
+  // Log the outbound message (encrypted)
+  await insertMessage({
     direction: "outbound",
     user_type: userType,
     user_id: userId,
