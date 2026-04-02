@@ -116,9 +116,24 @@ export async function POST(request: NextRequest) {
         agentResult.response
       );
 
-      // Strip the [SEND_STRIPE_LINK] marker before sending
+      // Strip markers before sending
       const shouldSendStripeLink = responseText.includes("[SEND_STRIPE_LINK]");
-      const cleanResponse = responseText.replace(/\[SEND_STRIPE_LINK\]/g, "").trim();
+      const shouldFlagOfftopic = responseText.includes("[FLAG_OFFTOPIC]");
+      const cleanResponse = responseText
+        .replace(/\[SEND_STRIPE_LINK\]/g, "")
+        .replace(/\[FLAG_OFFTOPIC\]/g, "")
+        .trim();
+
+      // Log off-topic messages for review
+      if (shouldFlagOfftopic) {
+        await supabase.from("flagged_messages").insert({
+          user_id: userId,
+          user_type: userType,
+          phone: phoneWithPlus,
+          content: body,
+          flag_reason: "off_topic",
+        });
+      }
 
       // Send the response via WhatsApp
       const outMessageId = await sendWhatsAppMessage(phoneWithPlus, cleanResponse);
