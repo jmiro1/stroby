@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     const message = value.messages[0];
     const phone = message.from; // e.g., "15551682562" (no + prefix from Meta)
     const phoneWithPlus = `+${phone}`;
-    const body = message.text?.body || "";
+    const rawBody = message.text?.body || "";
     const messageId = message.id;
     const mediaUrl = message.image?.id || message.document?.id || null;
 
@@ -49,6 +49,21 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServiceClient();
+
+    // Token optimization: cap input at 500 chars (~125 tokens)
+    const MAX_INPUT_CHARS = 500;
+    let body = rawBody;
+    if (rawBody.length > MAX_INPUT_CHARS) {
+      body = rawBody.slice(0, MAX_INPUT_CHARS);
+      // Flag the long message for review
+      await supabase.from("flagged_messages").insert({
+        user_id: null,
+        user_type: null,
+        phone: phoneWithPlus,
+        content: rawBody.slice(0, 1000), // store up to 1k for review
+        flag_reason: "message_too_long",
+      });
+    }
 
     // Look up the phone number in all profile tables
     // Try both with and without + prefix since users may have entered either format

@@ -149,9 +149,11 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
 
   if (recentMessages && recentMessages.length > 0) {
     for (const msg of recentMessages) {
+      // Trim each historical message to save tokens
+      const content = ((msg.content as string) || "").slice(0, 300);
       messages.push({
         role: msg.direction === "inbound" ? "user" : "assistant",
-        content: (msg.content as string) || "",
+        content,
       });
     }
   }
