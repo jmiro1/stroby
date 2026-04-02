@@ -2,6 +2,42 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { sendWhatsAppMessage } from "@/lib/twilio";
 
+// Helper to get creator profile from either table
+async function getCreatorProfile(
+  supabase: ReturnType<typeof createServiceClient>,
+  intro: Record<string, unknown>
+): Promise<{ profile: Record<string, unknown>; type: "newsletter" | "other"; name: string; phone: string | null } | null> {
+  const creatorType = intro.creator_type as string | null;
+  const creatorId = intro.creator_id as string | null;
+
+  // Try new creator_id/creator_type first, fall back to newsletter_id
+  if (creatorType === "other" && creatorId) {
+    const { data } = await supabase
+      .from("other_profiles")
+      .select("*")
+      .eq("id", creatorId)
+      .single();
+    if (data) {
+      return { profile: data, type: "other", name: data.name, phone: data.phone };
+    }
+  }
+
+  // Newsletter — use newsletter_id (or creator_id if type is newsletter)
+  const nlId = (intro.newsletter_id || creatorId) as string | null;
+  if (nlId) {
+    const { data } = await supabase
+      .from("newsletter_profiles")
+      .select("*")
+      .eq("id", nlId)
+      .single();
+    if (data) {
+      return { profile: data, type: "newsletter", name: data.newsletter_name || data.owner_name, phone: data.phone };
+    }
+  }
+
+  return null;
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const {
@@ -12,7 +48,7 @@ export async function POST(request: NextRequest) {
   }: {
     introductionId: string;
     responderId: string;
-    responderType: "business" | "newsletter";
+    responderType: "business" | "newsletter" | "other";
     response: "accept" | "decline" | "tell_me_more";
   } = body;
 
@@ -25,10 +61,10 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // Fetch the introduction with joined profiles
+  // Fetch the introduction
   const { data: intro, error: introError } = await supabase
     .from("introductions")
-    .select("*, business_profiles(*), newsletter_profiles(*)")
+    .select("*, business_profiles(*)")
     .eq("id", introductionId)
     .single();
 
@@ -40,8 +76,15 @@ export async function POST(request: NextRequest) {
   }
 
   const business = intro.business_profiles as Record<string, unknown>;
-  const newsletter = intro.newsletter_profiles as Record<string, unknown>;
+
+  // Get the creator profile (newsletter or other)
+  const creator = await getCreatorProfile(supabase, intro);
+  if (!creator) {
+    return Response.json({ error: "Creator profile not found" }, { status: 404 });
+  }
+
   let newStatus = intro.status as string;
+  const creatorLabel = creator.type === "newsletter" ? "newsletter owner" : "creator";
 
   // --- BUSINESS RESPONDS ---
   if (responderType === "business") {
@@ -55,25 +98,29 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", introductionId);
 
-      // Send WhatsApp to newsletter owner asking if they want the intro
-      if (newsletter.phone) {
-        const priceDisplay = newsletter.price_per_placement
-          ? `$${((newsletter.price_per_placement as number) / 100).toFixed(0)}`
-          : "TBD";
+      // Send WhatsApp to creator asking if they want the intro
+      if (creator.phone) {
+        let creatorMessage: string;
 
-        const nlMessage = `Hi ${newsletter.contact_name || newsletter.newsletter_name}! A business wants to sponsor your newsletter:\n\n🏢 ${business.company_name}\n🎯 Niche: ${business.primary_niche || "General"}\n📝 ${business.product_description || "N/A"}\n👤 Target: ${business.target_customer || "N/A"}\n💰 Your rate: ${priceDisplay} per placement\n\nMatch score: ${((intro.match_score as number) * 100).toFixed(0)}%\nWhy: ${intro.match_reasoning}\n\nWant me to connect you? Reply YES, NO, or TELL ME MORE.`;
+        if (creator.type === "newsletter") {
+          const nl = creator.profile;
+          const priceDisplay = nl.price_per_placement
+            ? `$${((nl.price_per_placement as number) / 100).toFixed(0)}`
+            : "TBD";
 
-        const messageSid = await sendWhatsAppMessage(
-          newsletter.phone as string,
-          nlMessage
-        );
+          creatorMessage = `Hi ${nl.owner_name || creator.name}! A business wants to sponsor your newsletter:\n\n🏢 ${business.company_name}\n🎯 Niche: ${business.primary_niche || "General"}\n📝 ${business.product_description || "N/A"}\n👤 Target: ${business.target_customer || "N/A"}\n💰 Your rate: ${priceDisplay} per placement\n\nMatch score: ${((intro.match_score as number) * 100).toFixed(0)}%\nWhy: ${intro.match_reasoning}\n\nWant me to connect you? Reply YES, NO, or TELL ME MORE.`;
+        } else {
+          creatorMessage = `Hi ${creator.name}! A business wants to partner with you:\n\n🏢 ${business.company_name}\n🎯 Niche: ${business.primary_niche || "General"}\n📝 ${business.product_description || "N/A"}\n👤 Target: ${business.target_customer || "N/A"}\n\nMatch score: ${((intro.match_score as number) * 100).toFixed(0)}%\nWhy: ${intro.match_reasoning}\n\nWant me to connect you? Reply YES, NO, or TELL ME MORE.`;
+        }
+
+        const messageSid = await sendWhatsAppMessage(creator.phone, creatorMessage);
 
         await supabase.from("agent_messages").insert({
           direction: "outbound",
-          user_type: "newsletter",
-          user_id: newsletter.id,
-          phone: newsletter.phone,
-          content: nlMessage,
+          user_type: creator.type,
+          user_id: creator.profile.id,
+          phone: creator.phone,
+          content: creatorMessage,
           message_type: "intro_request",
           related_introduction_id: introductionId,
           external_id: messageSid,
@@ -89,7 +136,6 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", introductionId);
 
-      // Send graceful acknowledgment
       if (business.phone) {
         const declineMsg =
           "No worries! I'll keep looking for better matches for you. 🔍";
@@ -110,9 +156,16 @@ export async function POST(request: NextRequest) {
         });
       }
     } else if (response === "tell_me_more") {
-      // Send more details about the newsletter (without contact info)
       if (business.phone) {
-        const detailMsg = `Here's more about ${newsletter.newsletter_name}:\n\n📰 Niche: ${newsletter.primary_niche || "General"}\n📝 ${newsletter.description || "No description available"}\n👥 ${newsletter.subscriber_count || "N/A"} subscribers\n📊 ${newsletter.avg_open_rate || "N/A"}% open rate | ${newsletter.avg_ctr || "N/A"}% CTR\n✅ API verified: ${newsletter.api_verified ? "Yes" : "No"}\n⭐ Avg rating: ${newsletter.avg_match_rating || "New"}\n\nWould you like me to introduce you? Reply YES or NO.`;
+        let detailMsg: string;
+
+        if (creator.type === "newsletter") {
+          const nl = creator.profile;
+          detailMsg = `Here's more about ${nl.newsletter_name}:\n\n📰 Niche: ${nl.primary_niche || "General"}\n📝 ${nl.description || "No description available"}\n👥 ${nl.subscriber_count || "N/A"} subscribers\n📊 ${nl.avg_open_rate || "N/A"}% open rate | ${nl.avg_ctr || "N/A"}% CTR\n✅ API verified: ${nl.api_verified ? "Yes" : "No"}\n⭐ Avg rating: ${nl.avg_match_rating || "New"}\n\nWould you like me to introduce you? Reply YES or NO.`;
+        } else {
+          const cr = creator.profile;
+          detailMsg = `Here's more about ${cr.name}:\n\n🎨 Role: ${cr.role || "N/A"}\n🏢 Organization: ${cr.organization || "N/A"}\n📝 ${cr.description || "No description available"}\n💡 What they offer: ${cr.can_offer || "N/A"}\n🎯 Looking for: ${cr.looking_for || "N/A"}\n🌐 Website: ${cr.website || "N/A"}\n⭐ Avg rating: ${cr.avg_match_rating || "New"}\n\nWould you like me to introduce you? Reply YES or NO.`;
+        }
 
         const messageSid = await sendWhatsAppMessage(
           business.phone as string,
@@ -133,8 +186,8 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // --- NEWSLETTER RESPONDS ---
-  if (responderType === "newsletter") {
+  // --- CREATOR RESPONDS (newsletter or other) ---
+  if (responderType === "newsletter" || responderType === "other") {
     if (response === "accept") {
       newStatus = "newsletter_accepted";
       await supabase
@@ -145,24 +198,19 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", introductionId);
 
-      // Check if double opt-in is complete (business already accepted)
-      if (
-        intro.status === "business_accepted" ||
-        newStatus === "newsletter_accepted"
-      ) {
-        // Double opt-in complete - make the introduction
+      // Check if double opt-in is complete
+      if (intro.status === "business_accepted") {
         newStatus = "introduced";
         await supabase
           .from("introductions")
           .update({
             status: "introduced",
             introduced_at: new Date().toISOString(),
-            introduction_method: "email",
+            introduction_method: "whatsapp_group",
           })
           .eq("id", introductionId);
 
-        // Send confirmation to both parties
-        const introMessage = `Great news! I've connected you both. ${business.contact_name || business.company_name}, meet ${newsletter.contact_name || newsletter.newsletter_name} (${newsletter.newsletter_name}). ${newsletter.contact_name || newsletter.newsletter_name}, meet ${business.contact_name || business.company_name} (${business.company_name}). You two should discuss placement details, timing, and creative. When you've agreed on terms, message me and I'll set up the payment.`;
+        const introMessage = `Great news! I've connected you both. ${business.contact_name || business.company_name}, meet ${creator.name}. ${creator.name}, meet ${business.contact_name || business.company_name} (${business.company_name}). You two should discuss partnership details, timing, and creative. When you've agreed on terms, message me and I'll set up the payment.`;
 
         // Message to business
         if (business.phone) {
@@ -182,21 +230,18 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Message to newsletter
-        if (newsletter.phone) {
-          const nlSid = await sendWhatsAppMessage(
-            newsletter.phone as string,
-            introMessage
-          );
+        // Message to creator
+        if (creator.phone) {
+          const crSid = await sendWhatsAppMessage(creator.phone, introMessage);
           await supabase.from("agent_messages").insert({
             direction: "outbound",
-            user_type: "newsletter",
-            user_id: newsletter.id,
-            phone: newsletter.phone,
+            user_type: creator.type,
+            user_id: creator.profile.id,
+            phone: creator.phone,
             content: introMessage,
             message_type: "introduction_made",
             related_introduction_id: introductionId,
-            external_id: nlSid,
+            external_id: crSid,
           });
         }
       }
@@ -210,29 +255,24 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", introductionId);
 
-      // Send acknowledgment to newsletter owner
-      if (newsletter.phone) {
-        const nlAckMsg =
+      if (creator.phone) {
+        const ackMsg =
           "No problem! I'll only send you opportunities that are a great fit.";
-        const nlSid = await sendWhatsAppMessage(
-          newsletter.phone as string,
-          nlAckMsg
-        );
+        const crSid = await sendWhatsAppMessage(creator.phone, ackMsg);
         await supabase.from("agent_messages").insert({
           direction: "outbound",
-          user_type: "newsletter",
-          user_id: newsletter.id,
-          phone: newsletter.phone,
-          content: nlAckMsg,
+          user_type: creator.type,
+          user_id: creator.profile.id,
+          phone: creator.phone,
+          content: ackMsg,
           message_type: "decline_ack",
           related_introduction_id: introductionId,
-          external_id: nlSid,
+          external_id: crSid,
         });
       }
 
-      // Notify the business
       if (business.phone) {
-        const bizNotifyMsg = `The newsletter owner wasn't available this time. I'll find other matches for you.`;
+        const bizNotifyMsg = `The ${creatorLabel} wasn't available this time. I'll find other matches for you.`;
         const bizSid = await sendWhatsAppMessage(
           business.phone as string,
           bizNotifyMsg
@@ -249,20 +289,16 @@ export async function POST(request: NextRequest) {
         });
       }
     } else if (response === "tell_me_more") {
-      // Send more details about the business (without contact info)
-      if (newsletter.phone) {
+      if (creator.phone) {
         const detailMsg = `Here's more about ${business.company_name}:\n\n🏢 Company: ${business.company_name}\n📝 Product: ${business.product_description || "N/A"}\n👤 Target customer: ${business.target_customer || "N/A"}\n🎯 Campaign goal: ${business.campaign_goal || "N/A"}\n💰 Budget range: ${business.budget_range || "N/A"}\n📋 Description: ${business.description || "N/A"}\n\nWould you like me to connect you? Reply YES or NO.`;
 
-        const messageSid = await sendWhatsAppMessage(
-          newsletter.phone as string,
-          detailMsg
-        );
+        const messageSid = await sendWhatsAppMessage(creator.phone, detailMsg);
 
         await supabase.from("agent_messages").insert({
           direction: "outbound",
-          user_type: "newsletter",
-          user_id: newsletter.id,
-          phone: newsletter.phone,
+          user_type: creator.type,
+          user_id: creator.profile.id,
+          phone: creator.phone,
           content: detailMsg,
           message_type: "match_details",
           related_introduction_id: introductionId,

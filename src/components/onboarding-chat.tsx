@@ -17,6 +17,7 @@ import {
   BUDGET_RANGES,
   CAMPAIGN_GOALS,
   TIMELINES,
+  PARTNER_PREFERENCES,
 } from "@/lib/constants";
 import { Send, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -102,6 +103,7 @@ const BUSINESS_STEPS: Step[] = [
   { question: "What niche are you targeting?", field: "primary_niche", inputType: "select", options: NICHES },
   { question: "What's your niche? Describe it briefly.", field: "custom_niche", inputType: "text", placeholder: "e.g., Pet care, Automotive, Gaming...", conditionField: "primary_niche", conditionValue: "Other" },
   { question: "What kind of audience do you want to get in front of?", field: "description", inputType: "textarea", placeholder: "e.g., Marketing decision-makers at mid-market companies..." },
+  { question: "What type of partners are you looking for?", field: "partner_preference", inputType: "select", options: PARTNER_PREFERENCES },
   { question: "What's your monthly budget for sponsorships or partnerships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
   { question: "What's the main goal for this campaign?", field: "campaign_goal", inputType: "select", options: CAMPAIGN_GOALS },
   { question: "How soon are you looking to get started?", field: "timeline", inputType: "select", options: TIMELINES },

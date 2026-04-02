@@ -33,24 +33,47 @@ export async function POST(request: NextRequest) {
 
   try {
     switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object;
+        const transactionId = session.metadata?.transaction_id;
+
+        if (transactionId) {
+          const { error } = await supabase
+            .from("transactions")
+            .update({ status: "escrowed", stripe_payment_intent_id: session.payment_intent })
+            .eq("id", transactionId);
+
+          if (error) {
+            console.error("Failed to update transaction on checkout:", error);
+          }
+
+          // Update introduction status to 'paid'
+          const introId = session.metadata?.introduction_id;
+          if (introId) {
+            await supabase
+              .from("introductions")
+              .update({ status: "paid" })
+              .eq("id", introId);
+          }
+        }
+        break;
+      }
+
       case "payment_intent.succeeded": {
         const paymentIntent = event.data.object;
         const transactionId = paymentIntent.metadata?.transaction_id;
 
         if (transactionId) {
+          // Only update if not already escrowed (checkout.session.completed may have already handled it)
           const { error } = await supabase
             .from("transactions")
             .update({ status: "escrowed" })
-            .eq("id", transactionId);
+            .eq("id", transactionId)
+            .eq("status", "pending_payment");
 
           if (error) {
             console.error("Failed to update transaction status:", error);
           }
-        } else {
-          console.warn(
-            "payment_intent.succeeded without transaction_id in metadata:",
-            paymentIntent.id
-          );
         }
         break;
       }

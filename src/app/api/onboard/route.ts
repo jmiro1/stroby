@@ -9,6 +9,12 @@ const BUDGET_MAP: Record<string, string> = {
   "$5k+": "5000+",
 };
 
+const PARTNER_PREF_MAP: Record<string, string> = {
+  "Newsletters only": "newsletters_only",
+  "Influencers & creators only": "creators_only",
+  "All — newsletters and influencers": "all",
+};
+
 const GOAL_MAP: Record<string, string> = {
   "Brand awareness": "brand_awareness",
   "Direct response / clicks": "direct_response",
@@ -111,6 +117,7 @@ export async function POST(request: NextRequest) {
           budget_range: BUDGET_MAP[data.budget_range] ?? data.budget_range ?? null,
           campaign_goal: GOAL_MAP[data.campaign_goal] ?? data.campaign_goal ?? null,
           timeline: TIMELINE_MAP[data.timeline] ?? data.timeline ?? null,
+          partner_preference: PARTNER_PREF_MAP[data.partner_preference] ?? data.partner_preference ?? "all",
           email: data.email,
           phone: data.phone,
           onboarding_status: "widget_complete",

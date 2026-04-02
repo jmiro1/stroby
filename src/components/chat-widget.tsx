@@ -26,6 +26,7 @@ import {
   TIMELINES,
   AD_FORMATS,
   FREQUENCIES,
+  PARTNER_PREFERENCES,
 } from "@/lib/constants";
 import { MessageSquare, Send, Loader2, CheckCircle2 } from "lucide-react";
 
@@ -183,14 +184,20 @@ const BUSINESS_STEPS: Step[] = [
     options: NICHES,
   },
   {
-    question: "Describe the kind of newsletter audience you want to reach.",
+    question: "What kind of audience do you want to get in front of?",
     field: "description",
     inputType: "textarea",
     placeholder: "e.g., Technical decision-makers at B2B companies...",
   },
   {
+    question: "What type of partners are you looking for?",
+    field: "partner_preference",
+    inputType: "select",
+    options: PARTNER_PREFERENCES,
+  },
+  {
     question:
-      "What's your monthly marketing budget for newsletter sponsorships?",
+      "What's your monthly budget for sponsorships or partnerships?",
     field: "budget_range",
     inputType: "select",
     options: BUDGET_RANGES,

@@ -55,4 +55,16 @@ export const FREQUENCIES = [
   "Monthly",
 ] as const;
 
+export const PARTNER_PREFERENCES = [
+  "Newsletters only",
+  "Influencers & creators only",
+  "All — newsletters and influencers",
+] as const;
+
+export const PARTNER_PREF_MAP: Record<string, string> = {
+  "Newsletters only": "newsletters_only",
+  "Influencers & creators only": "creators_only",
+  "All — newsletters and influencers": "all",
+};
+
 export const COMMISSION_RATE = 0.15;

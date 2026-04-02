@@ -46,7 +46,7 @@ export default function TermsPage() {
         <div className="prose prose-neutral mt-10 max-w-none dark:prose-invert [&_h2]:mt-10 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-medium">
           <h2>1. Introduction</h2>
           <p>
-            Welcome to Stroby, operated by 9415-2527 Quebec Inc. dba Stroby AI (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;). Stroby is an AI-powered platform that connects businesses with influencers, content creators, and other marketing professionals for brand distribution partnerships. By accessing or using our website at stroby.ai and any related services (collectively, the &ldquo;Service&rdquo;), you agree to be bound by these Terms &amp; Conditions (&ldquo;Terms&rdquo;).
+            Welcome to Stroby, operated by Stroby AI Inc. (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;). Stroby is an AI-powered platform that connects businesses with influencers, content creators, and other marketing professionals for brand distribution partnerships. By accessing or using our website at stroby.ai and any related services (collectively, the &ldquo;Service&rdquo;), you agree to be bound by these Terms &amp; Conditions (&ldquo;Terms&rdquo;).
           </p>
           <p>
             If you do not agree to these Terms, please do not use the Service.

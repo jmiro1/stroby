@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // Fetch all active businesses that are onboarded (full profiles for messaging)
+  // Fetch all active businesses that are onboarded
   const { data: businesses, error } = await supabase
     .from("business_profiles")
     .select("*")
@@ -57,15 +57,23 @@ export async function POST(request: NextRequest) {
 
     for (const match of matches) {
       // Insert the introduction record
+      const insertData: Record<string, unknown> = {
+        business_id: business.id,
+        status: "suggested",
+        match_score: match.score,
+        match_reasoning: match.reasoning,
+        creator_id: match.creatorId,
+        creator_type: match.creatorType,
+      };
+
+      // Also set newsletter_id for backwards compat when it's a newsletter
+      if (match.creatorType === "newsletter") {
+        insertData.newsletter_id = match.creatorId;
+      }
+
       const { data: intro, error: introError } = await supabase
         .from("introductions")
-        .insert({
-          business_id: business.id,
-          newsletter_id: match.newsletter.id,
-          status: "suggested",
-          match_score: match.score,
-          match_reasoning: match.reasoning,
-        })
+        .insert(insertData)
         .select("id")
         .single();
 
@@ -76,29 +84,29 @@ export async function POST(request: NextRequest) {
 
       matchesSuggested++;
 
-      // Fetch the full newsletter profile for the message
-      const { data: newsletter } = await supabase
-        .from("newsletter_profiles")
-        .select("*")
-        .eq("id", match.newsletter.id)
-        .single();
+      if (!business.phone) continue;
 
-      if (!newsletter || !business.phone) continue;
+      let messageBody: string;
 
-      // Format price from cents to dollars
-      const priceDisplay = newsletter.price_per_placement
-        ? `$${(newsletter.price_per_placement / 100).toFixed(0)}`
-        : "TBD";
+      if (match.creatorType === "newsletter" && match.newsletter) {
+        const nl = match.newsletter;
+        const priceDisplay = nl.price_per_placement
+          ? `$${(nl.price_per_placement / 100).toFixed(0)}`
+          : "TBD";
 
-      const messageBody = `Hi ${business.contact_name || business.company_name}! I found a newsletter that looks like a great fit for ${business.company_name}:\n\n📰 ${newsletter.newsletter_name}\n🎯 Niche: ${newsletter.primary_niche || "General"}\n👥 ${newsletter.subscriber_count || "N/A"} subscribers | ${newsletter.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+        messageBody = `Hi ${business.contact_name || business.company_name}! I found a newsletter that looks like a great fit for ${business.company_name}:\n\n📰 ${nl.newsletter_name}\n🎯 Niche: ${nl.primary_niche || "General"}\n👥 ${nl.subscriber_count || "N/A"} subscribers | ${nl.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+      } else if (match.otherProfile) {
+        const cr = match.otherProfile;
+        messageBody = `Hi ${business.contact_name || business.company_name}! I found a creator who could be a great partner for ${business.company_name}:\n\n🎨 ${cr.name}${cr.role ? ` (${cr.role})` : ""}${cr.organization ? ` at ${cr.organization}` : ""}\n🎯 Niche: ${cr.niche || "General"}\n📝 ${cr.description || "N/A"}\n💡 What they offer: ${cr.can_offer || "N/A"}\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+      } else {
+        continue;
+      }
 
-      // Send WhatsApp message to the business
       const messageSid = await sendWhatsAppMessage(
         business.phone,
         messageBody
       );
 
-      // Log the outbound message
       await supabase.from("agent_messages").insert({
         direction: "outbound",
         user_type: "business",
