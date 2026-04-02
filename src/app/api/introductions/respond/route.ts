@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { sendWhatsAppMessage, sendWhatsAppSmart } from "@/lib/whatsapp";
+import { getStripe } from "@/lib/stripe";
 
 // Helper to get creator profile from either table
 async function getCreatorProfile(
@@ -211,7 +212,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", introductionId);
 
-        const introMessage = `Great news! I've connected you both. ${business.contact_name || business.company_name}, meet ${creator.name}. ${creator.name}, meet ${business.contact_name || business.company_name} (${business.company_name}). You two should discuss partnership details, timing, and creative. When you've agreed on terms, message me and I'll set up the payment.`;
+        const introMessage = `Great news! I've connected you both. ${business.contact_name || business.company_name}, meet ${creator.name}. ${creator.name}, meet ${business.contact_name || business.company_name} (${business.company_name}). You two should discuss partnership details, timing, and creative.\n\nYou can work out the deal directly, or if you'd like Stroby to handle payment as a secure escrow (protecting both sides), just let me know!`;
 
         // Message to business
         if (business.phone) {
@@ -244,6 +245,53 @@ export async function POST(request: NextRequest) {
             related_introduction_id: introductionId,
             external_id: crSid,
           });
+        }
+
+        // Auto-generate Stripe Connect link for newsletter creators who haven't connected yet
+        if (creator.type === "newsletter" && !creator.profile.stripe_account_id && creator.phone) {
+          try {
+            const stripe = getStripe();
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+            const creatorId = creator.profile.id as string;
+
+            // Create Express account
+            const account = await stripe.accounts.create({
+              type: "express",
+              email: (creator.profile.email as string) || undefined,
+              metadata: { profile_id: creatorId },
+            });
+
+            // Save account ID
+            await supabase
+              .from("newsletter_profiles")
+              .update({ stripe_account_id: account.id })
+              .eq("id", creatorId);
+
+            // Generate onboarding link
+            const accountLink = await stripe.accountLinks.create({
+              account: account.id,
+              refresh_url: `${appUrl}/stripe/connect?refresh=true&id=${creatorId}`,
+              return_url: `${appUrl}/stripe/connect/complete?id=${creatorId}`,
+              type: "account_onboarding",
+            });
+
+            const stripeMsg = `One more thing — if you'd like Stroby to handle the payment securely (escrow protects both sides), here's your setup link:\n\n${accountLink.url}\n\nThis is optional! You can also work out payment directly with ${business.contact_name || business.company_name}.`;
+
+            const stripeSid = await sendWhatsAppMessage(creator.phone, stripeMsg);
+            await supabase.from("agent_messages").insert({
+              direction: "outbound",
+              user_type: "newsletter",
+              user_id: creatorId,
+              phone: creator.phone,
+              content: stripeMsg,
+              message_type: "stripe_connect",
+              related_introduction_id: introductionId,
+              external_id: stripeSid,
+            });
+          } catch (err) {
+            console.error("Failed to generate Stripe Connect link:", err);
+            // Non-critical — don't block the introduction
+          }
         }
       }
     } else if (response === "decline") {
