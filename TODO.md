@@ -96,6 +96,11 @@
 
 ## NEXT: What Needs To Be Done
 
+### BLOCKER: Enable Stripe Connect
+- [ ] Go to https://dashboard.stripe.com/connect and sign up for Connect
+- [ ] Without this, Stripe link generation will always fail
+- [ ] Once enabled, test with: `curl -X POST https://stroby.ai/api/stripe/connect -d '{"newsletterId":"..."}'`
+
 ### Priority A: End-to-End Testing
 - [ ] Test full flow: onboard → match → WhatsApp intro → accept → connect both parties
 - [ ] Test with real newsletter owner + real business (not test data)

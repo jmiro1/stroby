@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
+import { getSearchNiches } from "./niche-affinity";
 
-// Lazy-loaded Anthropic client
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
   if (!_anthropic) {
@@ -64,27 +64,23 @@ export interface Match {
   reasoning: string;
 }
 
-// Map budget range strings to max cents
 function budgetToCents(budgetRange: string | null): number {
   switch (budgetRange) {
-    case "<500":
-    case "<$500":
-      return 50000;
-    case "500-1000":
-    case "$500-$1k":
-      return 100000;
-    case "1000-2500":
-    case "$1k-$2.5k":
-      return 250000;
-    case "2500-5000":
-    case "$2.5k-$5k":
-      return 500000;
-    case "5000+":
-    case "$5k+":
-      return Infinity;
-    default:
-      return 0;
+    case "<500": case "<$500": return 50000;
+    case "500-1000": case "$500-$1k": return 100000;
+    case "1000-2500": case "$1k-$2.5k": return 250000;
+    case "2500-5000": case "$2.5k-$5k": return 500000;
+    case "5000+": case "$5k+": return Infinity;
+    default: return 0;
   }
+}
+
+// Engagement quality score for pre-ranking (higher = better)
+function engagementScore(nl: Record<string, unknown>): number {
+  const subs = (nl.subscriber_count as number) || 0;
+  const openRate = (nl.avg_open_rate as number) || 0;
+  // Effective reach = subscribers × open rate (normalized)
+  return subs * (openRate > 0 ? openRate : 0.2); // assume 20% if unknown
 }
 
 export async function findMatchesForBusiness(
@@ -92,7 +88,6 @@ export async function findMatchesForBusiness(
 ): Promise<Match[]> {
   const supabase = createServiceClient();
 
-  // Fetch the business profile
   const { data: business, error: bizError } = await supabase
     .from("business_profiles")
     .select("*")
@@ -107,245 +102,202 @@ export async function findMatchesForBusiness(
   const maxBudgetCents = budgetToCents(business.budget_range);
   const preference = business.partner_preference || "all";
 
-  // Rate limit: max 2 intro requests per creator per week
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-  // Existing introductions for this business (to exclude duplicates)
+  // Existing introductions (exclude duplicates)
   const { data: existingIntros } = await supabase
     .from("introductions")
-    .select("newsletter_id, creator_id, creator_type")
+    .select("newsletter_id, creator_id")
     .eq("business_id", businessId);
 
-  const excludedNewsletterIds = new Set<string>();
-  const excludedCreatorIds = new Set<string>();
+  const excludedIds = new Set<string>();
   for (const intro of existingIntros || []) {
-    if (intro.newsletter_id) excludedNewsletterIds.add(intro.newsletter_id);
-    if (intro.creator_id) excludedCreatorIds.add(intro.creator_id);
+    if (intro.newsletter_id) excludedIds.add(intro.newsletter_id);
+    if (intro.creator_id) excludedIds.add(intro.creator_id);
   }
 
-  const allMatches: Match[] = [];
+  const allCandidates: { type: CreatorType; profile: Record<string, unknown>; name: string; engScore: number }[] = [];
 
-  // ── Newsletter matches ──
+  // ── Newsletter candidates (cross-niche) ──
   if (preference === "all" || preference === "newsletters_only") {
-    const { data: newsletters, error: nlError } = await supabase
+    const searchNiches = getSearchNiches(business.primary_niche);
+
+    const { data: newsletters } = await supabase
       .from("newsletter_profiles")
       .select("*")
-      .eq("primary_niche", business.primary_niche)
+      .in("primary_niche", searchNiches.length > 0 ? searchNiches : ["__none__"])
       .in("onboarding_status", ["fully_onboarded", "whatsapp_active", "widget_complete"]);
 
-    if (!nlError && newsletters) {
-      // Filter by budget
-      const affordable = newsletters.filter((nl: Record<string, unknown>) => {
-        const price = nl.price_per_placement as number | null;
-        if (!price) return true;
-        return price <= maxBudgetCents;
-      });
-
-      // Check weekly rate limits for newsletters
-      const nlIds = affordable.map((nl: Record<string, unknown>) => nl.id as string);
-      const { data: recentNlIntros } = await supabase
+    if (newsletters) {
+      // Rate limit check
+      const nlIds = newsletters.map((nl: Record<string, unknown>) => nl.id as string);
+      const { data: recentIntros } = await supabase
         .from("introductions")
         .select("newsletter_id")
         .in("newsletter_id", nlIds.length > 0 ? nlIds : ["__none__"])
         .gte("created_at", oneWeekAgo.toISOString());
 
-      const nlIntroCounts = new Map<string, number>();
-      for (const intro of recentNlIntros || []) {
+      const introCounts = new Map<string, number>();
+      for (const intro of recentIntros || []) {
         const id = intro.newsletter_id as string;
-        nlIntroCounts.set(id, (nlIntroCounts.get(id) || 0) + 1);
+        introCounts.set(id, (introCounts.get(id) || 0) + 1);
       }
 
-      const candidates = affordable.filter((nl: Record<string, unknown>) => {
+      for (const nl of newsletters) {
         const nlId = nl.id as string;
-        if (excludedNewsletterIds.has(nlId) || excludedCreatorIds.has(nlId)) return false;
-        if ((nlIntroCounts.get(nlId) || 0) >= 2) return false;
-        return true;
-      });
+        if (excludedIds.has(nlId)) continue;
+        if ((introCounts.get(nlId) || 0) >= 2) continue;
+        const price = nl.price_per_placement as number | null;
+        if (price && price > maxBudgetCents) continue;
 
-      for (const candidate of candidates) {
-        const { score, reasoning } = await scoreNewsletterMatch(
-          business as BusinessProfile,
-          candidate as NewsletterProfile
-        );
-
-        let adjustedScore = score;
-        if (candidate.api_verified) adjustedScore *= 1.15;
-        if (candidate.avg_match_rating && (candidate.avg_match_rating as number) > 4.0) {
-          adjustedScore *= 1.1;
-        }
-        adjustedScore = Math.min(adjustedScore, 1.0);
-
-        allMatches.push({
-          creatorId: candidate.id,
-          creatorType: "newsletter",
-          creatorName: candidate.newsletter_name,
-          newsletter: candidate as NewsletterProfile,
-          score: adjustedScore,
-          reasoning,
+        allCandidates.push({
+          type: "newsletter",
+          profile: nl,
+          name: nl.newsletter_name,
+          engScore: engagementScore(nl),
         });
       }
     }
   }
 
-  // ── Other creator/influencer matches ──
+  // ── Other creator candidates (cross-niche) ──
   if (preference === "all" || preference === "creators_only") {
-    let query = supabase
+    const searchNiches = getSearchNiches(business.primary_niche);
+
+    const { data: creators } = await supabase
       .from("other_profiles")
       .select("*")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .in("niche", searchNiches.length > 0 ? searchNiches : ["__none__"]);
 
-    // Match on niche if available
-    if (business.primary_niche) {
-      query = query.eq("niche", business.primary_niche);
-    }
-
-    const { data: creators, error: crError } = await query;
-
-    if (!crError && creators) {
-      // Check weekly rate limits for other creators
+    if (creators) {
       const crIds = creators.map((cr: Record<string, unknown>) => cr.id as string);
-      const { data: recentCrIntros } = await supabase
+      const { data: recentIntros } = await supabase
         .from("introductions")
         .select("creator_id")
         .eq("creator_type", "other")
         .in("creator_id", crIds.length > 0 ? crIds : ["__none__"])
         .gte("created_at", oneWeekAgo.toISOString());
 
-      const crIntroCounts = new Map<string, number>();
-      for (const intro of recentCrIntros || []) {
+      const introCounts = new Map<string, number>();
+      for (const intro of recentIntros || []) {
         const id = intro.creator_id as string;
-        crIntroCounts.set(id, (crIntroCounts.get(id) || 0) + 1);
+        introCounts.set(id, (introCounts.get(id) || 0) + 1);
       }
 
-      const candidates = creators.filter((cr: Record<string, unknown>) => {
+      for (const cr of creators) {
         const crId = cr.id as string;
-        if (excludedCreatorIds.has(crId)) return false;
-        if ((crIntroCounts.get(crId) || 0) >= 2) return false;
-        return true;
-      });
+        if (excludedIds.has(crId)) continue;
+        if ((introCounts.get(crId) || 0) >= 2) continue;
 
-      for (const candidate of candidates) {
-        const { score, reasoning } = await scoreCreatorMatch(
-          business as BusinessProfile,
-          candidate as OtherProfile
-        );
-
-        let adjustedScore = score;
-        if (candidate.avg_match_rating && (candidate.avg_match_rating as number) > 4.0) {
-          adjustedScore *= 1.1;
-        }
-        adjustedScore = Math.min(adjustedScore, 1.0);
-
-        allMatches.push({
-          creatorId: candidate.id,
-          creatorType: "other",
-          creatorName: candidate.name,
-          otherProfile: candidate as OtherProfile,
-          score: adjustedScore,
-          reasoning,
+        allCandidates.push({
+          type: "other",
+          profile: cr,
+          name: cr.name,
+          engScore: 0, // No engagement metrics for other profiles
         });
       }
     }
   }
 
-  // Sort by score descending and return top 3
-  allMatches.sort((a, b) => b.score - a.score);
-  return allMatches.slice(0, 3);
+  if (allCandidates.length === 0) return [];
+
+  // Pre-rank by engagement score, take top 8 for LLM scoring
+  allCandidates.sort((a, b) => b.engScore - a.engScore);
+  const topCandidates = allCandidates.slice(0, 8);
+
+  // Batch LLM scoring — one call for all candidates
+  const scored = await batchScoreCandidates(business as BusinessProfile, topCandidates);
+
+  // Sort by score, return top 3
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3);
 }
 
-export async function scoreNewsletterMatch(
+// Score all candidates in a single LLM call
+async function batchScoreCandidates(
   business: BusinessProfile,
-  newsletter: NewsletterProfile
-): Promise<{ score: number; reasoning: string }> {
-  const anthropic = getAnthropic();
+  candidates: { type: CreatorType; profile: Record<string, unknown>; name: string }[]
+): Promise<Match[]> {
+  if (candidates.length === 0) return [];
 
-  const prompt = `You are a sponsorship matching scorer. Evaluate how well this business and newsletter match for a paid sponsorship placement.
+  const candidateDescriptions = candidates.map((c, i) => {
+    if (c.type === "newsletter") {
+      const nl = c.profile;
+      return `${i + 1}. [NEWSLETTER] ${nl.newsletter_name} | Niche: ${nl.primary_niche || "General"} | ${nl.subscriber_count || "?"} subs | ${nl.avg_open_rate || "?"}% open rate | ${nl.description || "N/A"}`;
+    } else {
+      const cr = c.profile;
+      return `${i + 1}. [CREATOR] ${cr.name} | Niche: ${cr.niche || "General"} | Role: ${cr.role || "N/A"} | Offers: ${cr.can_offer || "N/A"} | ${cr.description || "N/A"}`;
+    }
+  }).join("\n");
+
+  const prompt = `Score these candidates for a brand partnership with this business. Return a JSON array.
 
 Business:
-- Company: ${business.company_name}
-- Product: ${business.product_description || "N/A"}
-- Target customer: ${business.target_customer || "N/A"}
-- Campaign goal: ${business.campaign_goal || "N/A"}
-- Description: ${business.description || "N/A"}
+- ${business.company_name}: ${business.product_description || "N/A"}
+- Target: ${business.target_customer || "N/A"}
+- Goal: ${business.campaign_goal || "N/A"}
+- Niche: ${business.primary_niche || "N/A"}
 
-Newsletter:
-- Name: ${newsletter.newsletter_name}
-- Niche: ${newsletter.primary_niche || "N/A"}
-- Description: ${newsletter.description || "N/A"}
-- Subscribers: ${newsletter.subscriber_count || "N/A"}
-- Avg open rate: ${newsletter.avg_open_rate ? `${newsletter.avg_open_rate}%` : "N/A"}
-- Avg CTR: ${newsletter.avg_ctr ? `${newsletter.avg_ctr}%` : "N/A"}
+Candidates:
+${candidateDescriptions}
 
-Score this match from 0.0 to 1.0 based on audience relevance, engagement quality, and campaign goal alignment.
+Score each 0.0-1.0. Consider: audience relevance, niche fit (related niches count), engagement quality, campaign goal alignment.
 
-Respond ONLY with valid JSON, no other text:
-{"score": 0.0, "reasoning": "one sentence explanation"}`;
-
-  return callScorer(prompt);
-}
-
-export async function scoreCreatorMatch(
-  business: BusinessProfile,
-  creator: OtherProfile
-): Promise<{ score: number; reasoning: string }> {
-  const anthropic = getAnthropic();
-
-  const prompt = `You are a brand partnership matching scorer. Evaluate how well this business and influencer/creator match for a paid partnership.
-
-Business:
-- Company: ${business.company_name}
-- Product: ${business.product_description || "N/A"}
-- Target customer: ${business.target_customer || "N/A"}
-- Campaign goal: ${business.campaign_goal || "N/A"}
-- Description: ${business.description || "N/A"}
-
-Influencer/Creator:
-- Name: ${creator.name}
-- Role: ${creator.role || "N/A"}
-- Organization: ${creator.organization || "N/A"}
-- Niche: ${creator.niche || "N/A"}
-- Description: ${creator.description || "N/A"}
-- What they offer: ${creator.can_offer || "N/A"}
-- Objectives: ${creator.objectives || "N/A"}
-- Website: ${creator.website || "N/A"}
-
-Score this match from 0.0 to 1.0 based on audience relevance, creator credibility, and campaign goal alignment.
-
-Respond ONLY with valid JSON, no other text:
-{"score": 0.0, "reasoning": "one sentence explanation"}`;
-
-  return callScorer(prompt);
-}
-
-async function callScorer(
-  prompt: string
-): Promise<{ score: number; reasoning: string }> {
-  const anthropic = getAnthropic();
+Respond ONLY with valid JSON array, no other text:
+[{"index":1,"score":0.85,"reasoning":"one sentence"},{"index":2,"score":0.6,"reasoning":"one sentence"}]`;
 
   try {
+    const anthropic = getAnthropic();
     const completion = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 256,
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 512,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const text =
-      completion.content[0].type === "text" ? completion.content[0].text : "";
-
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const text = completion.content[0].type === "text" ? completion.content[0].text : "";
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.error("No JSON found in scoring response:", text);
-      return { score: 0, reasoning: "Scoring failed" };
+      console.error("No JSON array in batch scoring response:", text);
+      return [];
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      score: Math.max(0, Math.min(1, Number(parsed.score) || 0)),
-      reasoning: String(parsed.reasoning || "No reasoning provided"),
-    };
+    const scores = JSON.parse(jsonMatch[0]) as { index: number; score: number; reasoning: string }[];
+
+    return scores
+      .filter((s) => s.score > 0.3) // Min threshold
+      .map((s) => {
+        const candidate = candidates[s.index - 1];
+        if (!candidate) return null;
+
+        let adjustedScore = Math.max(0, Math.min(1, s.score));
+
+        // Boost for verified/high-rated
+        if (candidate.type === "newsletter") {
+          if (candidate.profile.api_verified) adjustedScore = Math.min(1, adjustedScore * 1.1);
+          if ((candidate.profile.avg_match_rating as number) > 4.0) adjustedScore = Math.min(1, adjustedScore * 1.05);
+        }
+
+        const match: Match = {
+          creatorId: candidate.profile.id as string,
+          creatorType: candidate.type,
+          creatorName: candidate.name,
+          score: adjustedScore,
+          reasoning: s.reasoning,
+        };
+
+        if (candidate.type === "newsletter") {
+          match.newsletter = candidate.profile as unknown as NewsletterProfile;
+        } else {
+          match.otherProfile = candidate.profile as unknown as OtherProfile;
+        }
+
+        return match;
+      })
+      .filter(Boolean) as Match[];
   } catch (err) {
-    console.error("Match scoring error:", err);
-    return { score: 0, reasoning: "Scoring failed due to an error" };
+    console.error("Batch scoring error:", err);
+    return [];
   }
 }
