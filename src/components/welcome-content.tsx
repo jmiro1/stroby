@@ -44,8 +44,8 @@ export default function WelcomeContent({
       ? profile.niches?.[0] ?? "your niche"
       : profile.primary_niche ?? "your niche";
 
-  const shareTextNewsletter = `I just joined @strobyai — an AI-powered marketplace that matches newsletters with vetted sponsors. Free to join, escrow-protected payments. Check it out: ${referralLink}`;
-  const shareTextBusiness = `Found a great tool for newsletter sponsorships — @strobyai uses AI to match you with verified newsletters. Escrow payments and placement guarantees. ${referralLink}`;
+  const shareTextNewsletter = `I just joined @strobyai — native brand distribution that connects creators with brands who genuinely fit their community. Check it out: ${referralLink}`;
+  const shareTextBusiness = `Found @strobyai — AI-powered native brand distribution. Connects you with creators and communities that actually care about your product. ${referralLink}`;
   const shareText =
     userType === "newsletter" ? shareTextNewsletter : shareTextBusiness;
 
@@ -84,8 +84,8 @@ export default function WelcomeContent({
           </h1>
           <p className="mt-4 text-lg text-muted-foreground">
             {userType === "newsletter"
-              ? "You're now part of our sponsor matching network."
-              : "We're finding the perfect newsletters for your brand."}
+              ? "You're now part of our native distribution network."
+              : "We're finding the right communities for your brand."}
           </p>
         </div>
       </section>
@@ -103,19 +103,19 @@ export default function WelcomeContent({
                   icon={Sparkles}
                   time="Now"
                   title="Your profile is live"
-                  description="Our AI is already scanning for sponsors that match your niche."
+                  description="Our AI is already finding brands that fit your community natively."
                 />
                 <TimelineItem
                   icon={Clock}
                   time="Within 48 hours"
                   title="First match incoming"
-                  description="You'll receive your first sponsor match suggestion via WhatsApp."
+                  description="You'll receive your first brand match suggestion via WhatsApp."
                 />
                 <TimelineItem
                   icon={CheckCircle}
                   time="Ongoing"
                   title="Sit back and earn"
-                  description="Sit back — we'll send you vetted sponsor opportunities as they come in."
+                  description="We'll send you brands that genuinely fit your audience as they come in."
                 />
               </>
             ) : (
@@ -152,7 +152,7 @@ export default function WelcomeContent({
               <h3 className="text-xl font-bold">Boost your profile</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Take these steps to increase your chances of getting matched
-                with premium sponsors.
+                with the right brands.
               </p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <Link
@@ -193,7 +193,7 @@ export default function WelcomeContent({
             <div className="rounded-xl border bg-card p-6 sm:p-8">
               <h3 className="text-xl font-bold">How you&apos;re protected</h3>
               <p className="mt-2 text-sm text-muted-foreground">
-                Every sponsorship on Stroby comes with built-in guarantees.
+                Every partnership on Stroby comes with built-in guarantees.
               </p>
               <div className="mt-6 space-y-4">
                 <ProtectionItem

@@ -68,7 +68,7 @@ export function classifyIntent(message: string): ClassifiedIntent {
 
 // Pre-built responses for classified intents (no AI needed)
 export const CANNED_RESPONSES: Record<string, string> = {
-  greeting: "Hey! How can I help you today? Looking for matches, want to update your profile, or have a question?",
+  greeting: "Hey! How can I help today? Looking for native distribution partners, want to update your profile, or have a question?",
   stop: "I've noted your request. If you'd like to delete your account, reply *delete my account* and I'll process it. Otherwise, I'll stop messaging you.",
   accept_no_match: "I appreciate the enthusiasm! But I don't have a pending match for you to accept right now. I'll message you when I find one!",
   decline_no_match: "No worries! There's nothing pending right now anyway. I'll only send you matches that are a really good fit.",

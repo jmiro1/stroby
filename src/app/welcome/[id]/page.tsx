@@ -7,7 +7,7 @@ import WelcomeContent from "@/components/welcome-content";
 export const metadata: Metadata = {
   title: "Welcome to Stroby",
   description:
-    "Your profile is live. See what happens next and start getting matched with sponsors or newsletters.",
+    "Your profile is live. See what happens next and start getting matched with the right brands and creators.",
 };
 
 async function fetchProfile(id: string, type?: string) {

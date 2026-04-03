@@ -13,27 +13,26 @@ const geistMono = Geist_Mono({
 });
 
 const seoDescription =
-  "Hey, I'm Stroby! An AI Superconnector connecting businesses, influencers and other curious humans through real conversations and warm introductions on WhatsApp. Get the right brand placements for your business, and the right products to represent for your audience.";
+  "Hey, I'm Stroby! Your AI-powered native brand distribution platform. I connect brands with the right creators and communities through authentic conversations on WhatsApp — because real influence comes from trust, not transactions.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://stroby.ai"),
   title: {
-    default: "Stroby - AI Superconnector for Brand Distribution",
+    default: "Stroby - Native Brand Distribution Through Real Communities",
     template: "%s | Stroby",
   },
   description: seoDescription,
   keywords: [
-    "brand distribution",
-    "influencer marketing",
-    "influencer matching",
-    "AI influencer platform",
-    "brand partnerships",
-    "creator sponsorships",
-    "AI matchmaker",
-    "connect with influencers",
-    "brand placement",
-    "marketing distribution",
-    "WhatsApp business",
+    "native brand distribution",
+    "native advertising",
+    "creator community marketing",
+    "authentic brand partnerships",
+    "influencer community",
+    "AI brand distribution",
+    "native content placement",
+    "community-driven marketing",
+    "creator-brand connections",
+    "WhatsApp brand distribution",
     "Stroby",
   ],
   icons: {
@@ -61,7 +60,7 @@ export const metadata: Metadata = {
     canonical: "https://stroby.ai",
   },
   openGraph: {
-    title: "Stroby - AI Superconnector for Brand Distribution",
+    title: "Stroby - Native Brand Distribution Through Real Communities",
     description: seoDescription,
     url: "https://stroby.ai",
     siteName: "Stroby",
@@ -72,13 +71,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Stroby - AI Superconnector for Brand Distribution",
+        alt: "Stroby - Native Brand Distribution Through Real Communities",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stroby - AI Superconnector for Brand Distribution",
+    title: "Stroby - Native Brand Distribution Through Real Communities",
     description: seoDescription,
     images: ["/og-image.png"],
   },
@@ -125,7 +124,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 url: "https://stroby.ai",
                 logo: "https://stroby.ai/logo-emoji.png",
                 description:
-                  "AI Superconnector for brand distribution. Connecting businesses, influencers and creators through real conversations and warm introductions on WhatsApp.",
+                  "Native brand distribution platform. Connecting brands with creators and communities through authentic conversations on WhatsApp.",
                 sameAs: [
                   "https://linkedin.com/company/stroby-ai",
                   "https://x.com/stroby_ai",
@@ -137,7 +136,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 name: "Stroby",
                 url: "https://stroby.ai",
                 description:
-                  "AI Superconnector connecting businesses, influencers and other curious humans through real conversations and warm introductions on WhatsApp. Get the right brand placements for your business, and the right products to represent for your audience.",
+                  "AI-powered native brand distribution. Connecting brands with creators and communities through authentic conversations — because real influence comes from trust, not transactions.",
               },
               {
                 "@context": "https://schema.org",

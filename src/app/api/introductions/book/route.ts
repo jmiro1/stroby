@@ -102,8 +102,8 @@ export async function POST(request: NextRequest) {
         price_data: {
           currency: "usd",
           product_data: {
-            name: `Newsletter Sponsorship - ${newsletter.newsletter_name}`,
-            description: `${adFormat || "Sponsored placement"} on ${placementDate || "TBD"}`,
+            name: `Native Distribution - ${newsletter.newsletter_name}`,
+            description: `${adFormat || "Native placement"} on ${placementDate || "TBD"}`,
           },
           unit_amount: amountCents,
         },
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
 
   // Send the payment link to the business via WhatsApp
   if (business.phone) {
-    const paymentMsg = `Your sponsorship deal is ready! 🎉\n\n📰 Newsletter: ${newsletter.newsletter_name}\n💰 Amount: $${(amountCents / 100).toFixed(2)}\n📅 Placement date: ${placementDate || "TBD"}\n📝 Format: ${adFormat || "TBD"}\n\nPay securely here: ${session.url}\n\n🔒 Your payment is held in escrow until the placement is delivered and verified.\n\n📊 Track clicks with your UTM link: ${utmLink}`;
+    const paymentMsg = `Your native distribution deal is ready! 🎉\n\n📰 ${newsletter.newsletter_name}\n💰 Amount: $${(amountCents / 100).toFixed(2)}\n📅 Placement: ${placementDate || "TBD"}\n📝 Format: ${adFormat || "TBD"}\n\nPay securely here: ${session.url}\n\n🔒 Payment held in escrow until delivery is verified.\n\n📊 Track with your UTM link: ${utmLink}`;
 
     const messageSid = await sendWhatsAppMessage(
       business.phone as string,

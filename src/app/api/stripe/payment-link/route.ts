@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Newsletter sponsorship: ${newsletterName}`,
+              name: `Native distribution: ${newsletterName}`,
             },
             unit_amount: transaction.amount,
           },
