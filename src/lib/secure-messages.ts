@@ -16,13 +16,16 @@ interface MessageInsert {
 }
 
 // Insert an agent message with encrypted content
-// Phone is NOT encrypted (needed for lookups), but content is
 export async function insertMessage(msg: MessageInsert) {
   const supabase = createServiceClient();
-  return supabase.from("agent_messages").insert({
+  const { error } = await supabase.from("agent_messages").insert({
     ...msg,
     content: encrypt(msg.content),
   });
+  if (error) {
+    console.error("insertMessage failed:", error.message, error.code, JSON.stringify(msg).slice(0, 200));
+  }
+  return { error };
 }
 
 // Read and decrypt messages by user_id

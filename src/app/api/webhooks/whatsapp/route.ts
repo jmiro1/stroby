@@ -45,39 +45,16 @@ export async function POST(request: NextRequest) {
 
   if (!phone) return new Response("OK", { status: 200 });
 
-  // Return 200 immediately — process in background
-  after(async () => {
-    try {
-      await processIncomingMessage({
-        phone, phoneWithPlus, rawBody, messageId, mediaUrl,
-      });
-    } catch (err) {
-      console.error("Background message processing error:", err);
-    }
-  });
-
-  return new Response("OK", { status: 200 });
-}
-
-// ── Background message processor ──
-async function processIncomingMessage(params: {
-  phone: string;
-  phoneWithPlus: string;
-  rawBody: string;
-  messageId: string;
-  mediaUrl: string | null;
-}) {
-  const { phone, phoneWithPlus, rawBody, messageId, mediaUrl } = params;
   const supabase = createServiceClient();
 
-  // Idempotency: skip if we already processed this message
+  // Idempotency: skip if already processed
   if (messageId) {
     const { data: existing } = await supabase
       .from("agent_messages")
       .select("id")
       .eq("whatsapp_message_id", messageId)
       .maybeSingle();
-    if (existing) return; // Already processed
+    if (existing) return new Response("OK", { status: 200 });
   }
 
   // Cap input length
@@ -89,28 +66,54 @@ async function processIncomingMessage(params: {
     });
   }
 
-  // Look up user
-  const [newsletterResult, businessResult, otherResult] = await Promise.all([
-    supabase.from("newsletter_profiles").select("id")
-      .or(`phone.eq.${phoneWithPlus},phone.eq.${phone}`).maybeSingle(),
-    supabase.from("business_profiles").select("id")
-      .or(`phone.eq.${phoneWithPlus},phone.eq.${phone}`).maybeSingle(),
-    supabase.from("other_profiles").select("id")
-      .or(`phone.eq.${phoneWithPlus},phone.eq.${phone}`).maybeSingle(),
+  // Log inbound message synchronously (before returning 200)
+  // This ensures the message is always saved even if background processing fails
+  const userLookup = await lookupUser(supabase, phone, phoneWithPlus);
+  await insertMessage({
+    direction: "inbound",
+    user_type: userLookup?.userType || null,
+    user_id: userLookup?.userId || null,
+    phone: phoneWithPlus,
+    content: body,
+    whatsapp_message_id: messageId,
+    media_url: mediaUrl,
+    media_count: mediaUrl ? 1 : 0,
+  });
+
+  // Heavy processing (AI, Stripe, etc.) in background
+  after(async () => {
+    try {
+      if (userLookup) {
+        await handleKnownUser(supabase, {
+          phoneWithPlus, body, mediaUrl,
+          userType: userLookup.userType, userId: userLookup.userId,
+        });
+      } else {
+        await handleNewUser(supabase, { phoneWithPlus, body });
+      }
+    } catch (err) {
+      console.error("Background processing error:", err);
+    }
+  });
+
+  return new Response("OK", { status: 200 });
+}
+
+// ── User lookup ──
+async function lookupUser(
+  supabase: ReturnType<typeof createServiceClient>,
+  phone: string,
+  phoneWithPlus: string
+): Promise<{ userType: "newsletter" | "business" | "other"; userId: string } | null> {
+  const [nr, br, or_] = await Promise.all([
+    supabase.from("newsletter_profiles").select("id").or(`phone.eq.${phoneWithPlus},phone.eq.${phone}`).maybeSingle(),
+    supabase.from("business_profiles").select("id").or(`phone.eq.${phoneWithPlus},phone.eq.${phone}`).maybeSingle(),
+    supabase.from("other_profiles").select("id").or(`phone.eq.${phoneWithPlus},phone.eq.${phone}`).maybeSingle(),
   ]);
-
-  let userType: "newsletter" | "business" | "other" | null = null;
-  let userId: string | null = null;
-
-  if (newsletterResult.data) { userType = "newsletter"; userId = newsletterResult.data.id; }
-  else if (businessResult.data) { userType = "business"; userId = businessResult.data.id; }
-  else if (otherResult.data) { userType = "other"; userId = otherResult.data.id; }
-
-  if (userType && userId) {
-    await handleKnownUser(supabase, { phoneWithPlus, body, messageId, mediaUrl, userType, userId });
-  } else {
-    await handleNewUser(supabase, { phoneWithPlus, body, messageId });
-  }
+  if (nr.data) return { userType: "newsletter", userId: nr.data.id };
+  if (br.data) return { userType: "business", userId: br.data.id };
+  if (or_.data) return { userType: "other", userId: or_.data.id };
+  return null;
 }
 
 // ── Known user handler with pre-AI classification ──
@@ -119,20 +122,14 @@ async function handleKnownUser(
   params: {
     phoneWithPlus: string;
     body: string;
-    messageId: string;
     mediaUrl: string | null;
     userType: "newsletter" | "business" | "other";
     userId: string;
   }
 ) {
-  const { phoneWithPlus, body, messageId, mediaUrl, userType, userId } = params;
+  const { phoneWithPlus, body, mediaUrl, userType, userId } = params;
 
-  // Log inbound
-  await insertMessage({
-    direction: "inbound", user_type: userType, user_id: userId,
-    phone: phoneWithPlus, content: body, whatsapp_message_id: messageId,
-    media_url: mediaUrl, media_count: mediaUrl ? 1 : 0,
-  });
+  // Inbound already logged synchronously before after(). Just handle the response.
 
   // Pre-AI classification — handle simple intents without AI
   const intent = classifyIntent(body);
@@ -241,14 +238,11 @@ async function handleKnownUser(
 // ── New user handler (onboarding) ──
 async function handleNewUser(
   supabase: ReturnType<typeof createServiceClient>,
-  params: { phoneWithPlus: string; body: string; messageId: string }
+  params: { phoneWithPlus: string; body: string }
 ) {
-  const { phoneWithPlus, body, messageId } = params;
+  const { phoneWithPlus, body } = params;
 
-  await insertMessage({
-    direction: "inbound", phone: phoneWithPlus, content: body,
-    whatsapp_message_id: messageId,
-  });
+  // Inbound already logged synchronously before after().
 
   const result = await handleOnboardingMessage(phoneWithPlus, body);
 
