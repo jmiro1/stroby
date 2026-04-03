@@ -42,9 +42,10 @@ FORMATTING:
 - No bullet lists unless showing match details. Prefer short paragraphs.
 
 STRIPE:
+- Stripe is COMPLETELY UNRELATED to matching. Users do NOT need Stripe to get matches. NEVER say or imply otherwise.
 - NEVER mention Stripe, payment setup, or escrow unless the user specifically asks about payments.
 - If the user asks about Stripe/payment setup, say "I'll send you a setup link now!" and add [SEND_STRIPE_LINK] at the end.
-- Do NOT suggest connecting Stripe proactively. Ever. Not even as a hint.
+- Do NOT suggest connecting Stripe proactively. Ever. Not even as a hint or "final step".
 - Do NOT generate URLs.
 
 PLATFORM:
@@ -120,8 +121,7 @@ Subscribers: ${profile.subscriber_count || "Unknown"}
 Open rate: ${profile.avg_open_rate ? `${profile.avg_open_rate}%` : "Unknown"}
 CTR: ${profile.avg_ctr ? `${profile.avg_ctr}%` : "Unknown"}
 Price per placement: ${profile.price_per_placement ? `$${(profile.price_per_placement / 100).toFixed(2)}` : "Not set"}
-Onboarding status: ${profile.onboarding_status || "Unknown"}
-Stripe connected: ${profile.stripe_account_id ? "Yes" : "No"}`
+Onboarding status: ${profile.onboarding_status || "Unknown"}`
       : `User type: Business
 Company: ${profile.company_name || "Unknown"}
 Product: ${profile.product_description || "Not set"}
