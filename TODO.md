@@ -132,7 +132,16 @@
 - [ ] Dynamic URL in welcome_confirmation template (pass user ID)
 - [ ] Add email as fallback communication channel
 
-### Priority E: Enterprise Roadmap (Ideas)
+### Priority E: Matching Refinement
+- [ ] Review and refine scoring weights — current LLM prompt is basic, needs more nuanced criteria
+- [ ] Add decline tracking — when a match is declined, store the reason and exclude similar future matches
+- [ ] Weight niche affinity (exact niche match > related niche)
+- [ ] Factor in past match success rate per niche pair
+- [ ] Consider audience geography overlap (business target region vs. newsletter audience region)
+- [ ] A/B test different scoring prompts to optimize acceptance rates
+- [ ] Add "why not" reasoning for low scores to improve the affinity map over time
+
+### Priority F: Enterprise Roadmap (Ideas)
 - [ ] Meta webhook signature verification (HMAC-SHA256 on POST payloads)
 - [ ] Matching Engine v2: semantic embeddings, feedback loop, engagement scoring, batch scoring
 - [ ] Proactive engagement drips (day 1/3/7 messages, monthly digests)
