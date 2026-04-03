@@ -165,7 +165,7 @@ async function handleKnownUser(
     return;
   }
 
-  // Accept/decline/tell_me_more — check for pending intro first
+  // Accept/decline/tell_me_more — only intercept if there's a pending intro
   if (intent.type === "accept" || intent.type === "decline" || intent.type === "tell_me_more") {
     const introColumn = userType === "newsletter" ? "newsletter_id" : "business_id";
     const pendingStatuses = userType === "business" ? ["suggested"] : ["business_accepted"];
@@ -175,7 +175,6 @@ async function handleKnownUser(
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
     if (pendingIntro) {
-      // Trigger the respond flow
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
       try {
         await fetch(`${baseUrl}/api/introductions/respond`, {
@@ -191,15 +190,9 @@ async function handleKnownUser(
       } catch (err) {
         console.error("Failed to process intro response:", err);
       }
-      // The respond endpoint sends its own WhatsApp messages
       return;
     }
-
-    // No pending intro — send canned response
-    const key = `${intent.type}_no_match`;
-    const response = CANNED_RESPONSES[key] || CANNED_RESPONSES[`${intent.type.replace("tell_me_more", "more")}_no_match`] || "Nothing pending right now — I'll message you when I find a great match!";
-    await sendAndLog(phoneWithPlus, response, userType, userId);
-    return;
+    // No pending intro — fall through to AI (user might be saying "yes" to something else)
   }
 
   // ── Needs AI — send to agent ──
