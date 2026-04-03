@@ -49,7 +49,12 @@ PLATFORM:
 - There is NO dashboard, web portal, or login. Everything is through this WhatsApp chat.
 - Do not tell users to email anyone or visit any website.
 
-Only reference information from the user context below.`;
+PROFILE UPDATES:
+- If the user mentions updated info (new subscriber count, pricing, name change, etc.), acknowledge it and add [PROFILE_UPDATE] followed by JSON at the end. Example: [PROFILE_UPDATE]{"subscriber_count": 50000}
+- Valid newsletter fields: subscriber_count, avg_open_rate, avg_ctr, price_per_placement (cents), primary_niche, description
+- Valid business fields: target_customer, budget_range, primary_niche, campaign_goal, description
+
+Only reference information from the user context and conversation summary below.`;
 
 interface AgentResponse {
   response: string;
@@ -91,8 +96,8 @@ export async function handleInboundMessage(
   const profile = newsletterProfile || businessProfile;
   const userId = profile.id as string;
 
-  // Fetch last 10 messages for conversation history (decrypted)
-  const recentMessages = await readDecryptedMessages(userId, 10);
+  // Fetch last 5 messages + conversation summary for context
+  const recentMessages = await readDecryptedMessages(userId, 5);
 
   // Fetch pending introductions for this user
   const introColumn =
@@ -123,6 +128,16 @@ Campaign goal: ${profile.campaign_goal || "Not set"}
 Budget range: ${profile.budget_range || "Not set"}
 Niche: ${profile.primary_niche || "Not set"}
 Onboarding status: ${profile.onboarding_status || "Unknown"}`;
+
+  // Conversation summary (long-term memory)
+  const summaryContext = profile.conversation_summary
+    ? `\nConversation history summary: ${profile.conversation_summary}`
+    : "";
+
+  // User preferences from past conversations
+  const prefsContext = profile.preferences && Object.keys(profile.preferences).length > 0
+    ? `\nUser preferences: ${JSON.stringify(profile.preferences)}`
+    : "";
 
   const introContext =
     pendingIntros && pendingIntros.length > 0
@@ -165,7 +180,7 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 256,
-    system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${introContext}`,
+    system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${summaryContext}${prefsContext}${introContext}`,
     messages,
   });
 
@@ -262,85 +277,8 @@ export async function processAgentResponse(
 ): Promise<string> {
   const supabase = createServiceClient();
 
-  // Check for action keywords in the user's last inbound message
-  const { data: lastInbound } = await supabase
-    .from("agent_messages")
-    .select("content")
-    .eq("user_id", userId)
-    .eq("direction", "inbound")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (lastInbound?.content) {
-    const content = (lastInbound.content as string).toLowerCase().trim();
-    const intent = detectIntent(content);
-
-    if (intent) {
-      const introColumn =
-        userType === "newsletter" ? "newsletter_id" : "business_id";
-
-      // Determine which statuses to look for based on user type
-      const pendingStatuses =
-        userType === "business"
-          ? ["suggested"]
-          : ["business_accepted"]; // Newsletter responds to business_accepted intros
-
-      // Find the most recent pending introduction for this user
-      const { data: pendingIntro } = await supabase
-        .from("introductions")
-        .select("id, status")
-        .eq(introColumn, userId)
-        .in("status", pendingStatuses)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (pendingIntro) {
-        // Call the respond endpoint logic directly
-        const respondPayload = {
-          introductionId: pendingIntro.id,
-          responderId: userId,
-          responderType: userType,
-          response: intent,
-        };
-
-        try {
-          const baseUrl =
-            process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-          await fetch(`${baseUrl}/api/introductions/respond`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(respondPayload),
-          });
-        } catch (err) {
-          console.error("Failed to process introduction response:", err);
-        }
-      }
-    }
-
-    // Check for rating (1-5) - independent of introduction responses
-    const ratingMatch = content.match(/^(\d)(?:\s*(?:\/5|out of 5|stars?))?$/);
-    if (ratingMatch) {
-      const rating = parseInt(ratingMatch[1], 10);
-      if (rating >= 1 && rating <= 5) {
-        const introColumn =
-          userType === "newsletter" ? "newsletter_id" : "business_id";
-        const ratingColumn =
-          userType === "newsletter"
-            ? "newsletter_rating"
-            : "business_rating";
-
-        await supabase
-          .from("introductions")
-          .update({ [ratingColumn]: rating })
-          .eq(introColumn, userId)
-          .in("status", ["completed", "introduced"])
-          .order("created_at", { ascending: false })
-          .limit(1);
-      }
-    }
-  }
+  // Intent detection and action handling is now done pre-AI in the webhook.
+  // This function just handles logging and periodic summarization.
 
   // Log the outbound message (encrypted)
   await insertMessage({
@@ -350,6 +288,41 @@ export async function processAgentResponse(
     phone,
     content: response,
   });
+
+  // Conversation summarization: every 10 messages, compress history
+  try {
+    const { count } = await supabase
+      .from("agent_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (count && count % 10 === 0 && count > 0) {
+      const allMessages = await readDecryptedMessages(userId, 10);
+      if (allMessages.length >= 8) {
+        const transcript = allMessages
+          .map((m) => `${m.direction === "inbound" ? "User" : "Stroby"}: ${m.content.slice(0, 200)}`)
+          .join("\n");
+
+        const anthropic = getAnthropic();
+        const summaryResult = await anthropic.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 150,
+          messages: [{
+            role: "user",
+            content: `Summarize this conversation in 2-3 sentences. Focus on: what the user wants, any preferences mentioned, and current status.\n\n${transcript}`,
+          }],
+        });
+
+        const summary = summaryResult.content[0].type === "text" ? summaryResult.content[0].text : "";
+        if (summary) {
+          const table = userType === "newsletter" ? "newsletter_profiles" : "business_profiles";
+          await supabase.from(table).update({ conversation_summary: summary }).eq("id", userId);
+        }
+      }
+    }
+  } catch {
+    // Non-critical — don't break the response flow
+  }
 
   return response;
 }

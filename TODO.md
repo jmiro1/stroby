@@ -116,17 +116,36 @@
 - [ ] Consider Vercel Pro for additional cron jobs (currently 1 daily on Hobby plan)
 
 ### Priority D: Feature Improvements
-- [ ] Auto-send Stripe Connect link when a deal is ready (not before)
-- [ ] AI voice call flow (call_permission template registered, needs integration with voice API)
-- [ ] Welcome template message for new signups (currently pending approval)
+- [x] Auto-send Stripe Connect link when a deal is ready
+- [x] Pre-AI intent classification (greetings, yes/no, ratings, stripe requests handled without AI)
+- [x] Async webhook processing (return 200 immediately, process in background)
+- [x] Conversation memory (summaries every 10 messages, stored on profile)
+- [x] Profile auto-update from conversations ([PROFILE_UPDATE] marker)
+- [x] Idempotency on webhook (unique index on whatsapp_message_id)
+- [ ] AI voice call flow (call_permission template registered, needs voice API integration)
+- [ ] Welcome template message for new signups (pending Meta approval)
 - [ ] Dynamic URL in welcome_confirmation template (pass user ID)
-- [ ] Improve AI agent context — include recent match history, better niche understanding
 - [ ] Add email as fallback communication channel
 
-### Priority E: Operational
+### Priority E: Enterprise Roadmap (Ideas)
+- [ ] Meta webhook signature verification (HMAC-SHA256 on POST payloads)
+- [ ] Matching Engine v2: semantic embeddings, feedback loop, engagement scoring, batch scoring
+- [ ] Proactive engagement drips (day 1/3/7 messages, monthly digests)
+- [ ] Referral system with unique codes and priority matching
+- [ ] Rate limiting & abuse prevention (30 msg/phone/hour, auto-block after 3 flags)
+- [ ] Monitoring & alerting (Sentry, uptime checks, token expiry alerts)
+- [ ] Vercel Pro + separate cron jobs (matching, reminders, follow-ups, engagement)
+- [ ] Database hardening (real RLS policies, row-level encryption for email/phone, soft deletes)
+- [ ] WhatsApp template optimization (track last message time, skip text-first attempt when >24h)
+- [ ] Multi-channel readiness (abstract messaging layer, email fallback, Telegram)
+- [ ] Admin panel (flagged messages queue, user stats, match history, token usage)
+- [ ] Permanent WhatsApp token (automate renewal or long-lived exchange)
+- [ ] Legal & compliance automation (GDPR export, automated purge, consent audit trail)
+- [ ] AI voice call integration (Vapi/Bland.ai, opt-in only)
+
+### Priority F: Operational
 - [ ] Set up monitoring/alerts for webhook failures
 - [ ] Set up monitoring for WhatsApp token expiry
-- [ ] Error handling improvements (idempotency for webhooks, retry logic)
 - [ ] Remove debug logging from whatsapp.ts once stable
 
 ## Infrastructure
