@@ -48,9 +48,9 @@ export default function WhatsAppPage() {
         </h1>
 
         <p className="mb-8 text-lg text-muted-foreground">
-          Native brand distribution through real communities. I connect brands
-          with creators who genuinely care about what they share — through
-          authentic conversations on WhatsApp.
+          Your AI Superconnector for brand distribution. I match businesses with
+          the perfect influencers and newsletters through real conversations on
+          WhatsApp.
         </p>
 
         {/* WhatsApp CTA */}

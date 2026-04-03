@@ -79,7 +79,7 @@ export default function HomePage() {
             Hey, I&apos;m <span className="text-primary">Stroby</span>
           </h1>
           <p className="mt-3 max-w-md text-center text-lg text-muted-foreground sm:text-xl">
-            Native brand distribution through real communities.
+            Your AI Superconnector for brand distribution.
           </p>
 
           {/* Message button */}

@@ -106,7 +106,7 @@ const BUSINESS_STEPS: Step[] = [
   { question: "What's your niche? Describe it briefly.", field: "custom_niche", inputType: "text", placeholder: "e.g., Pet care, Automotive, Gaming...", conditionField: "primary_niche", conditionValue: "Other" },
   { question: "What kind of audience do you want to get in front of?", field: "description", inputType: "textarea", placeholder: "e.g., Marketing decision-makers at mid-market companies..." },
   { question: "What type of partners are you looking for?", field: "partner_preference", inputType: "select", options: PARTNER_PREFERENCES },
-  { question: "What's your monthly budget for native distribution partnerships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
+  { question: "What's your monthly budget for sponsorships or partnerships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
   { question: "What's the main goal for this campaign?", field: "campaign_goal", inputType: "select", options: CAMPAIGN_GOALS },
   { question: "How soon are you looking to get started?", field: "timeline", inputType: "select", options: TIMELINES },
   { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
@@ -296,7 +296,7 @@ export default function OnboardingChat() {
         {
           role: "bot",
           content:
-            "Hey! I'm Stroby — I help brands reach the right audiences through native distribution with creators and communities who genuinely care.\n\nTell me about yourself and I'll connect you with the right people.",
+            "Hey! I'm Stroby, your AI Superconnector for brand distribution. I connect awesome companies to influencers and vice versa.\n\nTell me who you are and I'll connect you with relevant businesses, influencers, or other people that would be valuable for you.",
         },
       ]);
       setIsTyping(false);
@@ -788,7 +788,7 @@ export default function OnboardingChat() {
         </div>
         <div>
           <p className="text-sm font-semibold text-primary-foreground">Stroby</p>
-          <p className="text-xs text-primary-foreground/70">Native Brand Distribution</p>
+          <p className="text-xs text-primary-foreground/70">Your Marketing-Focussed AI Superconnector</p>
         </div>
       </div>
 

@@ -165,8 +165,8 @@ export default function AboutPage() {
                   },
                   {
                     icon: Sparkles,
-                    title: "Native brand partnerships",
-                    description: "AI finds brands that fit your community naturally.",
+                    title: "Passive brand deals",
+                    description: "AI finds sponsors for you automatically.",
                   },
                   {
                     icon: CheckCircle,

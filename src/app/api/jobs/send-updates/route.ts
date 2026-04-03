@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       .gte("created_at", oneWeekAgo.toISOString());
 
     if ((count ?? 0) > 0) {
-      const updateText = `Hey ${newsletter.newsletter_name || "there"}! Quick weekly update from Stroby: ${count} new ${count === 1 ? "brand" : "brands"} in ${newsletter.primary_niche} joined this week looking for native distribution partners. We're working on finding the best matches for you!`;
+      const updateText = `Hey ${newsletter.newsletter_name || "there"}! Quick weekly update from Stroby: ${count} new ${count === 1 ? "business" : "businesses"} in ${newsletter.primary_niche} joined this week looking for newsletter sponsorships. We're working on finding the best matches for you. Stay tuned!`;
 
       // Log the outbound message to agent_messages
       const { error: msgError } = await supabase
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       if (msgError) {
         console.error("Failed to log update message:", msgError);
       } else {
-        const updateSummary = `${count} new ${count === 1 ? "brand" : "brands"} in ${newsletter.primary_niche} joined this week looking for native distribution partners. We're working on finding the best matches for you!`;
+        const updateSummary = `${count} new ${count === 1 ? "business" : "businesses"} in ${newsletter.primary_niche} joined this week looking for newsletter sponsorships. We're working on finding the best matches for you. Stay tuned!`;
         await sendWhatsAppSmart(newsletter.phone, updateText, "weekly_update", [newsletter.newsletter_name || "there", updateSummary]);
         updatesSent++;
       }

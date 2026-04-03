@@ -3,11 +3,11 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Message Stroby on WhatsApp",
   description:
-    "Chat with Stroby for native brand distribution. Connect with creators and communities who genuinely care — all through WhatsApp.",
+    "Chat with Stroby, your AI Superconnector for brand distribution. Get matched with the perfect influencers and newsletters for your business — all through WhatsApp.",
   openGraph: {
     title: "Message Stroby on WhatsApp",
     description:
-      "Native brand distribution through real communities. Connect with the right creators through authentic conversations.",
+      "Chat with Stroby, your AI Superconnector. Get matched with influencers and newsletters through real conversations.",
     url: "/whatsapp",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Message Stroby on WhatsApp",
     description:
-      "Native brand distribution through real communities. Connect with the right creators through authentic conversations.",
+      "Chat with Stroby, your AI Superconnector. Get matched with influencers and newsletters through real conversations.",
     images: ["/og-image.png"],
   },
 };
