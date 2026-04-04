@@ -17,8 +17,10 @@ type Tab = "beehiiv" | "convertkit" | "screenshot";
 type VerifyResult = {
   success: boolean;
   error?: string;
-  metrics?: Record<string, number>;
-  discrepancy?: boolean;
+  status?: "verified" | "review" | "pending_review";
+  message?: string;
+  metrics?: Record<string, number | string | null>;
+  discrepancies?: string[];
 };
 
 export function VerifyForm({
@@ -315,41 +317,42 @@ export function VerifyForm({
         {result && (
           <div
             className={`flex items-start gap-3 rounded-lg border p-4 ${
-              result.success
+              result.status === "verified"
                 ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                : result.success
+                ? "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950"
                 : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
             }`}
           >
-            {result.success ? (
+            {result.status === "verified" ? (
               <CheckCircle className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-400" />
+            ) : result.success ? (
+              <AlertCircle className="mt-0.5 size-5 shrink-0 text-yellow-600 dark:text-yellow-400" />
             ) : (
               <AlertCircle className="mt-0.5 size-5 shrink-0 text-red-600 dark:text-red-400" />
             )}
             <div className="space-y-1 text-sm">
-              {result.success ? (
+              {result.status === "verified" ? (
                 <>
                   <p className="font-medium text-green-800 dark:text-green-200">
-                    Verification successful!
+                    Verified! ✅ You may close this page.
                   </p>
                   {result.metrics && (
                     <p className="text-green-700 dark:text-green-300">
-                      {result.metrics.subscribers?.toLocaleString()} subscribers
-                      {result.metrics.openRate !== undefined &&
-                        `, ${result.metrics.openRate.toFixed(1)}% open rate`}
-                      {result.metrics.ctr !== undefined &&
-                        `, ${result.metrics.ctr.toFixed(1)}% CTR`}
-                    </p>
-                  )}
-                  {result.discrepancy && (
-                    <p className="text-yellow-700 dark:text-yellow-300">
-                      Note: Some metrics differed from what you reported. We
-                      have updated them to match your platform data.
+                      {result.metrics.subscribers ? `${Number(result.metrics.subscribers).toLocaleString()} subscribers` : ""}
+                      {result.metrics.openRate ? `, ${Number(result.metrics.openRate).toFixed(1)}% open rate` : ""}
+                      {result.metrics.ctr ? `, ${Number(result.metrics.ctr).toFixed(1)}% CTR` : ""}
+                      {result.metrics.platform ? ` (${result.metrics.platform})` : ""}
                     </p>
                   )}
                 </>
+              ) : result.success ? (
+                <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                  {result.message || "Upload received — we'll review it shortly."} You may close this page.
+                </p>
               ) : (
                 <p className="font-medium text-red-800 dark:text-red-200">
-                  {result.error ?? "Verification failed. Please try again."}
+                  {result.error ?? "Something went wrong. Please try again."}
                 </p>
               )}
             </div>
