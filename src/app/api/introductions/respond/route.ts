@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { sendWhatsAppMessage, sendWhatsAppSmart } from "@/lib/whatsapp";
 import { getStripe } from "@/lib/stripe";
+import { updateUserInsights } from "@/lib/user-insights";
 
 // Helper to get creator profile from either table
 async function getCreatorProfile(
@@ -99,6 +100,12 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", introductionId);
 
+      await updateUserInsights(business.id as string, "business", {
+        type: "match_accepted",
+        niche: (creator.profile.primary_niche || creator.profile.niche || "Unknown") as string,
+        score: intro.match_score as number,
+      });
+
       // Send WhatsApp to creator asking if they want the intro
       if (creator.phone) {
         let creatorMessage: string;
@@ -137,6 +144,12 @@ export async function POST(request: NextRequest) {
           business_response_at: new Date().toISOString(),
         })
         .eq("id", introductionId);
+
+      await updateUserInsights(business.id as string, "business", {
+        type: "match_declined",
+        niche: (creator.profile.primary_niche || creator.profile.niche || "Unknown") as string,
+        score: intro.match_score as number,
+      });
 
       if (business.phone) {
         const declineMsg =
@@ -199,6 +212,12 @@ export async function POST(request: NextRequest) {
           newsletter_response_at: new Date().toISOString(),
         })
         .eq("id", introductionId);
+
+      await updateUserInsights(creator.profile.id as string, creator.type, {
+        type: "match_accepted",
+        niche: (business.primary_niche || "Unknown") as string,
+        score: intro.match_score as number,
+      });
 
       // Check if double opt-in is complete
       if (intro.status === "business_accepted") {
@@ -290,8 +309,17 @@ export async function POST(request: NextRequest) {
             });
           } catch (err) {
             console.error("Failed to generate Stripe Connect link:", err);
-            // Non-critical — don't block the introduction
           }
+        }
+
+        // Send referral prompt to both parties (after successful intro)
+        const referralMsg = `By the way — know someone who'd be great on Stroby? Forward them this message:\n\n"Hey! I'm using Stroby to find brand partnerships through WhatsApp. It's free and the AI finds you matches automatically. Try it: https://wa.me/message/2QFL7QR7EBZTD1"`;
+
+        if (business.phone) {
+          await sendWhatsAppMessage(business.phone as string, referralMsg);
+        }
+        if (creator.phone) {
+          await sendWhatsAppMessage(creator.phone, referralMsg);
         }
       }
     } else if (response === "decline") {
@@ -303,6 +331,12 @@ export async function POST(request: NextRequest) {
           newsletter_response_at: new Date().toISOString(),
         })
         .eq("id", introductionId);
+
+      await updateUserInsights(creator.profile.id as string, creator.type, {
+        type: "match_declined",
+        niche: (business.primary_niche || "Unknown") as string,
+        score: intro.match_score as number,
+      });
 
       if (creator.phone) {
         const ackMsg =

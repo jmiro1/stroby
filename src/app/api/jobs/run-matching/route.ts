@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { findMatchesForBusiness } from "@/lib/matching";
 import { sendWhatsAppSmart } from "@/lib/whatsapp";
+import { updateUserInsights } from "@/lib/user-insights";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -83,6 +84,13 @@ export async function POST(request: NextRequest) {
       }
 
       matchesSuggested++;
+
+      // Track insight: match suggested
+      await updateUserInsights(business.id, "business", {
+        type: "match_suggested",
+        niche: match.newsletter?.primary_niche || match.otherProfile?.niche || "Unknown",
+        score: match.score,
+      });
 
       if (!business.phone) continue;
 

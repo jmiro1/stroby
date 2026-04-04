@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
 import { readDecryptedMessages, insertMessage } from "./secure-messages";
+import { formatInsightsForAI, formatPlatformStatsForAI } from "./user-insights";
 
 // Lazy-loaded Anthropic client
 let _anthropic: Anthropic | null = null;
@@ -145,9 +146,16 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
     ? `\nConversation history summary: ${profile.conversation_summary}`
     : "";
 
-  // User preferences from past conversations
+  // Self-learning insights (match history, patterns, preferences)
+  const insightsContext = formatInsightsForAI(profile.preferences as Record<string, unknown> | null);
+
+  // Platform stats (how many businesses in their niche, etc.)
+  const platformContext = formatPlatformStatsForAI(null, profile.primary_niche || profile.niche || null);
+  // Note: platform stats will be populated once the daily cron computes them
+
+  // Legacy preferences (kept for backwards compat)
   const prefsContext = profile.preferences && Object.keys(profile.preferences).length > 0
-    ? `\nUser preferences: ${JSON.stringify(profile.preferences)}`
+    ? "" // Now handled by insightsContext above
     : "";
 
   const introContext =
@@ -191,7 +199,7 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 256,
-    system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${summaryContext}${prefsContext}${introContext}`,
+    system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${insightsContext}${platformContext}${summaryContext}${introContext}`,
     messages,
   });
 
