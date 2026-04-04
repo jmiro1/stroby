@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Zap, CheckCircle, AlertCircle, Upload, Key } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Zap, CheckCircle, AlertCircle, Upload, Key, FileImage, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,12 +28,42 @@ export function VerifyForm({
   newsletterId: string;
   newsletterName: string;
 }) {
-  const [activeTab, setActiveTab] = useState<Tab>("beehiiv");
+  const [activeTab, setActiveTab] = useState<Tab>("screenshot");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
-  const [screenshotUrl, setScreenshotUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VerifyResult | null>(null);
+
+  // File upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "application/pdf"];
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+  const validateFile = useCallback((file: File): string | null => {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return "Please upload a PNG, JPEG, WebP, GIF, or PDF file.";
+    }
+    if (file.size > MAX_SIZE) {
+      return `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 10MB.`;
+    }
+    if (file.size < 5 * 1024) {
+      return "File too small — this doesn't look like a screenshot.";
+    }
+    return null;
+  }, []);
+
+  function handleFileSelect(file: File) {
+    const error = validateFile(file);
+    if (error) {
+      setResult({ success: false, error });
+      return;
+    }
+    setSelectedFile(file);
+    setResult(null);
+  }
 
   async function handleBeehiiv() {
     if (!apiKey.trim()) return;
@@ -73,21 +103,25 @@ export function VerifyForm({
     }
   }
 
-  async function handleScreenshot() {
-    if (!screenshotUrl.trim()) return;
+  async function handleScreenshotUpload() {
+    if (!selectedFile) return;
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch("/api/verify/screenshot", {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("newsletterId", newsletterId);
+      const res = await fetch("/api/verify/upload", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          newsletterId,
-          screenshotUrl: screenshotUrl.trim(),
-        }),
+        body: formData,
       });
       const data = await res.json();
-      setResult(data);
+      if (data.success) {
+        setResult({ success: true });
+        setSelectedFile(null);
+      } else {
+        setResult({ success: false, error: data.error || "Upload failed." });
+      }
     } catch {
       setResult({ success: false, error: "Network error. Please try again." });
     } finally {
@@ -96,9 +130,9 @@ export function VerifyForm({
   }
 
   const tabs: { key: Tab; label: string }[] = [
+    { key: "screenshot", label: "Screenshot" },
     { key: "beehiiv", label: "Beehiiv" },
     { key: "convertkit", label: "ConvertKit" },
-    { key: "screenshot", label: "Screenshot" },
   ];
 
   return (
@@ -203,36 +237,76 @@ export function VerifyForm({
           </div>
         )}
 
-        {/* Screenshot Tab */}
+        {/* Screenshot Tab — Drag & Drop */}
         {activeTab === "screenshot" && (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="screenshot-url">
-                Screenshot URL
-              </label>
-              <div className="relative">
-                <Upload className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="screenshot-url"
-                  type="url"
-                  placeholder="https://..."
-                  value={screenshotUrl}
-                  onChange={(e) => setScreenshotUrl(e.target.value)}
-                  className="pl-9"
-                />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileSelect(file);
+              }}
+            />
+
+            {!selectedFile ? (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleFileSelect(file);
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed p-8 transition-colors ${
+                  dragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50 hover:bg-muted/50"
+                }`}
+              >
+                <Upload className="size-8 text-muted-foreground" />
+                <div className="text-center">
+                  <p className="text-sm font-medium">
+                    Drop your screenshot here or click to browse
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    PNG, JPEG, WebP, GIF, or PDF — max 10MB
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Upload your analytics screenshot to an image host (e.g. Imgur,
-                Cloudinary) and paste the URL here. Make sure the screenshot
-                shows subscriber count, open rate, and date.
-              </p>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-4">
+                <FileImage className="size-8 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{selectedFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(selectedFile.size / 1024).toFixed(0)} KB
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setSelectedFile(null); setResult(null); }}
+                  className="shrink-0 rounded-full p-1 hover:bg-muted"
+                >
+                  <X className="size-4 text-muted-foreground" />
+                </button>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              Upload a screenshot of your analytics dashboard showing subscriber
+              count, open rate, and date. This helps us verify your audience.
+            </p>
+
             <Button
               className="w-full"
-              onClick={handleScreenshot}
-              disabled={loading || !screenshotUrl.trim()}
+              onClick={handleScreenshotUpload}
+              disabled={loading || !selectedFile}
             >
-              {loading ? "Submitting..." : "Submit Screenshot"}
+              {loading ? "Uploading..." : "Submit Screenshot"}
             </Button>
           </div>
         )}
