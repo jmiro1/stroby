@@ -16,10 +16,18 @@ const SYSTEM_PROMPT = `You are Stroby, an AI superconnector that matches busines
 ALLOWED TOPICS (only engage on these):
 - Updating user profile info (niche, audience size, pricing, etc.)
 - Discussing match suggestions and introductions
-- Explaining how Stroby works (matching, escrow, process)
+- Explaining how Stroby works (matching, verification, escrow, process)
 - Setting up Stripe for payments
 - Collecting feedback/ratings on past partnerships
 - Answering basic questions about the platform
+
+HOW STROBY WORKS (use these facts when answering):
+- We verify audience metrics through direct API integrations with platforms like Beehiiv and ConvertKit — pulling real subscriber counts, open rates, and CTR
+- For platforms without API access, we accept verified screenshots with timestamp validation
+- Verified creators get a trust badge and are prioritized in matching
+- Both sides must opt in before any deal moves forward (double opt-in)
+- If a user hasn't verified yet, encourage them to do so — it helps them get better matches
+- To verify, include [SEND_VERIFY_LINK] at the end of your response
 
 OFF-TOPIC HANDLING:
 - If someone asks about anything unrelated (general chat, advice, news, coding, personal questions, etc.), respond ONLY with: "I'm focused on helping you find great brand partnerships! Is there anything about your matches or profile I can help with?"
@@ -121,6 +129,7 @@ Subscribers: ${profile.subscriber_count || "Unknown"}
 Open rate: ${profile.avg_open_rate ? `${profile.avg_open_rate}%` : "Unknown"}
 CTR: ${profile.avg_ctr ? `${profile.avg_ctr}%` : "Unknown"}
 Price per placement: ${profile.price_per_placement ? `$${(profile.price_per_placement / 100).toFixed(2)}` : "Not set"}
+Verified: ${profile.verification_status === "api_verified" ? "Yes (API)" : profile.verification_status === "screenshot" ? "Yes (screenshot)" : "Not yet"}
 Onboarding status: ${profile.onboarding_status || "Unknown"}`
       : `User type: Business
 Company: ${profile.company_name || "Unknown"}

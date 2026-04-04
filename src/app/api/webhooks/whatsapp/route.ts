@@ -202,10 +202,12 @@ async function handleKnownUser(
   const shouldSendStripeLink = responseText.includes("[SEND_STRIPE_LINK]");
   const shouldFlagOfftopic = responseText.includes("[FLAG_OFFTOPIC]");
   const shouldUpdateProfile = responseText.includes("[PROFILE_UPDATE]");
+  const shouldSendVerifyLink = responseText.includes("[SEND_VERIFY_LINK]");
   const cleanResponse = responseText
     .replace(/\[SEND_STRIPE_LINK\]/g, "")
     .replace(/\[FLAG_OFFTOPIC\]/g, "")
     .replace(/\[PROFILE_UPDATE\]\s*\{[\s\S]*?\}/g, "")
+    .replace(/\[SEND_VERIFY_LINK\]/g, "")
     .trim();
 
   if (shouldFlagOfftopic) {
@@ -232,6 +234,17 @@ async function handleKnownUser(
 
   if (shouldSendStripeLink && userType === "newsletter") {
     await generateAndSendStripeLink(supabase, phoneWithPlus, userId);
+  }
+
+  // Send verification link if requested
+  if (shouldSendVerifyLink && userType === "newsletter" && userId) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+    const verifyMsg = `Here's your verification link:\n\n${appUrl}/verify/${userId}\n\nConnect your newsletter platform (Beehiiv, ConvertKit) or upload a screenshot. Verified creators get prioritized in matching!`;
+    await sendWhatsAppMessage(phoneWithPlus, verifyMsg);
+    await insertMessage({
+      direction: "outbound", user_type: "newsletter", user_id: userId,
+      phone: phoneWithPlus, content: verifyMsg, message_type: "verification",
+    });
   }
 }
 
