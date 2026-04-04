@@ -13,7 +13,7 @@ export type ClassifiedIntent =
 const ACCEPT = ["yes", "accept", "sounds good", "let's do it", "lets do it", "interested", "sure", "go ahead", "absolutely", "yeah", "yep", "yup", "ok", "okay", "connect us", "introduce us", "i'm in", "im in", "do it"];
 const DECLINE = ["no", "decline", "not right now", "pass", "skip", "not interested", "no thanks", "no thank you", "nah", "nope", "maybe later", "not now"];
 const MORE = ["tell me more", "more info", "more details", "details", "what else", "can you tell me more", "elaborate"];
-const STRIPE = ["stripe", "connect stripe", "stripe link", "send me stripe", "setup stripe", "stripe setup"];
+const STRIPE = ["stripe", "connect stripe", "stripe link", "send me stripe", "setup stripe", "stripe setup", "payment setup", "setup payment", "payment link", "get paid", "how do i get paid", "receive payment", "connect payment"];
 const GREETING = ["hey", "hi", "hello", "yo", "sup", "hola", "what's up", "whats up"];
 const STOP = ["stop", "unsubscribe", "opt out", "remove me", "delete my account"];
 
