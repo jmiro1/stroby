@@ -296,7 +296,7 @@ export default function OnboardingChat() {
         {
           role: "bot",
           content:
-            "Hey! I'm Stroby, your AI Superconnector for brand distribution. I connect awesome companies to influencers and vice versa.\n\nTell me who you are and I'll connect you with relevant businesses, influencers, or other people that would be valuable for you.",
+            "Hey! I'm Stroby, your AI Superconnector for brand distribution. I connect awesome companies to influencers and vice versa via double opt-in.\n\nTell me who you are and I'll connect you with relevant businesses, influencers, or other people that would be valuable for you.",
         },
       ]);
       setIsTyping(false);
