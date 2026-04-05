@@ -8,6 +8,7 @@ const WA_LINK = "https://wa.me/message/2QFL7QR7EBZTD1";
 
 interface Profile {
   id: string;
+  slug?: string;
   newsletter_name?: string;
   name?: string;
   primary_niche?: string;
@@ -15,6 +16,7 @@ interface Profile {
   subscriber_count?: number | null;
   description?: string | null;
   verification_status?: string;
+  avatar_url?: string | null;
 }
 
 async function fetchCreator(slug: string): Promise<{ profile: Profile; source: "newsletter" | "other" } | null> {
@@ -23,7 +25,7 @@ async function fetchCreator(slug: string): Promise<{ profile: Profile; source: "
   // Try newsletter_profiles first
   const { data: newsletter } = await supabase
     .from("newsletter_profiles")
-    .select("id, newsletter_name, primary_niche, subscriber_count, description, verification_status")
+    .select("id, slug, newsletter_name, primary_niche, subscriber_count, description, verification_status, avatar_url")
     .eq("slug", slug)
     .single();
 
@@ -34,7 +36,7 @@ async function fetchCreator(slug: string): Promise<{ profile: Profile; source: "
   // Fall back to other_profiles
   const { data: other } = await supabase
     .from("other_profiles")
-    .select("id, name, niche, subscriber_count, description, verification_status")
+    .select("id, slug, name, niche, description, verification_status, avatar_url")
     .eq("slug", slug)
     .single();
 
@@ -57,9 +59,33 @@ function getNiche(profile: Profile, source: "newsletter" | "other"): string {
 
 function getDescription(profile: Profile): string {
   if (!profile.description) return "";
-  return profile.description.length > 200
+  const desc = profile.description.length > 200
     ? profile.description.slice(0, 200) + "..."
     : profile.description;
+  // Strip any "Image context:" prefixes from AI image analysis
+  return desc.replace(/\|\s*Image context:.*$/g, "").trim();
+}
+
+function getAudienceLabel(profile: Profile, source: "newsletter" | "other"): string {
+  const desc = profile.description || "";
+  // If description reads like an audience description, use it directly
+  // Otherwise, combine niche + generic wording
+  const niche = source === "newsletter" ? profile.primary_niche : profile.niche;
+
+  if (desc.length > 20) {
+    // Clean up and make it read as "Audience: ..."
+    let audience = desc.replace(/\|\s*Image context:.*$/g, "").trim();
+    // If it starts with common prefixes, strip them
+    audience = audience.replace(/^(my audience is|our audience is|we reach|i reach|targeting|focused on)\s*/i, "");
+    // Capitalize first letter
+    audience = audience.charAt(0).toUpperCase() + audience.slice(1);
+    // Truncate
+    if (audience.length > 120) audience = audience.slice(0, 120) + "...";
+    return audience;
+  }
+
+  if (niche) return `${niche} community`;
+  return "";
 }
 
 export async function generateMetadata({
@@ -106,19 +132,21 @@ export default async function CreatorProfilePage({
   const { profile, source } = result;
   const name = getDisplayName(profile, source);
   const niche = getNiche(profile, source);
-  const description = getDescription(profile);
+  const audience = getAudienceLabel(profile, source);
   const isVerified = profile.verification_status !== "unverified" && !!profile.verification_status;
+  const avatarSrc = profile.avatar_url || "/logo-emoji.png";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
       <div className="flex max-w-md flex-col items-center text-center">
-        {/* Stroby character */}
+        {/* Avatar / Logo */}
         <Image
-          src="/logo-emoji.png"
-          alt="Stroby AI"
+          src={avatarSrc}
+          alt={name}
           width={120}
           height={120}
-          className="mb-6 drop-shadow-lg"
+          className="mb-6 rounded-full object-cover drop-shadow-lg"
           priority
         />
 
@@ -134,7 +162,7 @@ export default async function CreatorProfilePage({
 
         {/* Subscriber count — only if verified */}
         {isVerified && profile.subscriber_count != null && (
-          <p className="mb-4 flex items-center gap-2 text-base text-muted-foreground">
+          <p className="mb-2 flex items-center gap-2 text-base text-muted-foreground">
             <span className="font-semibold text-foreground">
               {profile.subscriber_count.toLocaleString()}
             </span>
@@ -145,9 +173,11 @@ export default async function CreatorProfilePage({
           </p>
         )}
 
-        {/* Description */}
-        {description && (
-          <p className="mb-8 text-lg text-muted-foreground">{description}</p>
+        {/* Audience */}
+        {audience && (
+          <p className="mb-8 text-base text-muted-foreground">
+            <span className="font-medium text-foreground">Audience:</span> {audience}
+          </p>
         )}
 
         {/* CTA button */}
@@ -163,6 +193,13 @@ export default async function CreatorProfilePage({
         <p className="mt-10 text-sm text-muted-foreground">
           Powered by Stroby — your AI Superconnector.
         </p>
+
+        <a
+          href={`${appUrl}/creator/${profile.slug}/edit`}
+          className="mt-2 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+        >
+          Edit profile
+        </a>
 
         {/* Footer links */}
         <div className="mt-6 flex gap-4 text-xs text-muted-foreground">
