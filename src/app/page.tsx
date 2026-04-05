@@ -27,7 +27,7 @@ export default function HomePage() {
           <div className="flex items-center gap-5">
             {/* LinkedIn */}
             <a
-              href="https://linkedin.com/company/stroby-ai"
+              href="https://www.linkedin.com/company/stroby"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground transition-colors hover:text-foreground"

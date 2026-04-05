@@ -127,7 +127,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 description:
                   "AI Superconnector for brand distribution. Connecting businesses, influencers and creators through real conversations and warm introductions on WhatsApp.",
                 sameAs: [
-                  "https://linkedin.com/company/stroby-ai",
+                  "https://www.linkedin.com/company/stroby",
                   "https://x.com/stroby_ai",
                 ],
               },
