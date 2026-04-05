@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     userType?: string;
   };
 
-  const adminPassword = process.env.ADMIN_PASSWORD || "Stroby12!";
+  const adminPassword = process.env.ADMIN_PASSWORD;
   if (key !== adminPassword) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }

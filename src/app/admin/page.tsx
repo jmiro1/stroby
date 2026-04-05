@@ -126,9 +126,10 @@ export default function AdminPage() {
             <Image src="/logo-emoji.png" alt="Stroby" width={32} height={32} />
             <h1 className="text-lg font-bold">Stroby Admin</h1>
           </div>
-          <button onClick={refresh} className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">
-            Refresh
-          </button>
+          <div className="flex gap-2">
+            <a href="/admin/analytics" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Analytics</a>
+            <button onClick={refresh} className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Refresh</button>
+          </div>
         </div>
       </header>
 

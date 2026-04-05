@@ -27,10 +27,9 @@ export function encrypt(plaintext: string): string {
     const tag = cipher.getAuthTag();
 
     return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted}`;
-  } catch {
-    // If encryption fails (e.g. no key), return plaintext
-    // This allows gradual rollout
-    return plaintext;
+  } catch (err) {
+    console.error("Encryption failed:", err);
+    throw new Error("Encryption failed — ENCRYPTION_KEY may be missing or invalid");
   }
 }
 

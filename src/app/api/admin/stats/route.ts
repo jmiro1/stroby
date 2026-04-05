@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
   const view = url.searchParams.get("view");
-  const adminPassword = process.env.ADMIN_PASSWORD || "Stroby12!";
+  const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (key !== adminPassword) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
