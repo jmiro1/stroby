@@ -219,8 +219,43 @@ export async function findMatchesForBusiness(
   allCandidates.sort((a, b) => b.engScore - a.engScore);
   const topCandidates = allCandidates.slice(0, 8);
 
+  // Get historical match success data for the scoring prompt
+  let successContext = "";
+  try {
+    const { data: pastIntros } = await supabase
+      .from("introductions")
+      .select("status, match_score, newsletter_profiles(primary_niche), business_profiles(primary_niche)")
+      .in("status", ["introduced", "completed", "business_declined", "newsletter_declined"])
+      .limit(50);
+
+    if (pastIntros && pastIntros.length > 5) {
+      const nichePairs: Record<string, { deals: number; total: number }> = {};
+      for (const intro of pastIntros) {
+        const bizProf = intro.business_profiles as unknown as Record<string, unknown> | null;
+        const nlProf = intro.newsletter_profiles as unknown as Record<string, unknown> | null;
+        const bizNiche = (bizProf?.primary_niche as string) || "Unknown";
+        const nlNiche = (nlProf?.primary_niche as string) || "Unknown";
+        const key = `${bizNiche} → ${nlNiche}`;
+        if (!nichePairs[key]) nichePairs[key] = { deals: 0, total: 0 };
+        nichePairs[key].total++;
+        if (intro.status === "introduced" || intro.status === "completed") {
+          nichePairs[key].deals++;
+        }
+      }
+      const topPairs = Object.entries(nichePairs)
+        .filter(([, v]) => v.total >= 2)
+        .sort((a, b) => (b[1].deals / b[1].total) - (a[1].deals / a[1].total))
+        .slice(0, 5)
+        .map(([pair, v]) => `${pair}: ${Math.round((v.deals / v.total) * 100)}% success (${v.total} matches)`)
+        .join("\n");
+      if (topPairs) {
+        successContext = `\n\nHistorical niche pair success rates:\n${topPairs}`;
+      }
+    }
+  } catch { /* non-critical */ }
+
   // Batch LLM scoring — one call for all candidates
-  const scored = await batchScoreCandidates(business as BusinessProfile, topCandidates);
+  const scored = await batchScoreCandidates(business as BusinessProfile, topCandidates, successContext);
 
   // Sort by score, return top 3
   scored.sort((a, b) => b.score - a.score);
@@ -230,7 +265,8 @@ export async function findMatchesForBusiness(
 // Score all candidates in a single LLM call
 async function batchScoreCandidates(
   business: BusinessProfile,
-  candidates: { type: CreatorType; profile: Record<string, unknown>; name: string }[]
+  candidates: { type: CreatorType; profile: Record<string, unknown>; name: string }[],
+  successContext: string = ""
 ): Promise<Match[]> {
   if (candidates.length === 0) return [];
 
@@ -255,7 +291,7 @@ Business:
 Candidates:
 ${candidateDescriptions}
 
-Score each 0.0-1.0. Consider: audience relevance, niche fit (related niches count), engagement quality, campaign goal alignment.
+Score each 0.0-1.0. Consider: audience relevance, niche fit (related niches count), engagement quality, campaign goal alignment.${successContext ? `\n${successContext}\nBoost candidates in niche pairs with high historical success rates.` : ""}
 
 Respond ONLY with valid JSON array, no other text:
 [{"index":1,"score":0.85,"reasoning":"one sentence"},{"index":2,"score":0.6,"reasoning":"one sentence"}]`;

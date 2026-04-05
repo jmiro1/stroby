@@ -27,7 +27,21 @@ export async function GET(request: NextRequest) {
 
 // ── POST: Incoming WhatsApp messages ──
 export async function POST(request: NextRequest) {
-  const payload = await request.json();
+  // Verify Meta webhook signature
+  const rawBody = await request.text();
+  const signature = request.headers.get("x-hub-signature-256");
+  const appSecret = process.env.META_APP_SECRET;
+
+  if (appSecret && signature) {
+    const crypto = await import("crypto");
+    const expected = "sha256=" + crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
+    if (signature !== expected) {
+      console.error("Webhook signature mismatch — rejecting");
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
+  const payload = JSON.parse(rawBody);
 
   const entry = payload?.entry?.[0];
   const changes = entry?.changes?.[0];
@@ -40,7 +54,7 @@ export async function POST(request: NextRequest) {
   const message = value.messages[0];
   const phone = message.from;
   const phoneWithPlus = `+${phone}`;
-  const rawBody = message.text?.body || "";
+  const messageText = message.text?.body || "";
   const messageId = message.id;
   const mediaUrl = message.image?.id || message.document?.id || null;
 
@@ -59,11 +73,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Cap input length
-  let body = rawBody;
-  if (rawBody.length > 500) {
-    body = rawBody.slice(0, 500);
+  let body = messageText;
+  if (messageText.length > 500) {
+    body = messageText.slice(0, 500);
     await supabase.from("flagged_messages").insert({
-      phone: phoneWithPlus, content: rawBody.slice(0, 1000), flag_reason: "message_too_long",
+      phone: phoneWithPlus, content: messageText.slice(0, 1000), flag_reason: "message_too_long",
     });
   }
 
@@ -152,7 +166,46 @@ async function handleKnownUser(
       }
     } catch (err) {
       console.error("WhatsApp image verification error:", err);
-      // Fall through to normal AI handling
+    }
+  }
+
+  // Handle image from business/other — analyze and save context
+  if (mediaUrl && userType !== "newsletter") {
+    try {
+      const media = await downloadWhatsAppMedia(mediaUrl);
+      if (media && media.mimeType.startsWith("image/")) {
+        const Anthropic = (await import("@anthropic-ai/sdk")).default;
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+        const base64 = media.buffer.toString("base64");
+
+        const result = await anthropic.messages.create({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 100,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: media.mimeType as "image/png" | "image/jpeg" | "image/webp" | "image/gif", data: base64 } },
+              { type: "text", text: "Describe this image in one sentence. Focus on what product, brand, or business it represents." },
+            ],
+          }],
+        });
+
+        const description = result.content[0].type === "text" ? result.content[0].text : "";
+        if (description) {
+          const table = userType === "business" ? "business_profiles" : "other_profiles";
+          const { data: current } = await supabase.from(table).select("description").eq("id", userId).single();
+          const existingDesc = (current?.description as string) || "";
+          const newDesc = existingDesc
+            ? `${existingDesc} | Image context: ${description}`
+            : `Image context: ${description}`;
+          await supabase.from(table).update({ description: newDesc }).eq("id", userId);
+
+          await sendAndLog(phoneWithPlus, `Got it — I've noted that for your profile. This helps me find better matches for you!`, userType, userId);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Business image analysis error:", err);
     }
   }
 

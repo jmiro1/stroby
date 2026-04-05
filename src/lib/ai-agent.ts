@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
 import { readDecryptedMessages, insertMessage } from "./secure-messages";
-import { formatInsightsForAI, formatPlatformStatsForAI } from "./user-insights";
+import { formatInsightsForAI } from "./user-insights";
+import { calculateCompleteness, formatCompletenessForAI } from "./profile-completeness";
 
 // Lazy-loaded Anthropic client
 let _anthropic: Anthropic | null = null;
@@ -29,6 +30,14 @@ HOW STROBY WORKS (use these facts when answering):
 - Both sides must opt in before any deal moves forward (double opt-in)
 - If a user hasn't verified yet, encourage them to do so — it helps them get better matches
 - To verify, include [SEND_VERIFY_LINK] at the end of your response
+
+WHEN THERE ARE NO MATCHES:
+- Don't just say "no matches yet" — be helpful:
+- Tell them how many businesses/creators are in their niche (from platform stats below)
+- Suggest they could expand to related niches for more options
+- Ask if there's anything about their profile they want to update (more detail = better matching)
+- If they're unverified, suggest verification to get prioritized
+- Never make up fake numbers or timelines
 
 OFF-TOPIC HANDLING:
 - If someone asks about anything unrelated (general chat, advice, news, coding, personal questions, etc.), respond ONLY with: "I'm focused on helping you find great brand partnerships! Is there anything about your matches or profile I can help with?"
@@ -149,9 +158,32 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
   // Self-learning insights (match history, patterns, preferences)
   const insightsContext = formatInsightsForAI(profile.preferences as Record<string, unknown> | null);
 
-  // Platform stats (how many businesses in their niche, etc.)
-  const platformContext = formatPlatformStatsForAI(null, profile.primary_niche || profile.niche || null);
-  // Note: platform stats will be populated once the daily cron computes them
+  // Profile completeness
+  const { score: completenessScore, missing: missingFields } = calculateCompleteness(profile, userType);
+  const completenessContext = formatCompletenessForAI(completenessScore, missingFields);
+
+  // Platform stats — quick counts for AI context
+  const userNiche = profile.primary_niche || profile.niche || null;
+  let platformContext = "";
+  try {
+    const { count: totalCreators } = await supabase
+      .from("newsletter_profiles").select("id", { count: "exact", head: true });
+    const { count: totalBiz } = await supabase
+      .from("business_profiles").select("id", { count: "exact", head: true });
+    let nicheCount = 0;
+    if (userNiche) {
+      const nicheTable = userType === "newsletter" ? "business_profiles" : "newsletter_profiles";
+      const nicheField = userType === "newsletter" ? "primary_niche" : "primary_niche";
+      const { count } = await supabase.from(nicheTable).select("id", { count: "exact", head: true }).eq(nicheField, userNiche);
+      nicheCount = count || 0;
+    }
+    platformContext = `\nPlatform: ${totalCreators || 0} creators, ${totalBiz || 0} businesses total`;
+    if (userNiche && nicheCount > 0) {
+      platformContext += `. ${nicheCount} ${userType === "newsletter" ? "businesses" : "creators"} in ${userNiche}`;
+    } else if (userNiche) {
+      platformContext += `. No exact ${userType === "newsletter" ? "businesses" : "creators"} in ${userNiche} yet — but related niches may have matches`;
+    }
+  } catch { /* non-critical */ }
 
   // Legacy preferences (kept for backwards compat)
   const prefsContext = profile.preferences && Object.keys(profile.preferences).length > 0
@@ -199,7 +231,7 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 256,
-    system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${insightsContext}${platformContext}${summaryContext}${introContext}`,
+    system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${completenessContext}${insightsContext}${platformContext}${summaryContext}${introContext}`,
     messages,
   });
 
