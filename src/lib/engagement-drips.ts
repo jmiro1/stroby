@@ -113,3 +113,126 @@ export async function sendEngagementDrips(): Promise<number> {
 
   return dripsSent;
 }
+
+// Post-intro follow-up: 3 days after introduction, check in with both parties
+export async function sendPostIntroFollowups(): Promise<number> {
+  const supabase = createServiceClient();
+  let sent = 0;
+
+  const threeDaysAgo = new Date();
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  const dateStr = threeDaysAgo.toISOString().split("T")[0];
+
+  // Find introductions made ~3 days ago that haven't been followed up
+  const { data: intros } = await supabase
+    .from("introductions")
+    .select("id, business_id, newsletter_id, creator_id, creator_type, status, business_profiles(*), newsletter_profiles(*)")
+    .eq("status", "introduced")
+    .gte("introduced_at", `${dateStr}T00:00:00Z`)
+    .lt("introduced_at", `${dateStr}T23:59:59Z`);
+
+  if (!intros) return 0;
+
+  for (const intro of intros) {
+    const business = intro.business_profiles as unknown as Record<string, unknown> | null;
+    const newsletter = intro.newsletter_profiles as unknown as Record<string, unknown> | null;
+
+    // Message the business
+    if (business?.phone) {
+      const creatorName = newsletter?.newsletter_name || newsletter?.name || "the creator";
+      const msg = `Hey, Stroby here! Just checking in — how's the conversation going with *${creatorName}*? Did you connect? Let me know if you need anything!`;
+      await sendWhatsAppSmart(business.phone as string, msg, "follow_up", [
+        (business.contact_name || business.company_name || "there") as string,
+      ]);
+      await insertMessage({
+        direction: "outbound", user_type: "business", user_id: business.id as string,
+        phone: business.phone as string, content: msg, message_type: "post_intro_followup",
+        related_introduction_id: intro.id,
+      });
+      sent++;
+    }
+
+    // Message the creator
+    const creatorPhone = newsletter?.phone as string | null;
+    if (creatorPhone) {
+      const bizName = (business?.company_name || "the brand") as string;
+      const msg = `Hey, Stroby here! Just checking in — how's the conversation going with *${bizName}*? Did you connect? Let me know how it went!`;
+      await sendWhatsAppSmart(creatorPhone, msg, "follow_up", [
+        (newsletter?.newsletter_name || newsletter?.owner_name || "there") as string,
+      ]);
+      await insertMessage({
+        direction: "outbound", user_type: "newsletter",
+        user_id: (newsletter?.id || intro.newsletter_id) as string,
+        phone: creatorPhone, content: msg, message_type: "post_intro_followup",
+        related_introduction_id: intro.id,
+      });
+      sent++;
+    }
+  }
+
+  return sent;
+}
+
+// Monthly recap — sent on the 1st of each month
+export async function sendMonthlyRecaps(): Promise<number> {
+  const supabase = createServiceClient();
+  const now = new Date();
+
+  // Only run on the 1st of the month
+  if (now.getDate() !== 1) return 0;
+
+  let sent = 0;
+
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+  const monthName = lastMonth.toLocaleString("en", { month: "long" });
+
+  const tables = [
+    { name: "newsletter_profiles", type: "newsletter", nameField: "newsletter_name" },
+    { name: "business_profiles", type: "business", nameField: "company_name" },
+  ] as const;
+
+  for (const table of tables) {
+    const { data: profiles } = await supabase
+      .from(table.name)
+      .select("*")
+      .eq("is_active", true);
+
+    if (!profiles) continue;
+
+    for (const profile of profiles) {
+      const record = profile as Record<string, unknown>;
+      if (!record.phone) continue;
+      const name = (record[table.nameField] || "there") as string;
+
+      // Count matches suggested this month
+      const introCol = table.type === "newsletter" ? "newsletter_id" : "business_id";
+      const { count: suggested } = await supabase
+        .from("introductions").select("id", { count: "exact", head: true })
+        .eq(introCol, record.id as string)
+        .gte("created_at", lastMonth.toISOString())
+        .lte("created_at", lastMonthEnd.toISOString());
+
+      const { count: intros } = await supabase
+        .from("introductions").select("id", { count: "exact", head: true })
+        .eq(introCol, record.id as string)
+        .eq("status", "introduced")
+        .gte("introduced_at", lastMonth.toISOString())
+        .lte("introduced_at", lastMonthEnd.toISOString());
+
+      // Only send if there was any activity
+      if ((suggested || 0) > 0 || (intros || 0) > 0) {
+        const msg = `Hey, Stroby here! Your *${monthName}* recap:\n\n📊 ${suggested || 0} match${(suggested || 0) !== 1 ? "es" : ""} suggested\n🤝 ${intros || 0} introduction${(intros || 0) !== 1 ? "s" : ""} made\n\nKeep your profile updated for the best matches. Message me anytime!`;
+
+        await sendWhatsAppSmart(record.phone as string, msg, "weekly_update", [name, msg.slice(22)]);
+        await insertMessage({
+          direction: "outbound", user_type: table.type, user_id: record.id as string,
+          phone: record.phone as string, content: msg, message_type: "monthly_recap",
+        });
+        sent++;
+      }
+    }
+  }
+
+  return sent;
+}

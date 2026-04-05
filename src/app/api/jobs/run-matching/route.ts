@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { findMatchesForBusiness } from "@/lib/matching";
 import { sendWhatsAppSmart } from "@/lib/whatsapp";
 import { updateUserInsights } from "@/lib/user-insights";
-import { sendEngagementDrips } from "@/lib/engagement-drips";
+import { sendEngagementDrips, sendPostIntroFollowups, sendMonthlyRecaps } from "@/lib/engagement-drips";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -103,7 +103,9 @@ export async function POST(request: NextRequest) {
           ? `$${(nl.price_per_placement / 100).toFixed(0)}`
           : "TBD";
 
-        messageBody = `Hey, Stroby here! I found a newsletter that looks like a great fit for ${business.company_name}:\n\n📰 ${nl.newsletter_name}\n🎯 Niche: ${nl.primary_niche || "General"}\n👥 ${nl.subscriber_count || "N/A"} subscribers | ${nl.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+        const profileLink = nl.slug ? `\n\n🔗 See their profile: ${appUrl}/creator/${nl.slug}` : "";
+        messageBody = `Hey, Stroby here! I found a newsletter that looks like a great fit for ${business.company_name}:\n\n📰 ${nl.newsletter_name}\n🎯 Niche: ${nl.primary_niche || "General"}\n👥 ${nl.subscriber_count || "N/A"} subscribers | ${nl.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy it's a match: ${match.reasoning}${profileLink}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
       } else if (match.otherProfile) {
         const cr = match.otherProfile;
         messageBody = `Hey, Stroby here! I found a creator who could be a great partner for ${business.company_name}:\n\n🎨 ${cr.name}${cr.role ? ` (${cr.role})` : ""}${cr.organization ? ` at ${cr.organization}` : ""}\n🎯 Niche: ${cr.niche || "General"}\n📝 ${cr.description || "N/A"}\n💡 What they offer: ${cr.can_offer || "N/A"}\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
@@ -152,5 +154,21 @@ export async function POST(request: NextRequest) {
     console.error("Engagement drips error:", err);
   }
 
-  return Response.json({ businessesProcessed, matchesSuggested, dripsSent });
+  // Post-intro follow-ups (3 days after introduction)
+  let followupsSent = 0;
+  try {
+    followupsSent = await sendPostIntroFollowups();
+  } catch (err) {
+    console.error("Post-intro followup error:", err);
+  }
+
+  // Monthly recaps (runs on 1st of month only)
+  let recapsSent = 0;
+  try {
+    recapsSent = await sendMonthlyRecaps();
+  } catch (err) {
+    console.error("Monthly recap error:", err);
+  }
+
+  return Response.json({ businessesProcessed, matchesSuggested, dripsSent, followupsSent, recapsSent });
 }

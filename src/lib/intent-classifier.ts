@@ -8,6 +8,8 @@ export type ClassifiedIntent =
   | { type: "stripe_request" }
   | { type: "greeting" }
   | { type: "stop" }
+  | { type: "status_check" }
+  | { type: "verify_request" }
   | { type: "needs_ai" };
 
 const ACCEPT = ["yes", "accept", "sounds good", "let's do it", "lets do it", "interested", "sure", "go ahead", "absolutely", "yeah", "yep", "yup", "ok", "okay", "connect us", "introduce us", "i'm in", "im in", "do it"];
@@ -16,6 +18,8 @@ const MORE = ["tell me more", "more info", "more details", "details", "what else
 const STRIPE = ["stripe", "connect stripe", "stripe link", "send me stripe", "setup stripe", "stripe setup", "payment setup", "setup payment", "payment link", "get paid", "how do i get paid", "receive payment", "connect payment"];
 const GREETING = ["hey", "hi", "hello", "yo", "sup", "hola", "what's up", "whats up"];
 const STOP = ["stop", "unsubscribe", "opt out", "remove me", "delete my account"];
+const STATUS = ["status", "my profile", "my status", "profile", "show my profile", "what's my status", "whats my status", "how am i doing", "check my profile"];
+const VERIFY = ["verify", "verification", "verify me", "get verified", "send verification", "verify my account"];
 
 export function classifyIntent(message: string): ClassifiedIntent {
   const normalized = message.toLowerCase().trim();
@@ -32,7 +36,17 @@ export function classifyIntent(message: string): ClassifiedIntent {
     if (normalized === phrase || normalized.startsWith(phrase)) return { type: "stop" };
   }
 
-  // Tell me more (check before accept — "tell me more" contains "me" which could false match)
+  // Status check
+  for (const phrase of STATUS) {
+    if (normalized === phrase || normalized.includes(phrase)) return { type: "status_check" };
+  }
+
+  // Verify request
+  for (const phrase of VERIFY) {
+    if (normalized === phrase || normalized.includes(phrase)) return { type: "verify_request" };
+  }
+
+  // Tell me more
   for (const phrase of MORE) {
     if (normalized === phrase || normalized.includes(phrase)) return { type: "tell_me_more" };
   }
@@ -42,14 +56,14 @@ export function classifyIntent(message: string): ClassifiedIntent {
     if (normalized === phrase || normalized.includes(phrase)) return { type: "stripe_request" };
   }
 
-  // Accept (only for short messages to avoid false positives on "yes I have a question about...")
+  // Accept (short messages only)
   if (normalized.length < 30) {
     for (const phrase of ACCEPT) {
       if (normalized === phrase) return { type: "accept" };
     }
   }
 
-  // Decline (same — short messages only)
+  // Decline (short messages only)
   if (normalized.length < 30) {
     for (const phrase of DECLINE) {
       if (normalized === phrase) return { type: "decline" };
@@ -66,11 +80,7 @@ export function classifyIntent(message: string): ClassifiedIntent {
   return { type: "needs_ai" };
 }
 
-// Pre-built responses for classified intents (no AI needed)
 export const CANNED_RESPONSES: Record<string, string> = {
   greeting: "Hey! How can I help you today? Looking for matches, want to update your profile, or have a question?",
   stop: "I've noted your request. If you'd like to delete your account, reply *delete my account* and I'll process it. Otherwise, I'll stop messaging you.",
-  accept_no_match: "I appreciate the enthusiasm! But I don't have a pending match for you to accept right now. I'll message you when I find one!",
-  decline_no_match: "No worries! There's nothing pending right now anyway. I'll only send you matches that are a really good fit.",
-  more_no_match: "There's no pending match to tell you more about right now. But I'm actively looking! Anything you'd like to update about your profile?",
 };

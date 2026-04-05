@@ -74,12 +74,25 @@ export default function WhatsAppPage() {
           </p>
         )}
 
-        <p className="mt-10 text-sm text-muted-foreground">
+        {/* QR Code */}
+        <div className="mt-10 flex flex-col items-center gap-2">
+          <p className="text-sm font-medium text-muted-foreground">Or scan to open WhatsApp</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(WA_LINK)}&bgcolor=ffffff&color=000000&margin=8`}
+            alt="QR code to message Stroby on WhatsApp"
+            width={160}
+            height={160}
+            className="rounded-xl border bg-white p-1"
+          />
+        </div>
+
+        <p className="mt-6 text-sm text-muted-foreground">
           Free to use. No spam. Just real connections.
         </p>
 
         {/* Trust / links */}
-        <div className="mt-6 flex gap-4 text-xs text-muted-foreground">
+        <div className="mt-4 flex gap-4 text-xs text-muted-foreground">
           <a href="/" className="underline hover:text-foreground">Home</a>
           <a href="/about" className="underline hover:text-foreground">About</a>
           <a href="/terms" className="underline hover:text-foreground">Terms</a>

@@ -25,6 +25,7 @@ export interface BusinessProfile {
 
 export interface NewsletterProfile {
   id: string;
+  slug: string | null;
   newsletter_name: string;
   primary_niche: string | null;
   description: string | null;

@@ -232,6 +232,42 @@ async function handleKnownUser(
     return;
   }
 
+  // Status check — show profile summary
+  if (intent.type === "status_check") {
+    const { calculateCompleteness } = await import("@/lib/profile-completeness");
+    const table = userType === "newsletter" ? "newsletter_profiles"
+      : userType === "business" ? "business_profiles" : "other_profiles";
+    const { data: fullProfile } = await supabase.from(table).select("*").eq("id", userId).single();
+
+    if (fullProfile) {
+      const { score, missing } = calculateCompleteness(fullProfile, userType === "other" ? "newsletter" : userType);
+      const name = fullProfile.newsletter_name || fullProfile.company_name || fullProfile.name || "there";
+      const niche = fullProfile.primary_niche || fullProfile.niche || "Not set";
+      const verified = fullProfile.verification_status && fullProfile.verification_status !== "unverified" ? "Yes ✅" : "Not yet";
+
+      // Count potential matches
+      const matchTable = userType === "newsletter" ? "business_profiles" : "newsletter_profiles";
+      const { count: potentialMatches } = await supabase
+        .from(matchTable).select("id", { count: "exact", head: true })
+        .eq("primary_niche", niche).eq("is_active", true);
+
+      const profileLink = fullProfile.slug ? `\n🔗 Your profile: ${process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai"}/creator/${fullProfile.slug}` : "";
+
+      const statusMsg = `Here's your Stroby profile, *${name}*:\n\n🎯 Niche: ${niche}\n📊 Profile: ${score}% complete${missing.length > 0 ? `\n📝 Missing: ${missing.slice(0, 3).join(", ")}` : ""}\n✅ Verified: ${verified}\n🔍 Potential matches in your niche: ${potentialMatches || 0}${profileLink}\n\nAnything you'd like to update?`;
+
+      await sendAndLog(phoneWithPlus, statusMsg, userType, userId);
+    }
+    return;
+  }
+
+  // Verify request — send verification link
+  if (intent.type === "verify_request" && userType === "newsletter") {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+    const verifyMsg = `Here's your verification link:\n\n${appUrl}/verify/${userId}\n\nConnect your newsletter platform or upload a screenshot. Verified creators get prioritized in matching!`;
+    await sendAndLog(phoneWithPlus, verifyMsg, userType, userId);
+    return;
+  }
+
   if (intent.type === "rating") {
     const introColumn = userType === "newsletter" ? "newsletter_id" : "business_id";
     const ratingColumn = userType === "newsletter" ? "newsletter_rating" : "business_rating";

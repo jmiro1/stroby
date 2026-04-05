@@ -169,6 +169,12 @@
 - [ ] Set up monitoring for WhatsApp token expiry
 - [ ] Remove debug logging from whatsapp.ts once stable
 
+## Maybe / Explore Later
+- [ ] "New in your niche" real-time alerts — when a new business joins, ping creators in that niche
+- [ ] Notification preferences (frequency control for users)
+- [ ] Pause/unpause matching per user
+- [ ] Group chat creation on WhatsApp for introductions
+
 ## Infrastructure
 - [x] CRON_SECRET on Vercel
 - [x] ANTHROPIC_API_KEY on Vercel
