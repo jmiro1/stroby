@@ -102,6 +102,15 @@ export async function findMatchesForBusiness(
   const maxBudgetCents = budgetToCents(business.budget_range);
   const preference = business.partner_preference || "all";
 
+  // Learn from decline history — niches the business has declined 2+ times
+  const insights = (business.preferences || {}) as Record<string, unknown>;
+  const declinedNiches = (insights.declined_niches || {}) as Record<string, number>;
+  const avoidNiches = new Set(
+    Object.entries(declinedNiches)
+      .filter(([, count]) => count >= 2)
+      .map(([niche]) => niche)
+  );
+
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
@@ -150,6 +159,8 @@ export async function findMatchesForBusiness(
         if ((introCounts.get(nlId) || 0) >= 2) continue;
         const price = nl.price_per_placement as number | null;
         if (price && price > maxBudgetCents) continue;
+        // Skip niches the business has repeatedly declined
+        if (nl.primary_niche && avoidNiches.has(nl.primary_niche as string)) continue;
 
         allCandidates.push({
           type: "newsletter",
@@ -190,6 +201,7 @@ export async function findMatchesForBusiness(
         const crId = cr.id as string;
         if (excludedIds.has(crId)) continue;
         if ((introCounts.get(crId) || 0) >= 2) continue;
+        if (cr.niche && avoidNiches.has(cr.niche as string)) continue;
 
         allCandidates.push({
           type: "other",

@@ -10,6 +10,7 @@ import {
   createProfileFromOnboarding,
   linkExistingAccount,
 } from "@/lib/whatsapp-onboarding";
+import { downloadWhatsAppMedia } from "@/lib/whatsapp-media";
 
 // ── GET: Meta webhook verification ──
 export async function GET(request: NextRequest) {
@@ -130,6 +131,30 @@ async function handleKnownUser(
   const { phoneWithPlus, body, mediaUrl, userType, userId } = params;
 
   // Inbound already logged synchronously before after(). Just handle the response.
+
+  // Handle image messages — run verification if from a newsletter owner
+  if (mediaUrl && userType === "newsletter") {
+    try {
+      const media = await downloadWhatsAppMedia(mediaUrl);
+      if (media && media.mimeType.startsWith("image/")) {
+        // Forward to the verification endpoint internally
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+        const formData = new FormData();
+        formData.append("file", new Blob([new Uint8Array(media.buffer)], { type: media.mimeType }), `whatsapp_${Date.now()}.jpg`);
+        formData.append("newsletterId", userId);
+
+        await fetch(`${appUrl}/api/verify/upload`, {
+          method: "POST",
+          body: formData,
+        });
+        // The upload endpoint handles all WhatsApp messaging
+        return;
+      }
+    } catch (err) {
+      console.error("WhatsApp image verification error:", err);
+      // Fall through to normal AI handling
+    }
+  }
 
   // Pre-AI classification — handle simple intents without AI
   const intent = classifyIntent(body);

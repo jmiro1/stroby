@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { findMatchesForBusiness } from "@/lib/matching";
 import { sendWhatsAppSmart } from "@/lib/whatsapp";
 import { updateUserInsights } from "@/lib/user-insights";
+import { sendEngagementDrips } from "@/lib/engagement-drips";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -143,5 +144,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return Response.json({ businessesProcessed, matchesSuggested });
+  // Run engagement drips (day 1, 3, 7)
+  let dripsSent = 0;
+  try {
+    dripsSent = await sendEngagementDrips();
+  } catch (err) {
+    console.error("Engagement drips error:", err);
+  }
+
+  return Response.json({ businessesProcessed, matchesSuggested, dripsSent });
 }
