@@ -138,15 +138,15 @@ export default async function CreatorProfilePage({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
-      <div className="flex max-w-md flex-col items-center text-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12">
+      <div className="flex w-full max-w-md flex-col items-center text-center">
         {/* Avatar / Logo */}
         <Image
           src={avatarSrc}
           alt={name}
           width={120}
           height={120}
-          className="mb-6 rounded-full object-cover drop-shadow-lg"
+          className="mb-6 size-[100px] rounded-full object-cover drop-shadow-lg sm:size-[120px]"
           priority
         />
 
@@ -185,7 +185,7 @@ export default async function CreatorProfilePage({
           href={WA_LINK}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-full bg-primary px-8 py-4 text-lg font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-105 hover:shadow-xl active:scale-100"
+          className="w-full rounded-full bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-105 hover:shadow-xl active:scale-100 sm:w-auto sm:px-8 sm:text-lg"
         >
           Work with {name} through Stroby
         </a>
@@ -195,10 +195,10 @@ export default async function CreatorProfilePage({
         </p>
 
         <a
-          href={`${appUrl}/creator/${profile.slug}/edit`}
-          className="mt-2 text-xs text-muted-foreground/60 hover:text-muted-foreground"
+          href={`/creator/${profile.slug}/edit`}
+          className="mt-3 rounded-lg border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          Edit profile
+          Edit your profile
         </a>
 
         {/* Footer links */}

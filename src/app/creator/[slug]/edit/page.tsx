@@ -151,7 +151,7 @@ export default function EditCreatorPage({
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(e) => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files[0]; if (f) handleFileSelect(f); }}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed p-8 transition-colors ${
+                className={`flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed px-4 py-6 sm:p-8 transition-colors ${
                   dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
                 }`}
               >
