@@ -64,10 +64,16 @@ export async function POST(request: NextRequest) {
         ? data.custom_niche
         : data.primary_niche;
 
+      // Generate slug from name
+      const rawName = data.channel_name || data.newsletter_name || "creator";
+      const baseSlug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const slug = baseSlug + "-" + Math.random().toString(36).slice(2, 6);
+
       const { data: profile, error } = await supabase
         .from("newsletter_profiles")
         .insert({
           newsletter_name: data.channel_name || data.newsletter_name,
+          slug,
           owner_name: data.owner_name || data.email?.split("@")[0] || "Owner",
           url: data.url || null,
           primary_niche: niche,

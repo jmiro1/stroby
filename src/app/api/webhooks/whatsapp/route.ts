@@ -396,6 +396,17 @@ async function handleNewUser(
       await supabase.from("agent_messages")
         .update({ user_id: profile.id, user_type: profile.userType })
         .eq("phone", phoneWithPlus).is("user_id", null);
+
+      // Send public profile link to creators
+      if (profile.userType === "newsletter") {
+        const { data: nlProfile } = await supabase
+          .from("newsletter_profiles").select("slug").eq("id", profile.id).single();
+        if (nlProfile?.slug) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+          const profileMsg = `Your public profile is live at ${appUrl}/creator/${nlProfile.slug} — feel free to share it in your bio!`;
+          await sendWhatsAppMessage(phoneWithPlus, profileMsg);
+        }
+      }
     }
   } else {
     await sendWhatsAppMessage(phoneWithPlus, result.response);

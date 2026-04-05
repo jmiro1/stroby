@@ -103,10 +103,10 @@ export async function POST(request: NextRequest) {
           ? `$${(nl.price_per_placement / 100).toFixed(0)}`
           : "TBD";
 
-        messageBody = `Hi ${business.contact_name || business.company_name}! I found a newsletter that looks like a great fit for ${business.company_name}:\n\n📰 ${nl.newsletter_name}\n🎯 Niche: ${nl.primary_niche || "General"}\n👥 ${nl.subscriber_count || "N/A"} subscribers | ${nl.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+        messageBody = `Hey, Stroby here! I found a newsletter that looks like a great fit for ${business.company_name}:\n\n📰 ${nl.newsletter_name}\n🎯 Niche: ${nl.primary_niche || "General"}\n👥 ${nl.subscriber_count || "N/A"} subscribers | ${nl.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
       } else if (match.otherProfile) {
         const cr = match.otherProfile;
-        messageBody = `Hi ${business.contact_name || business.company_name}! I found a creator who could be a great partner for ${business.company_name}:\n\n🎨 ${cr.name}${cr.role ? ` (${cr.role})` : ""}${cr.organization ? ` at ${cr.organization}` : ""}\n🎯 Niche: ${cr.niche || "General"}\n📝 ${cr.description || "N/A"}\n💡 What they offer: ${cr.can_offer || "N/A"}\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+        messageBody = `Hey, Stroby here! I found a creator who could be a great partner for ${business.company_name}:\n\n🎨 ${cr.name}${cr.role ? ` (${cr.role})` : ""}${cr.organization ? ` at ${cr.organization}` : ""}\n🎯 Niche: ${cr.niche || "General"}\n📝 ${cr.description || "N/A"}\n💡 What they offer: ${cr.can_offer || "N/A"}\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
       } else {
         continue;
       }

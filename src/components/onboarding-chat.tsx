@@ -536,13 +536,35 @@ export default function OnboardingChat() {
         return;
       }
       setIsTyping(true);
+
+      // Social proof: after niche selection, show community size
+      const justCompletedField = actualNext > 0 ? steps[actualNext - 1]?.field : null;
+      if (justCompletedField === "primary_niche" && updatedData.primary_niche && updatedData.primary_niche !== "Other") {
+        const nicheType = userType === "business" ? "business" : "creator";
+        fetch(`/api/stats/niche-count?niche=${encodeURIComponent(updatedData.primary_niche as string)}&type=${nicheType}`)
+          .then((r) => r.json())
+          .then((data) => {
+            const total = (data.creators || 0) + (data.businesses || 0) + (data.totalCreators || 0);
+            let proofMsg: string;
+            if (total === 0) {
+              proofMsg = `You're one of the first in ${updatedData.primary_niche} — early members get priority matching!`;
+            } else if (total < 100) {
+              proofMsg = `You're in the first 100 in ${updatedData.primary_niche} on Stroby — great timing!`;
+            } else {
+              proofMsg = `There are already ${total}+ people in ${updatedData.primary_niche} on Stroby!`;
+            }
+            setMessages((prev) => [...prev, { role: "bot", content: proofMsg }]);
+          })
+          .catch(() => {}); // Non-critical
+      }
+
       setTimeout(() => {
         if (actualNext < steps.length) {
           setMessages((prev) => [...prev, { role: "bot", content: steps[actualNext].question }]);
           setCurrentStep(actualNext);
         }
         setIsTyping(false);
-      }, 400);
+      }, justCompletedField === "primary_niche" ? 1200 : 400);
     },
     [steps, userType, submitData]
   );

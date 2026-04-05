@@ -16,8 +16,8 @@ const DRIPS: DripConfig[] = [
     messageBuilder: (profile, userType) => {
       const name = (profile.newsletter_name || profile.company_name || profile.name || "there") as string;
       return userType === "business"
-        ? `Hey ${name}! Just a quick note — I'm actively looking for creators and newsletters in your niche. I'll message you as soon as I find a great fit. In the meantime, is there anything about your ideal partner I should know?`
-        : `Hey ${name}! Just a quick note — I'm actively looking for brands that fit your audience. I'll message you as soon as I find a great match. Is there anything about your ideal brand partner I should know?`;
+        ? `Hey, Stroby here! Just a quick note — I'm actively looking for creators and newsletters in your niche. I'll message you as soon as I find a great fit. Anything about your ideal partner I should know?`
+        : `Hey, Stroby here! Just a quick note — I'm actively looking for brands that fit your audience. I'll message you as soon as I find a great match. Anything about your ideal brand partner I should know?`;
     },
   },
   {
@@ -26,9 +26,9 @@ const DRIPS: DripConfig[] = [
     messageBuilder: (profile, userType) => {
       const name = (profile.newsletter_name || profile.company_name || profile.name || "there") as string;
       if (userType === "newsletter" && profile.verification_status === "unverified") {
-        return `Hey ${name}! Quick tip — verified creators get matched faster. Want me to send you a verification link? Just reply *verify* and I'll set it up.`;
+        return `Hey, Stroby here! Quick tip — verified creators get matched faster. Want me to send you a verification link? Just reply *verify* and I'll set it up.`;
       }
-      return `Hey ${name}! Checking in — anything you'd like to update about your profile? The more detail I have, the better matches I can find.`;
+      return `Hey, Stroby here! Checking in — anything you'd like to update about your profile? The more detail I have, the better matches I can find.`;
     },
   },
   {
@@ -37,8 +37,8 @@ const DRIPS: DripConfig[] = [
     messageBuilder: (profile, userType) => {
       const name = (profile.newsletter_name || profile.company_name || profile.name || "there") as string;
       return userType === "business"
-        ? `Hey ${name}! Week one update — I'm still scanning for the right creators for you. Our network is growing every day. Anything you'd like to adjust about what you're looking for?`
-        : `Hey ${name}! Week one update — still looking for the perfect brand match. Our network is growing daily. Any updates on your audience or pricing I should know about?`;
+        ? `Hey, Stroby here! Week one update — I'm still scanning for the right creators for you. Our network is growing every day. Anything you'd like to adjust about what you're looking for?`
+        : `Hey, Stroby here! Week one update — still looking for the perfect brand match. Our network is growing daily. Any updates on your audience or pricing I should know about?`;
     },
   },
 ];

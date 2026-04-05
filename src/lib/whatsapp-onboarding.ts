@@ -180,10 +180,14 @@ export async function createProfileFromOnboarding(
     ? Math.round(parseFloat(String(data.price_per_placement).replace(/[$,]/g, "")) * 100)
     : null;
 
+  const rawName = (data.channel_name || data.name || "creator") as string;
+  const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);
+
   const { data: profile, error } = await supabase
     .from("newsletter_profiles")
     .insert({
       newsletter_name: data.channel_name || data.name || "Unknown",
+      slug,
       owner_name: data.owner_name || data.name || "Creator",
       url: data.url || null,
       platform: data.platform || null,

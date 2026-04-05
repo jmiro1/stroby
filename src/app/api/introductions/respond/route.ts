@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", introductionId);
 
-        const introMessage = `Great news! I've connected you both. ${business.contact_name || business.company_name}, meet ${creator.name}. ${creator.name}, meet ${business.contact_name || business.company_name} (${business.company_name}). You two should discuss partnership details, timing, and creative.\n\nYou can work out the deal directly, or if you'd like Stroby to handle payment as a secure escrow (protecting both sides), just let me know!`;
+        const introMessage = `Hey, Stroby here! Great news — I've connected you both. ${business.contact_name || business.company_name}, meet ${creator.name}. ${creator.name}, meet ${business.contact_name || business.company_name} (${business.company_name}). You two should discuss partnership details, timing, and creative.\n\nYou can work out the deal directly, or if you'd like Stroby to handle payment as a secure escrow (protecting both sides), just let me know!\n\n— Connected by Stroby ✨`;
 
         // Message to business
         if (business.phone) {
