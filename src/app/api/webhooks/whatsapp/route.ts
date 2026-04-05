@@ -11,6 +11,7 @@ import {
   linkExistingAccount,
 } from "@/lib/whatsapp-onboarding";
 import { downloadWhatsAppMedia } from "@/lib/whatsapp-media";
+import { checkRateLimit } from "@/lib/rate-limiter";
 
 // ── GET: Meta webhook verification ──
 export async function GET(request: NextRequest) {
@@ -59,6 +60,12 @@ export async function POST(request: NextRequest) {
   const mediaUrl = message.image?.id || message.document?.id || null;
 
   if (!phone) return new Response("OK", { status: 200 });
+
+  // Rate limiting — prevent abuse
+  const rateCheck = checkRateLimit(phone);
+  if (!rateCheck.allowed) {
+    return new Response("OK", { status: 200 }); // Silently drop — don't reveal rate limit to attacker
+  }
 
   const supabase = createServiceClient();
 
@@ -270,11 +277,23 @@ async function handleKnownUser(
     // No pending intro — fall through to AI (user might be saying "yes" to something else)
   }
 
-  // ── Needs AI — send to agent ──
-  const agentResult = await handleInboundMessage(phoneWithPlus, body, mediaUrl || undefined);
-  const responseText = await processAgentResponse(
-    phoneWithPlus, userType === "other" ? "newsletter" : userType, userId, agentResult.response
-  );
+  // ── Needs AI — send to agent (with error recovery) ──
+  let responseText: string;
+  try {
+    const agentResult = await handleInboundMessage(phoneWithPlus, body, mediaUrl || undefined);
+    responseText = await processAgentResponse(
+      phoneWithPlus, userType === "other" ? "newsletter" : userType, userId, agentResult.response
+    );
+  } catch (err) {
+    console.error("AI agent error:", err);
+    await sendAndLog(
+      phoneWithPlus,
+      "I'm having a brief moment — try again in a few seconds! If it keeps happening, just let me know what you need in a new message.",
+      userType,
+      userId
+    );
+    return;
+  }
 
   // Strip markers
   const shouldSendStripeLink = responseText.includes("[SEND_STRIPE_LINK]");
@@ -335,7 +354,14 @@ async function handleNewUser(
 
   // Inbound already logged synchronously before after().
 
-  const result = await handleOnboardingMessage(phoneWithPlus, body);
+  let result;
+  try {
+    result = await handleOnboardingMessage(phoneWithPlus, body);
+  } catch (err) {
+    console.error("Onboarding AI error:", err);
+    await sendWhatsAppMessage(phoneWithPlus, "Hey! I'm having a brief moment. Try messaging me again in a few seconds!");
+    return;
+  }
 
   if (result.linkAccount && result.linkData) {
     const linkResult = await linkExistingAccount(phoneWithPlus, result.linkData);

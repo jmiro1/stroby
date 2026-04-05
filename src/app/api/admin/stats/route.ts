@@ -1,9 +1,11 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { decrypt } from "@/lib/encryption";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
+  const view = url.searchParams.get("view");
   const adminPassword = process.env.ADMIN_PASSWORD || "Stroby12!";
 
   if (key !== adminPassword) {
@@ -11,6 +13,89 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createServiceClient();
+
+  // Conversations view — return recent conversations grouped by user
+  if (view === "conversations") {
+    // Get the last 50 messages to find unique users
+    const { data: recentMessages } = await supabase
+      .from("agent_messages")
+      .select("user_id, user_type")
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (!recentMessages || recentMessages.length === 0) {
+      return Response.json({ conversations: [] });
+    }
+
+    // Get unique user_ids (preserve order = most recent first)
+    const seen = new Set<string>();
+    const uniqueUsers: { user_id: string; user_type: string }[] = [];
+    for (const msg of recentMessages) {
+      if (msg.user_id && !seen.has(msg.user_id)) {
+        seen.add(msg.user_id);
+        uniqueUsers.push({ user_id: msg.user_id, user_type: msg.user_type });
+      }
+      if (uniqueUsers.length >= 20) break;
+    }
+
+    const conversations = await Promise.all(
+      uniqueUsers.map(async ({ user_id, user_type }) => {
+        // Fetch profile
+        let name = "Unknown";
+        let phone = "";
+        let niche = "";
+
+        if (user_type === "newsletter") {
+          const { data: profile } = await supabase
+            .from("newsletter_profiles")
+            .select("newsletter_name, owner_name, phone, primary_niche")
+            .eq("id", user_id)
+            .single();
+          if (profile) {
+            name = profile.newsletter_name || profile.owner_name;
+            phone = profile.phone;
+            niche = profile.primary_niche;
+          }
+        } else if (user_type === "business") {
+          const { data: profile } = await supabase
+            .from("business_profiles")
+            .select("company_name, contact_name, phone, primary_niche")
+            .eq("id", user_id)
+            .single();
+          if (profile) {
+            name = profile.company_name || profile.contact_name;
+            phone = profile.phone;
+            niche = profile.primary_niche;
+          }
+        }
+
+        // Fetch last 5 messages for this user
+        const { data: messages } = await supabase
+          .from("agent_messages")
+          .select("direction, content, created_at")
+          .eq("user_id", user_id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        const decryptedMessages = (messages || []).reverse().map((m) => ({
+          direction: m.direction,
+          content: decrypt(m.content || ""),
+          created_at: m.created_at,
+        }));
+
+        return {
+          userId: user_id,
+          userType: user_type,
+          name,
+          phone,
+          niche,
+          messages: decryptedMessages,
+        };
+      })
+    );
+
+    return Response.json({ conversations });
+  }
 
   // User counts
   const [

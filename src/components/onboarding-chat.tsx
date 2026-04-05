@@ -115,6 +115,28 @@ const BUSINESS_STEPS: Step[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Analytics helper
+// ---------------------------------------------------------------------------
+
+function getSessionId(): string {
+  if (typeof window === "undefined") return "ssr";
+  let id = sessionStorage.getItem("stroby_session");
+  if (!id) {
+    id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessionStorage.setItem("stroby_session", id);
+  }
+  return id;
+}
+
+function trackEvent(event: string, data?: Record<string, unknown>) {
+  fetch("/api/analytics/onboarding", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId: getSessionId(), event, source: "website", ...data }),
+  }).catch(() => {}); // Fire and forget
+}
+
+// ---------------------------------------------------------------------------
 // LocalStorage helpers
 // ---------------------------------------------------------------------------
 
@@ -290,6 +312,7 @@ export default function OnboardingChat() {
     }
 
     // Fresh start
+    trackEvent("started");
     setIsTyping(true);
     setTimeout(() => {
       setMessages([
@@ -313,6 +336,7 @@ export default function OnboardingChat() {
 
     setShowRoleSelect(false);
     setMessages((prev) => [...prev, { role: "user", content: labels[type] }]);
+    trackEvent("role_selected", { userType: type });
 
     if (type === "other") {
       // Free-form Claude conversation
@@ -499,7 +523,15 @@ export default function OnboardingChat() {
       if (userType && userType !== "other") {
         saveDraft({ userType, step: actualNext, data: updatedData, messages: updatedMessages });
       }
+      // Track each step completion
+      if (actualNext > 0 && actualNext <= steps.length) {
+        const completedStep = steps[actualNext - 1];
+        if (completedStep) {
+          trackEvent("step_completed", { userType, stepNumber: actualNext - 1, stepField: completedStep.field });
+        }
+      }
       if (actualNext >= steps.length) {
+        trackEvent("completed", { userType });
         submitData(updatedData);
         return;
       }

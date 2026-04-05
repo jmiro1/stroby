@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Lock, Users, MessageSquare, AlertTriangle, TrendingUp, CheckCircle, Clock } from "lucide-react";
+import { Lock, Users, MessageSquare, AlertTriangle, TrendingUp, CheckCircle, Clock, MessagesSquare } from "lucide-react";
 import Image from "next/image";
 
 interface Stats {
@@ -18,12 +18,29 @@ interface Stats {
   generated_at: string;
 }
 
+interface ConversationMessage {
+  direction: string;
+  content: string;
+  created_at: string;
+}
+
+interface Conversation {
+  userId: string;
+  userType: string;
+  name: string;
+  phone: string;
+  niche: string;
+  messages: ConversationMessage[];
+}
+
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [convLoading, setConvLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -48,6 +65,20 @@ export default function AdminPage() {
   async function refresh() {
     const res = await fetch(`/api/admin/stats?key=${encodeURIComponent(password)}`);
     if (res.ok) setStats(await res.json());
+  }
+
+  async function loadConversations() {
+    setConvLoading(true);
+    try {
+      const res = await fetch(`/api/admin/stats?view=conversations&key=${encodeURIComponent(password)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setConversations(data.conversations || []);
+      }
+    } catch {
+      // silently fail
+    }
+    setConvLoading(false);
   }
 
   if (!authenticated) {
@@ -221,6 +252,75 @@ export default function AdminPage() {
               </div>
             )}
           </div>
+        </Section>
+
+        {/* Conversations */}
+        <Section title="Conversations">
+          {conversations.length === 0 ? (
+            <button
+              onClick={loadConversations}
+              disabled={convLoading}
+              className="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            >
+              <MessagesSquare className="size-4" />
+              {convLoading ? "Loading..." : "Load Conversations"}
+            </button>
+          ) : (
+            <div className="space-y-4">
+              <button
+                onClick={loadConversations}
+                disabled={convLoading}
+                className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50"
+              >
+                {convLoading ? "Refreshing..." : "Refresh"}
+              </button>
+              {conversations.map((conv) => (
+                <div key={conv.userId} className="rounded-xl border p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <p className="text-sm font-semibold">{conv.name}</p>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                      conv.userType === "newsletter"
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                        : "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300"
+                    }`}>
+                      {conv.userType}
+                    </span>
+                    {conv.niche && (
+                      <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">
+                        {conv.niche}
+                      </span>
+                    )}
+                    {conv.phone && (
+                      <span className="ml-auto text-xs text-muted-foreground">{conv.phone}</span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {conv.messages.map((msg, i) => (
+                      <div
+                        key={i}
+                        className={`flex ${msg.direction === "outbound" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+                            msg.direction === "outbound"
+                              ? "bg-blue-500 text-white"
+                              : "bg-muted"
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                          <p className={`mt-1 text-[10px] ${
+                            msg.direction === "outbound" ? "text-blue-100" : "text-muted-foreground"
+                          }`}>
+                            {new Date(msg.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Section>
 
         <p className="text-center text-xs text-muted-foreground">
