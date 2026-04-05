@@ -170,5 +170,44 @@ export async function POST(request: NextRequest) {
     console.error("Monthly recap error:", err);
   }
 
+  // Daily admin digest — pending verifications + flagged messages
+  try {
+    const adminPhone = process.env.ADMIN_WHATSAPP_NUMBER;
+    if (adminPhone) {
+      const { count: pendingVerifications } = await supabase
+        .from("newsletter_profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("verification_status", "screenshot")
+        .not("verification_data->status", "eq", "auto_verified");
+
+      const { count: flaggedCount } = await supabase
+        .from("flagged_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("reviewed", false);
+
+      const { count: newSignups } = await supabase
+        .from("newsletter_profiles")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+      const { count: newBiz } = await supabase
+        .from("business_profiles")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+
+      const parts: string[] = ["*Stroby Daily Digest*\n"];
+      if ((pendingVerifications || 0) > 0) parts.push(`🔍 ${pendingVerifications} verification${(pendingVerifications || 0) !== 1 ? "s" : ""} pending review`);
+      if ((flaggedCount || 0) > 0) parts.push(`🚩 ${flaggedCount} flagged message${(flaggedCount || 0) !== 1 ? "s" : ""} to review`);
+      parts.push(`📊 ${matchesSuggested} match${matchesSuggested !== 1 ? "es" : ""} suggested today`);
+      if ((newSignups || 0) + (newBiz || 0) > 0) parts.push(`👤 ${(newSignups || 0) + (newBiz || 0)} new signup${(newSignups || 0) + (newBiz || 0) !== 1 ? "s" : ""} (${newSignups || 0} creators, ${newBiz || 0} brands)`);
+      parts.push(`\nCheck details: ${process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai"}/admin`);
+
+      const { sendWhatsAppMessage: sendMsg } = await import("@/lib/whatsapp");
+      await sendMsg(adminPhone, parts.join("\n"));
+    }
+  } catch (err) {
+    console.error("Admin digest error:", err);
+  }
+
   return Response.json({ businessesProcessed, matchesSuggested, dripsSent, followupsSent, recapsSent });
 }
