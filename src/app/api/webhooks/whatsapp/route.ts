@@ -28,16 +28,19 @@ export async function GET(request: NextRequest) {
 
 // ── POST: Incoming WhatsApp messages ──
 export async function POST(request: NextRequest) {
-  // Verify Meta webhook signature
+  // Verify Meta webhook signature (fail-closed: reject if signature missing when secret is configured)
   const rawBody = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
   const appSecret = process.env.META_APP_SECRET;
 
-  if (appSecret && signature) {
+  if (appSecret) {
+    if (!signature) {
+      return new Response("Forbidden", { status: 403 });
+    }
     const crypto = await import("crypto");
     const expected = "sha256=" + crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
     if (signature !== expected) {
-      console.error("Webhook signature mismatch — rejecting");
+      console.error("Webhook signature mismatch");
       return new Response("Forbidden", { status: 403 });
     }
   }
@@ -314,15 +317,26 @@ async function handleKnownUser(
     });
   }
 
-  // Profile auto-update from conversation
+  // Profile auto-update from conversation (whitelisted fields only)
   if (shouldUpdateProfile) {
+    const ALLOWED_FIELDS: Record<string, string[]> = {
+      newsletter: ["subscriber_count", "avg_open_rate", "avg_ctr", "price_per_placement", "primary_niche", "description"],
+      business: ["target_customer", "budget_range", "primary_niche", "campaign_goal", "description", "product_description"],
+      other: ["description", "niche", "objectives", "looking_for", "can_offer"],
+    };
     const updateMatch = responseText.match(/\[PROFILE_UPDATE\]\s*(\{[\s\S]*?\})/);
     if (updateMatch) {
       try {
-        const updates = JSON.parse(updateMatch[1]);
-        const table = userType === "newsletter" ? "newsletter_profiles"
-          : userType === "business" ? "business_profiles" : "other_profiles";
-        await supabase.from(table).update(updates).eq("id", userId);
+        const rawUpdates = JSON.parse(updateMatch[1]);
+        const allowed = ALLOWED_FIELDS[userType] || [];
+        const safeUpdates = Object.fromEntries(
+          Object.entries(rawUpdates).filter(([key]) => allowed.includes(key))
+        );
+        if (Object.keys(safeUpdates).length > 0) {
+          const table = userType === "newsletter" ? "newsletter_profiles"
+            : userType === "business" ? "business_profiles" : "other_profiles";
+          await supabase.from(table).update(safeUpdates).eq("id", userId);
+        }
       } catch { /* ignore parse errors */ }
     }
   }

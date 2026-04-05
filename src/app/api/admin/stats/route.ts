@@ -83,11 +83,16 @@ export async function GET(request: NextRequest) {
           created_at: m.created_at,
         }));
 
+        // Mask phone number for security
+        const maskedPhone = phone && phone.length > 6
+          ? phone.slice(0, 4) + "****" + phone.slice(-3)
+          : phone;
+
         return {
           userId: user_id,
           userType: user_type,
           name,
-          phone,
+          phone: maskedPhone,
           niche,
           messages: decryptedMessages,
         };
