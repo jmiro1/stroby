@@ -2,13 +2,11 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
-  // Simple auth — use CRON_SECRET as admin password
-  const auth = request.headers.get("authorization");
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
+  const adminPassword = process.env.ADMIN_PASSWORD || "Stroby12!";
 
-  const secret = process.env.CRON_SECRET;
-  if (!secret || (auth !== `Bearer ${secret}` && key !== secret)) {
+  if (key !== adminPassword) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
