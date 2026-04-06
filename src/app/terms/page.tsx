@@ -20,7 +20,7 @@ export default function TermsPage() {
             <ArrowLeft className="size-4" />
             <span className="text-sm">Back</span>
           </Link>
-          <div className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <div className="relative size-8 overflow-hidden rounded-lg bg-primary">
               <Image
                 src="/logo-emoji.png"
@@ -31,7 +31,7 @@ export default function TermsPage() {
               />
             </div>
             <span className="text-lg font-semibold tracking-tight">Stroby</span>
-          </div>
+          </Link>
         </div>
       </header>
 

@@ -33,15 +33,17 @@ export default function WhatsAppPage() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
       <div className="flex max-w-md flex-col items-center text-center">
-        {/* Stroby character */}
-        <Image
-          src="/logo-emoji.png"
-          alt="Stroby AI"
-          width={160}
-          height={160}
-          className="mb-6 drop-shadow-lg"
-          priority
-        />
+        {/* Stroby character — links home */}
+        <a href="/" className="mb-6 transition-transform hover:scale-105">
+          <Image
+            src="/logo-emoji.png"
+            alt="Stroby AI"
+            width={160}
+            height={160}
+            className="drop-shadow-lg"
+            priority
+          />
+        </a>
 
         <h1 className="mb-3 text-3xl font-bold tracking-tight sm:text-4xl">
           Hey, I&apos;m Stroby!

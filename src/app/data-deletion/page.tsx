@@ -24,14 +24,16 @@ function DeletionContent() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
       <div className="flex max-w-md flex-col items-center text-center">
-        <Image
-          src="/logo-emoji.png"
-          alt="Stroby AI"
-          width={100}
-          height={100}
-          className="mb-6 drop-shadow-lg"
-          priority
-        />
+        <a href="/" className="mb-6 transition-transform hover:scale-105">
+          <Image
+            src="/logo-emoji.png"
+            alt="Stroby AI"
+            width={100}
+            height={100}
+            className="drop-shadow-lg"
+            priority
+          />
+        </a>
 
         <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-green-100">
           <CheckCircle2 className="size-7 text-green-600" />

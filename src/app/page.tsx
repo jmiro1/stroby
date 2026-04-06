@@ -4,6 +4,7 @@ import { useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import OnboardingChat from "@/components/onboarding-chat";
+import { HowItWorks } from "@/components/how-it-works";
 
 export default function HomePage() {
   const chatRef = useRef<HTMLDivElement>(null);
@@ -54,8 +55,8 @@ export default function HomePage() {
 
         {/* Center content */}
         <main className="flex flex-1 flex-col items-center justify-center px-4">
-          {/* Character image */}
-          <div className="relative mb-6 size-32 overflow-hidden rounded-3xl sm:size-40">
+          {/* Character image — links home */}
+          <Link href="/" className="relative mb-6 size-32 overflow-hidden rounded-3xl transition-transform hover:scale-105 sm:size-40">
             <Image
               src="/logo-emoji.png"
               alt="Stroby AI"
@@ -72,7 +73,7 @@ export default function HomePage() {
                 }
               }}
             />
-          </div>
+          </Link>
 
           {/* Headline */}
           <h1 className="text-center text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
@@ -126,6 +127,17 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* How It Works — 20 second animation */}
+      <section className="border-t py-16">
+        <div className="mx-auto max-w-2xl px-4 sm:px-6">
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
+            <p className="mt-2 text-muted-foreground">20 seconds. That's all you need.</p>
+          </div>
+          <HowItWorks />
+        </div>
+      </section>
 
       {/* WhatsApp CTA */}
       <section className="border-t py-12">

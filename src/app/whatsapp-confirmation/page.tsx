@@ -57,14 +57,16 @@ function ConfirmationContent() {
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
       <div className="flex max-w-md flex-col items-center text-center">
-        <Image
-          src="/logo-emoji.png"
-          alt="Stroby AI"
-          width={120}
-          height={120}
-          className="mb-6 drop-shadow-lg"
-          priority
-        />
+        <a href="/" className="mb-6 transition-transform hover:scale-105">
+          <Image
+            src="/logo-emoji.png"
+            alt="Stroby AI"
+            width={120}
+            height={120}
+            className="drop-shadow-lg"
+            priority
+          />
+        </a>
 
         {status === "loading" && (
           <>

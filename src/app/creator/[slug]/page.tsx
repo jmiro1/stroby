@@ -140,15 +140,17 @@ export default async function CreatorProfilePage({
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12">
       <div className="flex w-full max-w-md flex-col items-center text-center">
-        {/* Avatar / Logo */}
-        <Image
-          src={avatarSrc}
-          alt={name}
-          width={120}
-          height={120}
-          className="mb-6 size-[100px] rounded-full object-cover drop-shadow-lg sm:size-[120px]"
-          priority
-        />
+        {/* Avatar / Logo — links home */}
+        <Link href="/" className="mb-6 transition-transform hover:scale-105">
+          <Image
+            src={avatarSrc}
+            alt={name}
+            width={120}
+            height={120}
+            className="size-[100px] rounded-full object-cover drop-shadow-lg sm:size-[120px]"
+            priority
+          />
+        </Link>
 
         {/* Creator name */}
         <h1 className="mb-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">

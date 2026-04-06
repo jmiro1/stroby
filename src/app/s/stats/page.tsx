@@ -1,7 +1,10 @@
 import { createServiceClient } from "@/lib/supabase";
 import { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { ActivityFeed } from "@/components/activity-feed";
+import { SiteHeader } from "@/components/site-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: "Stroby Network Stats",
@@ -93,7 +96,7 @@ export default async function StatsPage() {
   );
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-gradient-to-b from-background via-background to-primary/5">
+    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-gradient-to-b from-background via-background to-primary/5">
       {/* Decorative background elements */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-40 -top-40 h-80 w-80 rounded-full bg-primary/5 blur-3xl" />
@@ -101,10 +104,12 @@ export default async function StatsPage() {
         <div className="absolute -left-20 bottom-1/4 h-72 w-72 rounded-full bg-blue-500/5 blur-3xl" />
       </div>
 
-      <main className="relative mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-24">
+      <SiteHeader />
+
+      <main className="relative mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
         {/* Header */}
         <div className="flex flex-col items-center text-center">
-          <div className="relative mb-6">
+          <Link href="/" className="relative mb-6 transition-transform hover:scale-105">
             <div className="absolute inset-0 scale-150 rounded-full bg-primary/10 blur-2xl" />
             <Image
               src="/logo-emoji.png"
@@ -114,7 +119,7 @@ export default async function StatsPage() {
               className="relative drop-shadow-xl"
               priority
             />
-          </div>
+          </Link>
           <h1 className="mb-2 text-4xl font-extrabold tracking-tight sm:text-5xl">
             Stroby Network
           </h1>
@@ -209,7 +214,6 @@ export default async function StatsPage() {
           </a>
         </div>
 
-        {/* Footer */}
         <div className="mt-20 text-center">
           <p className="text-xs text-muted-foreground">
             Updated live &middot;{" "}
@@ -221,6 +225,8 @@ export default async function StatsPage() {
           </p>
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }
