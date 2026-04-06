@@ -20,11 +20,12 @@ const FRAMES: Frame[] = [
   { role: "stroby", content: "Tell me about your audience.", enterAt: 8 },
   { role: "stroby", content: "I find brands that fit.", enterAt: 9.5 },
   { role: "stroby", content: "You both say yes. I connect you.", enterAt: 11 },
-  { role: "stroby", content: "Free to join. No commitment. ✨", enterAt: 13.5 },
-  { role: "stroby", content: "Say hi on WhatsApp 👇", enterAt: 15.5 },
+  { role: "stroby", content: "Contact only shared when both agree. Zero spam.", enterAt: 13 },
+  { role: "stroby", content: "Free to join. No commitment. ✨", enterAt: 15.5 },
+  { role: "stroby", content: "Say hi on WhatsApp 👇", enterAt: 17.5 },
 ];
 
-const LOOP_DURATION = 20; // seconds
+const LOOP_DURATION = 22; // seconds
 
 export function HowItWorks() {
   const [elapsed, setElapsed] = useState(0);

@@ -133,7 +133,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-2xl px-4 sm:px-6">
           <div className="mb-8 text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">How it works</h2>
-            <p className="mt-2 text-muted-foreground">20 seconds. That's all you need.</p>
+            <p className="mt-2 text-muted-foreground">Double opt-in. Contact only shared when both sides agree.</p>
           </div>
           <HowItWorks />
         </div>
