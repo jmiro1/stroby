@@ -15,6 +15,7 @@ interface Stats {
     businesses: { company_name: string; primary_niche: string; budget_range: string; created_at: string }[];
   };
   niches: Record<string, number>;
+  whatsapp_token?: { expiresAt: number | null; daysRemaining: number | null; error?: string };
   generated_at: string;
 }
 
@@ -129,6 +130,7 @@ export default function AdminPage() {
           <div className="flex gap-2">
             <a href="/admin/matches" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Matches</a>
             <a href="/admin/analytics" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Analytics</a>
+            <a href="/admin/costs" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Costs</a>
             <button onClick={refresh} className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Refresh</button>
           </div>
         </div>
@@ -142,6 +144,29 @@ export default function AdminPage() {
           <StatCard icon={MessageSquare} label="Messages Today" value={stats.messages_today.inbound + stats.messages_today.outbound} sub={`${stats.messages_today.inbound} in · ${stats.messages_today.outbound} out`} />
           <StatCard icon={AlertTriangle} label="Flagged" value={stats.flagged.unreviewed} sub="unreviewed" color={stats.flagged.unreviewed > 0 ? "text-red-500" : undefined} />
         </div>
+
+        {/* WhatsApp token status */}
+        {stats.whatsapp_token && (
+          <div className={`rounded-xl border p-4 ${
+            stats.whatsapp_token.daysRemaining == null
+              ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
+              : stats.whatsapp_token.daysRemaining < 7
+              ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950"
+              : stats.whatsapp_token.daysRemaining < 14
+              ? "border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950"
+              : "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950"
+          }`}>
+            <p className="text-sm font-medium">
+              WhatsApp token: {stats.whatsapp_token.daysRemaining == null
+                ? "Permanent ✅"
+                : stats.whatsapp_token.daysRemaining < 7
+                ? `⚠️ EXPIRES IN ${stats.whatsapp_token.daysRemaining} DAYS — RENEW NOW`
+                : stats.whatsapp_token.daysRemaining < 14
+                ? `Expires in ${stats.whatsapp_token.daysRemaining} days — plan to renew`
+                : `${stats.whatsapp_token.daysRemaining} days remaining ✅`}
+            </p>
+          </div>
+        )}
 
         {/* Verification */}
         <Section title="Verification Status">

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
 import { readOnboardingMessages } from "./secure-messages";
+import { logApiUsage } from "./api-usage";
 
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -11,6 +12,8 @@ function getAnthropic(): Anthropic {
 }
 
 const ONBOARDING_PROMPT = `You are Stroby, an AI superconnector for brand partnerships. A new user is messaging you on WhatsApp for the first time. Their phone number is already known.
+
+PERSONALITY: Channel a Mad Men creative director. Complex, intelligent, warm, quietly funny, self-respecting. Measured and confident. Short sentences. Dry wit when natural, never forced. No "Great question!" or exclamation point parades. Match the user's energy. Occasional "Noted.", "Right.", "Fair." when it fits.
 
 LANGUAGE: Detect the language the user writes in and respond in that same language. Default to English.
 
@@ -88,6 +91,14 @@ export async function handleOnboardingMessage(
     max_tokens: 300,
     system: ONBOARDING_PROMPT,
     messages,
+  });
+
+  logApiUsage({
+    provider: "anthropic",
+    model: "claude-haiku-4-5-20251001",
+    route: "onboarding",
+    tokensIn: completion.usage?.input_tokens || 0,
+    tokensOut: completion.usage?.output_tokens || 0,
   });
 
   const responseText =

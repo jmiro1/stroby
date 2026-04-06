@@ -166,6 +166,17 @@ export function formatInsightsForAI(preferences: Record<string, unknown> | null)
     parts.push(`Match history: ${suggested} suggested, ${accepted} accepted, ${declined} declined`);
   }
 
+  // Peer comparison stats (cached weekly)
+  const peerStats = (preferences as Record<string, unknown>).peer_stats as Record<string, unknown> | undefined;
+  if (peerStats) {
+    if (peerStats.completeness_percentile != null) {
+      parts.push(`Profile completeness: top ${100 - Number(peerStats.completeness_percentile)}% in niche`);
+    }
+    if (peerStats.acceptance_rate_percentile != null && (p.matches_suggested || 0) >= 3) {
+      parts.push(`Match acceptance: top ${100 - Number(peerStats.acceptance_rate_percentile)}% in niche`);
+    }
+  }
+
   // Declined niches (if pattern emerges)
   if (p.declined_niches) {
     const frequentDeclines = Object.entries(p.declined_niches)

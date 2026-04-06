@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import Anthropic from "@anthropic-ai/sdk";
 import crypto from "crypto";
+import { logApiUsage } from "@/lib/api-usage";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "application/pdf"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -65,6 +66,14 @@ Use null for metrics you can't find. Confidence: "high" if clear, "medium" if pa
         },
       ],
     }],
+  });
+
+  logApiUsage({
+    provider: "anthropic",
+    model: "claude-haiku-4-5-20251001",
+    route: "verification",
+    tokensIn: completion.usage?.input_tokens || 0,
+    tokensOut: completion.usage?.output_tokens || 0,
   });
 
   const text = completion.content[0].type === "text" ? completion.content[0].text : "";

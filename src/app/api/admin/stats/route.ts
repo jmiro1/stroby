@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { decrypt } from "@/lib/encryption";
+import { checkWhatsAppTokenExpiry } from "@/lib/whatsapp-token-check";
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -210,6 +211,7 @@ export async function GET(request: NextRequest) {
       businesses: recentBusinesses || [],
     },
     niches: nicheCount,
+    whatsapp_token: await checkWhatsAppTokenExpiry(),
     generated_at: new Date().toISOString(),
   });
 }

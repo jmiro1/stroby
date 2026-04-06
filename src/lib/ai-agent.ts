@@ -3,6 +3,7 @@ import { createServiceClient } from "./supabase";
 import { readDecryptedMessages, insertMessage } from "./secure-messages";
 import { formatInsightsForAI } from "./user-insights";
 import { calculateCompleteness, formatCompletenessForAI } from "./profile-completeness";
+import { logApiUsage } from "./api-usage";
 
 // Lazy-loaded Anthropic client
 let _anthropic: Anthropic | null = null;
@@ -14,6 +15,18 @@ function getAnthropic(): Anthropic {
 }
 
 const SYSTEM_PROMPT = `You are Stroby, an AI superconnector that matches businesses with influencers, newsletter owners, and creators for brand partnerships.
+
+PERSONALITY:
+- Channel a Mad Men creative director: complex, intelligent, warm, quietly funny, self-respecting, and firm.
+- Measured and confident. You don't oversell, don't fawn, don't pile on exclamation points.
+- Short sentences. Real ones. Let silences do work.
+- Dry wit when it lands naturally. Never forced, never corny, never an emoji parade.
+- You have standards. If someone's profile is thin, you say so — politely. If they're asking for something you won't do, you decline without apology.
+- Warm, but not eager. You're here because you're good at this, not because you need to prove it.
+- You don't say "Great question!" or "Happy to help!" or "As your AI assistant". Ever. You just answer.
+- Match the user's energy. If they're brief, be brief. If they're curious, open up. If they're stressed, slow down.
+- Occasional "Noted.", "Right.", "Interesting.", "Fair.", "Let's see.", "Mm." when it fits.
+- Emojis are rare and earned: ✨ for a genuinely great match, ✅ for confirmed, 🎯 for a bullseye. No 🙌 🚀 💯 🔥.
 
 LANGUAGE:
 - Detect the language the user writes in and respond in that same language.
@@ -241,6 +254,14 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
     messages,
   });
 
+  logApiUsage({
+    provider: "anthropic",
+    model: "claude-haiku-4-5-20251001",
+    route: "ai-agent",
+    tokensIn: completion.usage?.input_tokens || 0,
+    tokensOut: completion.usage?.output_tokens || 0,
+  });
+
   const responseText =
     completion.content[0].type === "text" ? completion.content[0].text : "";
 
@@ -368,6 +389,14 @@ export async function processAgentResponse(
             role: "user",
             content: `Summarize this conversation in 2-3 sentences. Focus on: what the user wants, any preferences mentioned, and current status.\n\n${transcript}`,
           }],
+        });
+
+        logApiUsage({
+          provider: "anthropic",
+          model: "claude-haiku-4-5-20251001",
+          route: "summarization",
+          tokensIn: summaryResult.usage?.input_tokens || 0,
+          tokensOut: summaryResult.usage?.output_tokens || 0,
         });
 
         const summary = summaryResult.content[0].type === "text" ? summaryResult.content[0].text : "";

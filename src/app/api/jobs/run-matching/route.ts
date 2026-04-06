@@ -4,6 +4,8 @@ import { findMatchesForBusiness } from "@/lib/matching";
 import { sendWhatsAppSmart } from "@/lib/whatsapp";
 import { updateUserInsights } from "@/lib/user-insights";
 import { sendEngagementDrips, sendPostIntroFollowups, sendMonthlyRecaps } from "@/lib/engagement-drips";
+import { generateVoiceMessage, isVoiceEnabled } from "@/lib/tts";
+import { uploadWhatsAppAudio, sendWhatsAppAudio } from "@/lib/whatsapp";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -133,6 +135,20 @@ export async function POST(request: NextRequest) {
         [business.contact_name || business.company_name, matchDesc]
       );
 
+      // Voice message (beta, behind toggle) — sent after the text
+      if (isVoiceEnabled()) {
+        try {
+          const voiceScript = `Hey. ${business.contact_name || business.company_name}. Stroby here. Found someone interesting for you. Take a look when you get a moment.`;
+          const audioBuffer = await generateVoiceMessage(voiceScript);
+          if (audioBuffer) {
+            const mediaId = await uploadWhatsAppAudio(audioBuffer);
+            if (mediaId) await sendWhatsAppAudio(business.phone, mediaId);
+          }
+        } catch (err) {
+          console.error("Voice message failed:", err);
+        }
+      }
+
       await supabase.from("agent_messages").insert({
         direction: "outbound",
         user_type: "business",
@@ -195,7 +211,13 @@ export async function POST(request: NextRequest) {
         .select("id", { count: "exact", head: true })
         .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
+      const { checkWhatsAppTokenExpiry } = await import("@/lib/whatsapp-token-check");
+      const tokenCheck = await checkWhatsAppTokenExpiry();
+
       const parts: string[] = ["*Stroby Daily Digest*\n"];
+      if (tokenCheck.daysRemaining != null && tokenCheck.daysRemaining < 14) {
+        parts.push(`⚠️ WhatsApp token expires in ${tokenCheck.daysRemaining} day${tokenCheck.daysRemaining !== 1 ? "s" : ""} — renew it`);
+      }
       if ((pendingVerifications || 0) > 0) parts.push(`🔍 ${pendingVerifications} verification${(pendingVerifications || 0) !== 1 ? "s" : ""} pending review`);
       if ((flaggedCount || 0) > 0) parts.push(`🚩 ${flaggedCount} flagged message${(flaggedCount || 0) !== 1 ? "s" : ""} to review`);
       parts.push(`📊 ${matchesSuggested} match${matchesSuggested !== 1 ? "es" : ""} suggested today`);

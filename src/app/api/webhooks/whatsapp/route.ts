@@ -1,7 +1,7 @@
 import { NextRequest, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { handleInboundMessage, processAgentResponse } from "@/lib/ai-agent";
-import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, markAsReadAndTyping } from "@/lib/whatsapp";
 import { getStripe } from "@/lib/stripe";
 import { insertMessage } from "@/lib/secure-messages";
 import { classifyIntent, CANNED_RESPONSES } from "@/lib/intent-classifier";
@@ -68,6 +68,11 @@ export async function POST(request: NextRequest) {
   const rateCheck = checkRateLimit(phone);
   if (!rateCheck.allowed) {
     return new Response("OK", { status: 200 }); // Silently drop — don't reveal rate limit to attacker
+  }
+
+  // Fire-and-forget: mark as read + typing indicator (doesn't block)
+  if (messageId) {
+    markAsReadAndTyping(messageId).catch(() => {});
   }
 
   const supabase = createServiceClient();

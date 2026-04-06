@@ -141,7 +141,17 @@
 - [ ] A/B test different scoring prompts to optimize acceptance rates
 - [ ] Add "why not" reasoning for low scores to improve the affinity map over time
 
-### Priority F: Marketing & Growth
+### Priority F: Highest Priority (Next Up)
+- [ ] #5 AI voice calls integration (Vapi/Bland.ai) — `call_permission_1` template ready
+- [ ] #9 Real-time activity feed on public stats page ("Maria just joined", etc.)
+- [ ] #10 Public testimonials + case studies
+- [ ] #15 "How it works" 20-second animation/video for homepage
+
+### Priority G: High Priority (Soon)
+- [ ] #4 Price recommendation engine — suggest fair pricing based on similar verified creators
+- [ ] #6 Self-service WhatsApp commands (pause, export, delete, update)
+
+### Priority H: Marketing & Growth
 - [ ] Creator directory SEO play — build `stroby.ai/newsletters/[niche]` pages (organic traffic)
 - [ ] Match celebration shareable — branded card after successful intro for social sharing
 - [ ] Waitlist with referral priority ("Refer a friend to jump the queue")
@@ -170,10 +180,21 @@
 - [ ] Remove debug logging from whatsapp.ts once stable
 
 ## Maybe / Explore Later
+- [ ] #8 Soft gamification — streaks, milestones, "profile 100% complete for 12 days 🔥"
+- [ ] #16 Public changelog / "what's new" page showing platform progress
 - [ ] "New in your niche" real-time alerts — when a new business joins, ping creators in that niche
 - [ ] Notification preferences (frequency control for users)
 - [ ] Pause/unpause matching per user
 - [ ] Group chat creation on WhatsApp for introductions
+
+## Security & Compliance
+- [ ] **Weekly full security audit** — every Monday, run a security sweep to catch regressions
+  - Check all API routes for auth
+  - Verify no hardcoded secrets or passwords
+  - Confirm .env.local not in git history
+  - Verify encryption hasn't regressed
+  - Check rate limiting is still in place
+  - Audit new endpoints added that week
 
 ## Infrastructure
 - [x] CRON_SECRET on Vercel

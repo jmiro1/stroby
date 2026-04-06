@@ -35,6 +35,105 @@ function getConfig() {
 }
 
 // ── Send a free-form text message (works within 24h reply window) ──
+// Mark an incoming message as read + show typing indicator
+// Fire-and-forget — doesn't block processing
+export async function markAsReadAndTyping(messageId: string): Promise<void> {
+  const config = getConfig();
+  if (!config || !messageId) return;
+
+  try {
+    await fetch(
+      `${WHATSAPP_API_URL}/${config.phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          status: "read",
+          message_id: messageId,
+          typing_indicator: { type: "text" },
+        }),
+      }
+    );
+  } catch {
+    // Silent — non-critical
+  }
+}
+
+// Upload an audio file to Meta and return the media ID
+export async function uploadWhatsAppAudio(audioBuffer: Buffer): Promise<string | null> {
+  const config = getConfig();
+  if (!config) return null;
+
+  try {
+    const formData = new FormData();
+    formData.append("messaging_product", "whatsapp");
+    formData.append("type", "audio/mpeg");
+    formData.append("file", new Blob([new Uint8Array(audioBuffer)], { type: "audio/mpeg" }), "stroby.mp3");
+
+    const res = await fetch(
+      `${WHATSAPP_API_URL}/${config.phoneNumberId}/media`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${config.accessToken}` },
+        body: formData,
+      }
+    );
+
+    if (!res.ok) {
+      console.error("WhatsApp audio upload failed:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return data.id || null;
+  } catch (err) {
+    console.error("WhatsApp audio upload error:", err);
+    return null;
+  }
+}
+
+// Send an audio message using a media ID
+export async function sendWhatsAppAudio(to: string, mediaId: string): Promise<string | null> {
+  const config = getConfig();
+  if (!config) return null;
+
+  try {
+    const res = await fetch(
+      `${WHATSAPP_API_URL}/${config.phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: cleanPhone(to),
+          type: "audio",
+          audio: { id: mediaId },
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error("WhatsApp audio send failed:", res.status, err);
+      return null;
+    }
+
+    const data = await res.json();
+    return data?.messages?.[0]?.id || null;
+  } catch (err) {
+    console.error("WhatsApp audio send error:", err);
+    return null;
+  }
+}
+
 export async function sendWhatsAppMessage(
   to: string,
   body: string

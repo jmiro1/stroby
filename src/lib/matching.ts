@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
 import { getSearchNiches } from "./niche-affinity";
+import { logApiUsage } from "./api-usage";
 
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -303,6 +304,14 @@ Respond ONLY with valid JSON array, no other text:
       model: "claude-haiku-4-5-20251001",
       max_tokens: 512,
       messages: [{ role: "user", content: prompt }],
+    });
+
+    logApiUsage({
+      provider: "anthropic",
+      model: "claude-haiku-4-5-20251001",
+      route: "matching",
+      tokensIn: completion.usage?.input_tokens || 0,
+      tokensOut: completion.usage?.output_tokens || 0,
     });
 
     const text = completion.content[0].type === "text" ? completion.content[0].text : "";
