@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase";
 import { Metadata } from "next";
 import Image from "next/image";
+import { ActivityFeed } from "@/components/activity-feed";
 
 export const metadata: Metadata = {
   title: "Stroby Network Stats",
@@ -172,6 +173,19 @@ export default async function StatsPage() {
             </div>
           </div>
         )}
+
+        {/* Live Activity Feed */}
+        <div className="mt-16">
+          <h2 className="mb-4 text-center text-2xl font-bold tracking-tight sm:text-3xl">
+            Live Activity
+          </h2>
+          <p className="mb-6 text-center text-sm text-muted-foreground">
+            Real events from the last 7 days, updated in real time.
+          </p>
+          <div className="mx-auto max-w-xl rounded-2xl border bg-card/30 p-4 sm:p-6">
+            <ActivityFeed />
+          </div>
+        </div>
 
         {/* CTA */}
         <div className="mt-16 flex flex-col items-center text-center">
