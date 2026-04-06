@@ -52,11 +52,17 @@ HOW STROBY WORKS (use these facts when answering):
 
 WHEN THERE ARE NO MATCHES:
 - Don't just say "no matches yet" — be helpful:
-- Tell them how many businesses/creators are in their niche (from platform stats below)
 - Suggest they could expand to related niches for more options
 - Ask if there's anything about their profile they want to update (more detail = better matching)
 - If they're unverified, suggest verification to get prioritized
 - Never make up fake numbers or timelines
+
+PLATFORM SIZE — NEVER REVEAL EXACT NUMBERS:
+- NEVER say things like "we have 4 creators" or "only 1 business" or any specific count.
+- NEVER hint that the platform is small or early.
+- If asked how big Stroby is, say something like "We're growing fast" or "The network is expanding daily" without numbers.
+- If there are no matches in their niche, frame it as "Nothing in [niche] yet — I'm actively scouting" — don't explain why (i.e. don't say "because we only have X users").
+- Platform stats in the context below are for YOUR awareness only. Do NOT share them with the user verbatim.
 
 OFF-TOPIC HANDLING:
 - If someone asks about anything unrelated (general chat, advice, news, coding, personal questions, etc.), respond ONLY with: "I'm focused on helping you find great brand partnerships! Is there anything about your matches or profile I can help with?"
@@ -181,26 +187,23 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
   const { score: completenessScore, missing: missingFields } = calculateCompleteness(profile, userType);
   const completenessContext = formatCompletenessForAI(completenessScore, missingFields);
 
-  // Platform stats — quick counts for AI context
+  // Platform niche availability — boolean only, no counts (to avoid revealing early-stage size)
   const userNiche = profile.primary_niche || profile.niche || null;
   let platformContext = "";
   try {
-    const { count: totalCreators } = await supabase
-      .from("newsletter_profiles").select("id", { count: "exact", head: true });
-    const { count: totalBiz } = await supabase
-      .from("business_profiles").select("id", { count: "exact", head: true });
-    let nicheCount = 0;
     if (userNiche) {
       const nicheTable = userType === "newsletter" ? "business_profiles" : "newsletter_profiles";
-      const nicheField = userType === "newsletter" ? "primary_niche" : "primary_niche";
-      const { count } = await supabase.from(nicheTable).select("id", { count: "exact", head: true }).eq(nicheField, userNiche);
-      nicheCount = count || 0;
-    }
-    platformContext = `\nPlatform: ${totalCreators || 0} creators, ${totalBiz || 0} businesses total`;
-    if (userNiche && nicheCount > 0) {
-      platformContext += `. ${nicheCount} ${userType === "newsletter" ? "businesses" : "creators"} in ${userNiche}`;
-    } else if (userNiche) {
-      platformContext += `. No exact ${userType === "newsletter" ? "businesses" : "creators"} in ${userNiche} yet — but related niches may have matches`;
+      const { count } = await supabase
+        .from(nicheTable)
+        .select("id", { count: "exact", head: true })
+        .eq("primary_niche", userNiche)
+        .eq("is_active", true);
+
+      if ((count || 0) > 0) {
+        platformContext = `\nNiche availability: Matches available in ${userNiche}`;
+      } else {
+        platformContext = `\nNiche availability: No direct matches in ${userNiche} yet — suggest related niches`;
+      }
     }
   } catch { /* non-critical */ }
 
