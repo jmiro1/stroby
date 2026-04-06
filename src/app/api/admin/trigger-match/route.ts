@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
       status: "suggested",
       match_score: match.score,
       match_reasoning: match.reasoning,
+      match_concerns: match.concerns || null,
+      niche_distance: match.nicheDistance ?? null,
       creator_id: match.creatorId,
       creator_type: match.creatorType,
     };

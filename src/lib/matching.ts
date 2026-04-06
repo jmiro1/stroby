@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
-import { getSearchNiches } from "./niche-affinity";
+import { getSearchNiches, getNicheDistance } from "./niche-affinity";
 import { logApiUsage } from "./api-usage";
 
 let _anthropic: Anthropic | null = null;
@@ -64,6 +64,8 @@ export interface Match {
   otherProfile?: OtherProfile;
   score: number;
   reasoning: string;
+  concerns?: string;
+  nicheDistance?: number;
 }
 
 function budgetToCents(budgetRange: string | null): number {
@@ -81,8 +83,51 @@ function budgetToCents(budgetRange: string | null): number {
 function engagementScore(nl: Record<string, unknown>): number {
   const subs = (nl.subscriber_count as number) || 0;
   const openRate = (nl.avg_open_rate as number) || 0;
-  // Effective reach = subscribers × open rate (normalized)
-  return subs * (openRate > 0 ? openRate : 0.2); // assume 20% if unknown
+  return subs * (openRate > 0 ? openRate : 0.2);
+}
+
+// Multi-factor pre-ranking score (0-1 range, approximate)
+// Combines engagement, niche proximity, verification, and rating
+function preRankingScore(
+  profile: Record<string, unknown>,
+  candidateType: CreatorType,
+  businessNiche: string | null
+): number {
+  let score = 0;
+
+  // 1. Engagement (40% weight) — log-scaled effective reach
+  if (candidateType === "newsletter") {
+    const eng = engagementScore(profile);
+    // Log scale: 1000 reach → 0.2, 10k → 0.4, 100k → 0.6, 1M → 0.8
+    const engNormalized = Math.min(1, Math.log10(Math.max(eng, 1)) / 6);
+    score += engNormalized * 0.4;
+  } else {
+    // Other creators: baseline engagement weight
+    score += 0.2;
+  }
+
+  // 2. Niche proximity (30% weight)
+  const candidateNiche = (profile.primary_niche || profile.niche) as string | null;
+  const distance = getNicheDistance(businessNiche, candidateNiche);
+  const proximityScore =
+    distance === 0 ? 1.0 :
+    distance === 1 ? 0.75 :
+    distance === 2 ? 0.5 :
+    distance === 3 ? 0.3 : 0.1;
+  score += proximityScore * 0.3;
+
+  // 3. Verification (15% weight)
+  const verified = profile.verification_status === "api_verified"
+    ? 1.0
+    : profile.verification_status === "screenshot" ? 0.7 : 0;
+  score += verified * 0.15;
+
+  // 4. Average match rating (15% weight)
+  const rating = (profile.avg_match_rating as number) || 0;
+  const ratingScore = rating > 0 ? rating / 5 : 0.5; // neutral if no rating
+  score += ratingScore * 0.15;
+
+  return score;
 }
 
 export async function findMatchesForBusiness(
@@ -128,7 +173,13 @@ export async function findMatchesForBusiness(
     if (intro.creator_id) excludedIds.add(intro.creator_id);
   }
 
-  const allCandidates: { type: CreatorType; profile: Record<string, unknown>; name: string; engScore: number }[] = [];
+  const allCandidates: {
+    type: CreatorType;
+    profile: Record<string, unknown>;
+    name: string;
+    preScore: number;
+    nicheDistance: number;
+  }[] = [];
 
   // ── Newsletter candidates (cross-niche) ──
   if (preference === "all" || preference === "newsletters_only") {
@@ -168,7 +219,8 @@ export async function findMatchesForBusiness(
           type: "newsletter",
           profile: nl,
           name: nl.newsletter_name,
-          engScore: engagementScore(nl),
+          preScore: preRankingScore(nl, "newsletter", business.primary_niche),
+          nicheDistance: getNicheDistance(business.primary_niche, nl.primary_niche as string | null),
         });
       }
     }
@@ -209,7 +261,8 @@ export async function findMatchesForBusiness(
           type: "other",
           profile: cr,
           name: cr.name,
-          engScore: 0, // No engagement metrics for other profiles
+          preScore: preRankingScore(cr, "other", business.primary_niche),
+          nicheDistance: getNicheDistance(business.primary_niche, cr.niche as string | null),
         });
       }
     }
@@ -217,8 +270,8 @@ export async function findMatchesForBusiness(
 
   if (allCandidates.length === 0) return [];
 
-  // Pre-rank by engagement score, take top 8 for LLM scoring
-  allCandidates.sort((a, b) => b.engScore - a.engScore);
+  // Pre-rank by multi-factor score, take top 8 for LLM scoring
+  allCandidates.sort((a, b) => b.preScore - a.preScore);
   const topCandidates = allCandidates.slice(0, 8);
 
   // Get historical match success data for the scoring prompt
@@ -267,36 +320,60 @@ export async function findMatchesForBusiness(
 // Score all candidates in a single LLM call
 async function batchScoreCandidates(
   business: BusinessProfile,
-  candidates: { type: CreatorType; profile: Record<string, unknown>; name: string }[],
+  candidates: { type: CreatorType; profile: Record<string, unknown>; name: string; nicheDistance?: number }[],
   successContext: string = ""
 ): Promise<Match[]> {
   if (candidates.length === 0) return [];
 
   const candidateDescriptions = candidates.map((c, i) => {
+    const distance = c.nicheDistance;
+    const distanceLabel = distance === 0 ? "EXACT NICHE" :
+                          distance === 1 ? "closely related" :
+                          distance === 2 ? "related" :
+                          distance === 3 ? "loosely related" : "unrelated";
     if (c.type === "newsletter") {
       const nl = c.profile;
-      return `${i + 1}. [NEWSLETTER] ${nl.newsletter_name} | Niche: ${nl.primary_niche || "General"} | ${nl.subscriber_count || "?"} subs | ${nl.avg_open_rate || "?"}% open rate | ${nl.description || "N/A"}`;
+      const verified = nl.verification_status === "api_verified" ? " ✓ API-verified"
+        : nl.verification_status === "screenshot" ? " ✓ screenshot-verified" : "";
+      return `${i + 1}. [NEWSLETTER${verified}] ${nl.newsletter_name} (${distanceLabel}) | Niche: ${nl.primary_niche || "General"} | ${nl.subscriber_count || "?"} subs | ${nl.avg_open_rate || "?"}% open rate | ${nl.description || "N/A"}`;
     } else {
       const cr = c.profile;
-      return `${i + 1}. [CREATOR] ${cr.name} | Niche: ${cr.niche || "General"} | Role: ${cr.role || "N/A"} | Offers: ${cr.can_offer || "N/A"} | ${cr.description || "N/A"}`;
+      return `${i + 1}. [CREATOR] ${cr.name} (${distanceLabel}) | Niche: ${cr.niche || "General"} | Role: ${cr.role || "N/A"} | Offers: ${cr.can_offer || "N/A"} | ${cr.description || "N/A"}`;
     }
   }).join("\n");
 
-  const prompt = `Score these candidates for a brand partnership with this business. Return a JSON array.
+  const prompt = `You are scoring candidates for a brand partnership. Be rigorous.
 
-Business:
-- ${business.company_name}: ${business.product_description || "N/A"}
-- Target: ${business.target_customer || "N/A"}
-- Goal: ${business.campaign_goal || "N/A"}
-- Niche: ${business.primary_niche || "N/A"}
+BUSINESS:
+- Company: ${business.company_name}
+- Product: ${business.product_description || "N/A"}
+- Target customer: ${business.target_customer || "N/A"}
+- Campaign goal: ${business.campaign_goal || "N/A"}
+- Primary niche: ${business.primary_niche || "N/A"}
+- Budget: ${business.budget_range || "N/A"}
 
-Candidates:
+CANDIDATES:
 ${candidateDescriptions}
 
-Score each 0.0-1.0. Consider: audience relevance, niche fit (related niches count), engagement quality, campaign goal alignment.${successContext ? `\n${successContext}\nBoost candidates in niche pairs with high historical success rates.` : ""}
+SCORING RUBRIC (each 0.0-1.0, equal weight unless stated):
+1. Audience-product fit: Would this audience actually care about the product?
+2. Niche alignment: Exact niche = top score. Closely related = good. Loosely related = only if clear thematic fit.
+3. Engagement quality: Newsletters with high open rates beat large-but-passive ones.
+4. Campaign goal match: Brand awareness ≠ direct response. Match the intent.
+5. Credibility: Verified creators score higher. No verification isn't disqualifying but it's a flag.
 
-Respond ONLY with valid JSON array, no other text:
-[{"index":1,"score":0.85,"reasoning":"one sentence"},{"index":2,"score":0.6,"reasoning":"one sentence"}]`;
+HARD RULES:
+- If audience demographics clearly don't match the target customer, score below 0.4
+- If campaign goal is "direct response" but the creator is known for brand content, note a concern
+- Be honest. A mediocre match is 0.5, not 0.8.${successContext ? `\n\n${successContext}\nBoost candidates in niche pairs with high historical success.` : ""}
+
+Return ONLY a JSON array. For each candidate, include:
+- "index": candidate number
+- "score": 0.0-1.0 overall weighted score
+- "reasoning": ONE short sentence on why it works
+- "concerns": ONE short sentence on potential issues, or null if none
+
+[{"index":1,"score":0.85,"reasoning":"...","concerns":"..."},{"index":2,"score":0.6,"reasoning":"...","concerns":null}]`;
 
   try {
     const anthropic = getAnthropic();
@@ -321,19 +398,29 @@ Respond ONLY with valid JSON array, no other text:
       return [];
     }
 
-    const scores = JSON.parse(jsonMatch[0]) as { index: number; score: number; reasoning: string }[];
+    const scores = JSON.parse(jsonMatch[0]) as {
+      index: number;
+      score: number;
+      reasoning: string;
+      concerns?: string | null;
+    }[];
 
     return scores
-      .filter((s) => s.score > 0.3) // Min threshold
+      .filter((s) => s.score > 0.4) // Raised threshold for higher quality
       .map((s) => {
         const candidate = candidates[s.index - 1];
         if (!candidate) return null;
 
         let adjustedScore = Math.max(0, Math.min(1, s.score));
 
+        // Niche distance boost: exact match gets a meaningful edge
+        if (candidate.nicheDistance === 0) adjustedScore = Math.min(1, adjustedScore * 1.15);
+        else if (candidate.nicheDistance === 1) adjustedScore = Math.min(1, adjustedScore * 1.05);
+
         // Boost for verified/high-rated
         if (candidate.type === "newsletter") {
-          if (candidate.profile.api_verified) adjustedScore = Math.min(1, adjustedScore * 1.1);
+          if (candidate.profile.verification_status === "api_verified") adjustedScore = Math.min(1, adjustedScore * 1.1);
+          else if (candidate.profile.verification_status === "screenshot") adjustedScore = Math.min(1, adjustedScore * 1.05);
           if ((candidate.profile.avg_match_rating as number) > 4.0) adjustedScore = Math.min(1, adjustedScore * 1.05);
         }
 
@@ -343,6 +430,8 @@ Respond ONLY with valid JSON array, no other text:
           creatorName: candidate.name,
           score: adjustedScore,
           reasoning: s.reasoning,
+          concerns: s.concerns || undefined,
+          nicheDistance: candidate.nicheDistance,
         };
 
         if (candidate.type === "newsletter") {

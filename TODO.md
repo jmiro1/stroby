@@ -133,13 +133,31 @@
 - [ ] Add email as fallback communication channel
 
 ### Priority E: Matching Refinement
-- [ ] Review and refine scoring weights — current LLM prompt is basic, needs more nuanced criteria
-- [ ] Add decline tracking — when a match is declined, store the reason and exclude similar future matches
-- [ ] Weight niche affinity (exact niche match > related niche)
-- [ ] Factor in past match success rate per niche pair
-- [ ] Consider audience geography overlap (business target region vs. newsletter audience region)
+
+**Level 1 (Done)**
+- [x] Multi-factor LLM scoring prompt — audience fit, niche alignment, engagement, goal match, credibility
+- [x] Niche distance weighting — exact niche match gets +15% boost, close related +5%
+- [x] Multi-factor pre-ranking — engagement (40%) + niche proximity (30%) + verification (15%) + rating (15%)
+- [x] Concerns tracking — AI flags potential issues, stored on introduction for analysis
+- [x] Raised min threshold from 0.3 to 0.4 for higher quality
+- [x] Hard rules: demographic mismatch = below 0.4, brand vs direct response mismatch = concern
+- [x] Niche distance stored on introduction (0=exact, 1=close, 2=related, 3=loose)
+- [x] Decline tracking — declined niches already excluded from future matches (2+ declines)
+- [x] Past match success rate per niche pair already in scoring prompt
+
+**Level 2 (Next)**
+- [ ] Decline REASON tracking — ask users why they declined, learn from text not just niche
+- [ ] Acceptance rate analysis — tune weights based on which scores convert
+- [ ] Use concerns data to refine niche affinity map (find false positives)
+- [ ] Track time-to-accept as a quality signal
+
+**Level 3 (Deeper)**
+- [ ] Audience geography overlap — collect region data, match by location
+- [ ] Semantic embeddings for true audience similarity (beyond niche labels)
 - [ ] A/B test different scoring prompts to optimize acceptance rates
-- [ ] Add "why not" reasoning for low scores to improve the affinity map over time
+- [ ] Collaborative filtering — "businesses like yours accepted these"
+- [ ] Time-of-day / day-of-week optimization for match sending
+- [ ] Match explainability page — click a link in the match message to see scoring breakdown
 
 ### Priority F: Highest Priority (Next Up)
 - [ ] #5 AI voice calls integration (Vapi/Bland.ai) — `call_permission_1` template ready

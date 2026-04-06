@@ -31,3 +31,15 @@ export function getSearchNiches(niche: string | null): string[] {
   const related = NICHE_AFFINITY[niche] || [];
   return [niche, ...related];
 }
+
+// Get niche distance: 0 = exact match, 1 = direct affinity, 2 = indirect, 99 = unrelated
+export function getNicheDistance(target: string | null, candidate: string | null): number {
+  if (!target || !candidate) return 99;
+  if (target === candidate) return 0;
+  const related = NICHE_AFFINITY[target] || [];
+  const index = related.indexOf(candidate);
+  if (index === 0) return 1; // Top related
+  if (index > 0 && index < 3) return 2; // Close related
+  if (index >= 3) return 3; // Weaker related
+  return 99; // Unrelated
+}
