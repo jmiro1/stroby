@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const key = url.searchParams.get("key");
-  if (key !== (process.env.ADMIN_PASSWORD)) {
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword || key !== adminPassword) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

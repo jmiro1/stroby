@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   };
 
   const adminPassword = process.env.ADMIN_PASSWORD;
-  if (key !== adminPassword) {
+  if (!adminPassword || key !== adminPassword) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -144,8 +144,6 @@ export async function sendWhatsAppMessage(
     return null;
   }
 
-  console.log("Sending WhatsApp to:", cleanPhone(to), "via phone ID:", config.phoneNumberId.slice(0, 6) + "...");
-
   try {
     const res = await fetch(
       `${WHATSAPP_API_URL}/${config.phoneNumberId}/messages`,
