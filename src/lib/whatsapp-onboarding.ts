@@ -238,8 +238,10 @@ export async function createProfileFromOnboarding(
       .single();
 
     if (error || !profile) {
+      // Loud failure — the webhook should propagate this so we never
+      // get a "you're all set" message followed by no profile.
       console.error("Failed to create business profile from WhatsApp:", error);
-      return null;
+      throw new Error(`business_profile insert failed: ${error?.message || "unknown"}`);
     }
     return { id: profile.id, userType: "business" };
   }
@@ -276,7 +278,7 @@ export async function createProfileFromOnboarding(
 
   if (error || !profile) {
     console.error("Failed to create influencer profile from WhatsApp:", error);
-    return null;
+    throw new Error(`newsletter_profile insert failed: ${error?.message || "unknown"}`);
   }
   return { id: profile.id, userType: "newsletter" };
 }

@@ -439,7 +439,24 @@ async function handleNewUser(
     await sendWhatsAppMessage(phoneWithPlus, response);
     await insertMessage({ direction: "outbound", phone: phoneWithPlus, content: response, message_type: "onboarding" });
   } else if (result.profileComplete && result.profileData) {
-    const profile = await createProfileFromOnboarding(phoneWithPlus, result.profileData);
+    let profile: { id: string; userType: "newsletter" | "business" | "other" } | null;
+    try {
+      profile = await createProfileFromOnboarding(phoneWithPlus, result.profileData);
+    } catch (err) {
+      console.error("createProfileFromOnboarding failed:", err, "data:", result.profileData);
+      // Don't lie to the user. Tell them something hit a snag and the
+      // background fix will let them retry. Also store the error for triage.
+      await sendWhatsAppMessage(
+        phoneWithPlus,
+        "Hmm — I hit a snag setting up your profile. Give me a sec and try sending your last message again."
+      );
+      await insertMessage({
+        direction: "outbound", phone: phoneWithPlus,
+        content: `PROFILE_CREATE_FAILED: ${err instanceof Error ? err.message : String(err)} | data=${JSON.stringify(result.profileData).slice(0, 800)}`,
+        message_type: "error",
+      });
+      return;
+    }
     await sendWhatsAppMessage(phoneWithPlus, result.response);
     await insertMessage({
       direction: "outbound", user_type: profile?.userType || null,
