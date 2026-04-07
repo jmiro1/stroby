@@ -89,16 +89,24 @@ export async function handleOnboardingMessage(
     }
   }
 
-  // Safety net: if for some reason recent history is empty (very first
-  // message before insertMessage commits), seed it with the body.
-  if (messages.length === 0) {
-    messages.push({ role: "user", content: messageBody.slice(0, 500) });
-  }
-
   // The Anthropic API requires the first message to be from `user`. If the
-  // most-recent assistant turn ended up first (rare), drop it.
+  // history starts with an assistant turn, drop leading assistants.
   while (messages.length > 0 && messages[0].role !== "user") {
     messages.shift();
+  }
+
+  // Ensure the conversation ends with the current user turn. If the last
+  // logged message isn't already this user message (e.g. log lag, or
+  // inbound logging failed for any reason), append it. Anthropic also
+  // rejects an empty messages array, so this is the safety floor.
+  const trimmedBody = messageBody.slice(0, 500);
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== "user" || (last.content as string).slice(-trimmedBody.length) !== trimmedBody) {
+    if (last && last.role === "user") {
+      last.content = (last.content as string) + "\n" + trimmedBody;
+    } else {
+      messages.push({ role: "user", content: trimmedBody });
+    }
   }
 
   const anthropic = getAnthropic();
