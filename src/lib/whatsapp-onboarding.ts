@@ -153,7 +153,7 @@ export async function handleOnboardingMessage(
 export async function createProfileFromOnboarding(
   phone: string,
   data: Record<string, unknown>
-): Promise<{ id: string; userType: string } | null> {
+): Promise<{ id: string; userType: "newsletter" | "business" | "other" } | null> {
   const supabase = createServiceClient();
   const userType = (data.user_type as string) || "influencer";
 

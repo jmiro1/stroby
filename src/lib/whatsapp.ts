@@ -178,10 +178,31 @@ export async function sendWhatsAppMessage(
 }
 
 // ── Send a template message (works outside 24h window) ──
+// `buttonParams` is for templates with a URL button containing a {{1}} variable —
+// each entry is the dynamic suffix for that button (Meta only allows one var per button).
 export async function sendWhatsAppTemplate(
   to: string,
   templateId: TemplateId,
-  params: string[]
+  params: string[],
+  buttonParams?: string[]
+): Promise<string | null> {
+  const template = TEMPLATE_MAP[templateId];
+  if (!template) {
+    console.error("Unknown template ID:", templateId);
+    return null;
+  }
+  return sendTemplateByName(to, template.name, template.language, params, buttonParams);
+}
+
+// Lower-level: send by raw template name. Used by sendWelcomeWithFallback so we
+// can try multiple template names without polluting the TEMPLATE_MAP with stale
+// entries.
+async function sendTemplateByName(
+  to: string,
+  templateName: string,
+  language: string,
+  bodyParams: string[],
+  buttonParams?: string[]
 ): Promise<string | null> {
   const config = getConfig();
   if (!config) {
@@ -189,17 +210,21 @@ export async function sendWhatsAppTemplate(
     return null;
   }
 
-  const template = TEMPLATE_MAP[templateId];
-  if (!template) {
-    console.error("Unknown template ID:", templateId);
-    return null;
-  }
-
   const components: Record<string, unknown>[] = [];
-  if (params.length > 0) {
+  if (bodyParams.length > 0) {
     components.push({
       type: "body",
-      parameters: params.map((value) => ({ type: "text", text: value })),
+      parameters: bodyParams.map((value) => ({ type: "text", text: value })),
+    });
+  }
+  if (buttonParams && buttonParams.length > 0) {
+    buttonParams.forEach((value, index) => {
+      components.push({
+        type: "button",
+        sub_type: "url",
+        index: String(index),
+        parameters: [{ type: "text", text: value }],
+      });
     });
   }
 
@@ -218,8 +243,8 @@ export async function sendWhatsAppTemplate(
           to: cleanPhone(to),
           type: "template",
           template: {
-            name: template.name,
-            language: { code: template.language },
+            name: templateName,
+            language: { code: language },
             components,
           },
         }),
@@ -228,16 +253,47 @@ export async function sendWhatsAppTemplate(
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      console.error("WhatsApp template error:", res.status, errorData);
+      console.error(`WhatsApp template error (${templateName}):`, res.status, errorData);
       return null;
     }
 
     const data = await res.json();
     return data?.messages?.[0]?.id || null;
   } catch (err) {
-    console.error("WhatsApp template request failed:", err);
+    console.error(`WhatsApp template request failed (${templateName}):`, err);
     return null;
   }
+}
+
+// ── Welcome template with auto-fallback ──
+// Tries the candidate names in order until one succeeds. Both `welcome_confirmation`
+// and `welcome_confirmation_1` exist in our docs/history — Meta keeps the older
+// approval around even after a re-submit, so we try the most-specific name first.
+// `userId` becomes the dynamic suffix on the URL button → https://stroby.ai/welcome/{{1}}
+export async function sendWelcomeWithFallback(
+  to: string,
+  userId: string,
+  displayName: string
+): Promise<string | null> {
+  const candidates: Array<{ name: string; language: string }> = [
+    { name: "welcome_confirmation_1", language: "en_US" },
+    { name: "welcome_confirmation",   language: "en_US" },
+  ];
+
+  for (const candidate of candidates) {
+    // Try with body=[name] + button=[userId] first (most likely shape).
+    let id = await sendTemplateByName(to, candidate.name, candidate.language, [displayName], [userId]);
+    if (id) return id;
+
+    // Some templates have no body var — retry with just the button param.
+    id = await sendTemplateByName(to, candidate.name, candidate.language, [], [userId]);
+    if (id) return id;
+
+    // Some templates have no URL button at all — retry with just body.
+    id = await sendTemplateByName(to, candidate.name, candidate.language, [displayName], undefined);
+    if (id) return id;
+  }
+  return null;
 }
 
 // ── Smart send: tries text first, falls back to template ──

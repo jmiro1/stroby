@@ -128,8 +128,8 @@
 - [x] Profile auto-update from conversations ([PROFILE_UPDATE] marker)
 - [x] Idempotency on webhook (unique index on whatsapp_message_id)
 - [ ] AI voice call flow (call_permission template registered, needs voice API integration)
-- [ ] Welcome template message for new signups (pending Meta approval)
-- [ ] Dynamic URL in welcome_confirmation template (pass user ID)
+- [x] Welcome template message for new signups (sent right after createProfileFromOnboarding via sendWelcomeWithFallback)
+- [x] Dynamic URL in welcome_confirmation template (pass user ID — sent as URL button param, lands on /welcome/[id])
 - [ ] Add email as fallback communication channel
 
 ### Priority E: Matching Refinement

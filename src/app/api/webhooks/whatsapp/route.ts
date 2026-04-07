@@ -1,7 +1,7 @@
 import { NextRequest, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { handleInboundMessage, processAgentResponse } from "@/lib/ai-agent";
-import { sendWhatsAppMessage, markAsReadAndTyping } from "@/lib/whatsapp";
+import { sendWhatsAppMessage, markAsReadAndTyping, sendWelcomeWithFallback } from "@/lib/whatsapp";
 import { getStripe } from "@/lib/stripe";
 import { insertMessage } from "@/lib/secure-messages";
 import { classifyIntent, CANNED_RESPONSES } from "@/lib/intent-classifier";
@@ -461,6 +461,17 @@ async function handleNewUser(
           await sendWhatsAppMessage(phoneWithPlus, profileMsg);
         }
       }
+
+      // Send welcome template with personalized link to /welcome/[id].
+      // Best-effort — the post-onboarding free-form text above is the
+      // primary signal. Template adds a tappable CTA that survives outside
+      // the 24h window if the user comes back later.
+      try {
+        const displayName = await fetchDisplayName(supabase, profile.userType, profile.id);
+        await sendWelcomeWithFallback(phoneWithPlus, profile.id, displayName);
+      } catch (err) {
+        console.error("Welcome template failed:", err);
+      }
     }
   } else {
     await sendWhatsAppMessage(phoneWithPlus, result.response);
@@ -543,6 +554,30 @@ async function maybeCaptureDeclineReason(
 }
 
 // ── Helpers ──
+async function fetchDisplayName(
+  supabase: ReturnType<typeof createServiceClient>,
+  userType: "newsletter" | "business" | "other",
+  userId: string
+): Promise<string> {
+  if (userType === "newsletter") {
+    const { data } = await supabase
+      .from("newsletter_profiles")
+      .select("owner_name, newsletter_name")
+      .eq("id", userId).single();
+    return (data?.owner_name as string) || (data?.newsletter_name as string) || "there";
+  }
+  if (userType === "business") {
+    const { data } = await supabase
+      .from("business_profiles")
+      .select("contact_name, company_name")
+      .eq("id", userId).single();
+    return (data?.contact_name as string) || (data?.company_name as string) || "there";
+  }
+  const { data } = await supabase
+    .from("other_profiles").select("name").eq("id", userId).single();
+  return (data?.name as string) || "there";
+}
+
 async function sendAndLog(phone: string, content: string, userType: string | null, userId: string | null) {
   await sendWhatsAppMessage(phone, content);
   await insertMessage({ direction: "outbound", user_type: userType, user_id: userId, phone, content });
