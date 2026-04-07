@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
         .update({
           status: "business_declined",
           business_response_at: new Date().toISOString(),
+          declined_by: "business",
         })
         .eq("id", introductionId);
 
@@ -151,9 +152,16 @@ export async function POST(request: NextRequest) {
         score: intro.match_score as number,
       });
 
+      // Mark business as awaiting a free-form decline reason — next inbound
+      // message gets captured as `decline_reason` on this introduction.
+      await supabase
+        .from("business_profiles")
+        .update({ awaiting_decline_reason_intro_id: introductionId })
+        .eq("id", business.id as string);
+
       if (business.phone) {
         const declineMsg =
-          "No worries! I'll keep looking for better matches for you. 🔍";
+          "No worries! Quick favor — what made this one not a fit? Just one line helps me send you better matches next time. (Or reply 'skip' to pass.)";
         const messageSid = await sendWhatsAppMessage(
           business.phone as string,
           declineMsg
@@ -329,6 +337,7 @@ export async function POST(request: NextRequest) {
         .update({
           status: "newsletter_declined",
           newsletter_response_at: new Date().toISOString(),
+          declined_by: creator.type === "newsletter" ? "newsletter" : "other",
         })
         .eq("id", introductionId);
 
@@ -338,9 +347,18 @@ export async function POST(request: NextRequest) {
         score: intro.match_score as number,
       });
 
+      // Flag the creator as awaiting a free-form decline reason. Webhook
+      // will pick up the next message as the reason.
+      const creatorTable =
+        creator.type === "newsletter" ? "newsletter_profiles" : "other_profiles";
+      await supabase
+        .from(creatorTable)
+        .update({ awaiting_decline_reason_intro_id: introductionId })
+        .eq("id", creator.profile.id as string);
+
       if (creator.phone) {
         const ackMsg =
-          "No problem! I'll only send you opportunities that are a great fit.";
+          "No problem! Quick question — what made this one not a fit? Just one line helps me only send you great matches. (Or reply 'skip' to pass.)";
         const crSid = await sendWhatsAppMessage(creator.phone, ackMsg);
         await supabase.from("agent_messages").insert({
           direction: "outbound",

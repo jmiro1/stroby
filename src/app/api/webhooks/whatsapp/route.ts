@@ -227,6 +227,14 @@ async function handleKnownUser(
   // Pre-AI classification — handle simple intents without AI
   const intent = classifyIntent(body);
 
+  // Decline-reason capture: if we previously asked this user *why* they
+  // declined a match, the next free-form message is their answer. We only
+  // capture when the message isn't itself a recognized canned intent —
+  // otherwise we'd hijack a real "yes" / "stop" / rating reply.
+  if (await maybeCaptureDeclineReason(supabase, { userType, userId, body, intent: intent.type, phoneWithPlus })) {
+    return;
+  }
+
   if (intent.type === "greeting") {
     await sendAndLog(phoneWithPlus, CANNED_RESPONSES.greeting, userType, userId);
     return;
@@ -453,6 +461,80 @@ async function handleNewUser(
     await sendWhatsAppMessage(phoneWithPlus, result.response);
     await insertMessage({ direction: "outbound", phone: phoneWithPlus, content: result.response, message_type: "onboarding" });
   }
+}
+
+// ── Decline-reason capture ──
+// Returns true if the message was consumed as a decline reason and the
+// caller should stop processing.
+async function maybeCaptureDeclineReason(
+  supabase: ReturnType<typeof createServiceClient>,
+  params: {
+    userType: "newsletter" | "business" | "other";
+    userId: string;
+    body: string;
+    intent: string;
+    phoneWithPlus: string;
+  }
+): Promise<boolean> {
+  const { userType, userId, body, intent, phoneWithPlus } = params;
+  const table =
+    userType === "newsletter" ? "newsletter_profiles"
+    : userType === "business" ? "business_profiles"
+    : "other_profiles";
+
+  const { data: profile } = await supabase
+    .from(table)
+    .select("awaiting_decline_reason_intro_id")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const introId = profile?.awaiting_decline_reason_intro_id as string | null;
+  if (!introId) return false;
+
+  // Don't hijack a real intent — let normal flow handle it. We still clear
+  // the flag so we don't keep asking forever.
+  const HIJACK_INTENTS = new Set([
+    "accept", "decline", "tell_me_more", "rating", "stripe_request",
+    "greeting", "stop", "status_check", "verify_request",
+  ]);
+  if (HIJACK_INTENTS.has(intent)) {
+    await supabase.from(table)
+      .update({ awaiting_decline_reason_intro_id: null })
+      .eq("id", userId);
+    return false;
+  }
+
+  const trimmed = body.trim();
+  const skipWords = ["skip", "pass", "no thanks", "nm", "nevermind", "never mind", "n/a", "na"];
+  const isSkip = skipWords.includes(trimmed.toLowerCase());
+
+  // Always clear the flag so we only ask once per decline.
+  await supabase.from(table)
+    .update({ awaiting_decline_reason_intro_id: null })
+    .eq("id", userId);
+
+  if (isSkip || trimmed.length < 3) {
+    await sendAndLog(phoneWithPlus, "All good — I'll keep your preferences in mind.", userType, userId);
+    return true;
+  }
+
+  // Truncate to keep the column tidy (and prevent abuse).
+  const reason = trimmed.slice(0, 500);
+  await supabase
+    .from("introductions")
+    .update({
+      decline_reason: reason,
+      decline_reason_at: new Date().toISOString(),
+    })
+    .eq("id", introId);
+
+  await sendAndLog(
+    phoneWithPlus,
+    "Got it — thanks, that really helps me learn what works for you. 🙌",
+    userType,
+    userId
+  );
+  return true;
 }
 
 // ── Helpers ──

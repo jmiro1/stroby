@@ -113,11 +113,11 @@
 - [ ] Consider automating token refresh or upgrading to a truly permanent token
 
 ### Priority C: Growth & Distribution
-- [ ] Submit sitemap to Google Search Console
+- [x] Submit sitemap to Google Search Console
 - [ ] Create social media profiles (LinkedIn, X/Twitter — links already in nav)
 - [ ] Onboard initial 30-50 newsletter owners / influencers
 - [ ] Onboard initial 20 businesses
-- [ ] Create sharable QR code for wa.me link
+- [x] Create sharable QR code for wa.me link (`/qr` page, print-friendly + PNG/SVG download)
 - [ ] Consider Vercel Pro for additional cron jobs (currently 1 daily on Hobby plan)
 
 ### Priority D: Feature Improvements
@@ -146,7 +146,7 @@
 - [x] Past match success rate per niche pair already in scoring prompt
 
 **Level 2 (Next)**
-- [ ] Decline REASON tracking — ask users why they declined, learn from text not just niche
+- [x] Decline REASON tracking — ask users why they declined, learn from text not just niche
 - [ ] Acceptance rate analysis — tune weights based on which scores convert
 - [ ] Use concerns data to refine niche affinity map (find false positives)
 - [ ] Track time-to-accept as a quality signal
