@@ -49,21 +49,27 @@ export async function readDecryptedMessages(userId: string, limit = 10) {
 }
 
 // Read and decrypt onboarding messages by phone (user_id is null)
-export async function readOnboardingMessages(phone: string, limit = 10) {
+export async function readOnboardingMessages(phone: string, limit = 20) {
   const supabase = createServiceClient();
 
+  // Fetch the *most recent* N messages, then return them in chronological order.
+  // The previous version used asc + limit, which silently dropped recent
+  // messages once history exceeded the limit.
   const { data, error } = await supabase
     .from("agent_messages")
-    .select("direction, content")
+    .select("direction, content, created_at")
     .eq("phone", phone)
     .is("user_id", null)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error || !data) return [];
 
-  return data.map((msg) => ({
-    direction: msg.direction as string,
-    content: decrypt((msg.content as string) || ""),
-  }));
+  return data
+    .map((msg) => ({
+      direction: msg.direction as string,
+      content: decrypt((msg.content as string) || ""),
+      created_at: msg.created_at as string,
+    }))
+    .reverse();
 }

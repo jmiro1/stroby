@@ -24,35 +24,36 @@ FIRST MESSAGE FLOW:
 2. If they signed up before: ask for the email or phone they used. Output [LINK_ACCOUNT] followed by JSON: {"email":"...","phone":"..."} (whichever they give). Then stop — the system will handle the linking.
 3. If they're new: ask "Are you a business looking for partners, or an influencer/creator looking for brand deals?"
 
-FOR INFLUENCERS/CREATORS — collect:
-- How they heard about Stroby (referral)
-- Their name
-- Platform (Newsletter, YouTube, Instagram, TikTok, Podcast, Blog, LinkedIn, X, Other)
-- Channel/account name and URL
-- Niche
-- Audience size
-- What they typically charge per partnership (or "not sure")
-- Email address
+FOR INFLUENCERS/CREATORS — collect these fields:
+  user_type, referral_source, name, platform, channel_name, url, niche, audience_size, price_per_placement, email
 
-FOR BUSINESSES — collect:
-- How they heard about Stroby (referral)
-- Contact name and role
-- Company name
-- What they sell (1 sentence)
-- Target customer
-- Niche
-- Monthly budget range (<$500, $500-$1k, $1k-$2.5k, $2.5k-$5k, $5k+)
-- Partner preference (newsletters only, influencers only, or all)
-- Email address
+FOR BUSINESSES — collect these fields:
+  user_type, referral_source, contact_name, contact_role, company_name, product_description, target_customer, niche, budget_range, partner_preference, email
 
 RULES:
 - Ask 2-3 things per message max. Be conversational, not a form.
 - Keep each response under 60 words.
 - Use WhatsApp formatting: *bold* (single asterisks only).
 - Their WhatsApp number is already captured — don't ask for phone.
-- When you have ALL required fields, output [PROFILE_COMPLETE] followed by a JSON block on the next line with the extracted data and a "user_type" field ("influencer" or "business").
-- After the JSON, add a short friendly confirmation (1 sentence).
-- Do NOT invent or assume data. Only use what they explicitly told you.`;
+- Do NOT invent or assume data. Only use what they explicitly told you.
+- "I don't know" / "not sure" / "don't remember" is a valid answer — accept it (store as null), move on. NEVER loop on the same question.
+
+OUTPUT FORMAT — CRITICAL:
+Every single response MUST start with a JSON state line on its own first line, then a blank line, then your natural reply. Format:
+
+[STATE] {"user_type":"influencer","referral_source":"a friend","name":"Sam","platform":null,"channel_name":null,"url":null,"niche":null,"audience_size":null,"price_per_placement":null,"email":null}
+
+Hey Sam! What platform do you publish on...
+
+Rules for [STATE]:
+- Include EVERY field for the user's type (use null for unknown).
+- Update it on every turn — copy forward what you already knew, add what's new.
+- The system strips this line before sending to the user.
+- Use the [STATE] as your single source of truth: only ask for fields whose value is null. NEVER ask about a field whose value is non-null. Ever.
+
+PROFILE COMPLETION:
+- The moment every required field in [STATE] is non-null, output [PROFILE_COMPLETE] followed by the same JSON on the next line, then a 1-sentence friendly wrap-up.
+- Do NOT do a "let me confirm everything before we wrap up" pass. The [STATE] is the truth — if it's full, you're done. No re-asking, no double-checking.`;
 
 export interface OnboardingResult {
   response: string;
@@ -66,29 +67,44 @@ export async function handleOnboardingMessage(
   phone: string,
   messageBody: string
 ): Promise<OnboardingResult> {
-  // Fetch conversation history (decrypted)
-  const recentMessages = await readOnboardingMessages(phone, 10);
+  // Fetch conversation history (decrypted). The webhook logs the current
+  // inbound message *before* this runs, so it's already in `recentMessages`
+  // — we must NOT append it again or the model sees it twice.
+  const recentMessages = await readOnboardingMessages(phone, 20);
 
-  // Build messages array
+  // Build messages array. Collapse same-role consecutive entries because
+  // the Anthropic API requires alternating roles.
   const messages: Anthropic.MessageParam[] = [];
 
   if (recentMessages && recentMessages.length > 0) {
     for (const msg of recentMessages) {
-      const content = ((msg.content as string) || "").slice(0, 300);
-      messages.push({
-        role: msg.direction === "inbound" ? "user" : "assistant",
-        content,
-      });
+      const role = msg.direction === "inbound" ? "user" : "assistant";
+      const content = ((msg.content as string) || "").slice(0, 400);
+      const last = messages[messages.length - 1];
+      if (last && last.role === role) {
+        last.content = (last.content as string) + "\n" + content;
+      } else {
+        messages.push({ role, content });
+      }
     }
   }
 
-  // Add current message
-  messages.push({ role: "user", content: messageBody.slice(0, 500) });
+  // Safety net: if for some reason recent history is empty (very first
+  // message before insertMessage commits), seed it with the body.
+  if (messages.length === 0) {
+    messages.push({ role: "user", content: messageBody.slice(0, 500) });
+  }
+
+  // The Anthropic API requires the first message to be from `user`. If the
+  // most-recent assistant turn ended up first (rare), drop it.
+  while (messages.length > 0 && messages[0].role !== "user") {
+    messages.shift();
+  }
 
   const anthropic = getAnthropic();
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 300,
+    max_tokens: 400,
     system: ONBOARDING_PROMPT,
     messages,
   });
@@ -101,8 +117,19 @@ export async function handleOnboardingMessage(
     tokensOut: completion.usage?.output_tokens || 0,
   });
 
-  const responseText =
+  const rawResponseText =
     completion.content[0].type === "text" ? completion.content[0].text : "";
+
+  // Extract and strip the [STATE] line — it's for the model's own bookkeeping,
+  // not for the user.
+  let stateData: Record<string, unknown> | null = null;
+  const stateMatch = rawResponseText.match(/\[STATE\]\s*(\{[\s\S]*?\})/);
+  if (stateMatch) {
+    try {
+      stateData = JSON.parse(stateMatch[1]);
+    } catch { /* ignore */ }
+  }
+  const responseText = rawResponseText.replace(/\[STATE\]\s*\{[\s\S]*?\}\s*/g, "").trim();
 
   // Check for [LINK_ACCOUNT]
   if (responseText.includes("[LINK_ACCOUNT]")) {
@@ -146,7 +173,29 @@ export async function handleOnboardingMessage(
     };
   }
 
+  // Safety net: if the model populated every required field in [STATE] but
+  // forgot to emit [PROFILE_COMPLETE], finish onboarding anyway. Prevents
+  // the "let me confirm everything" loop the model loves to slide into.
+  if (stateData && isStateComplete(stateData)) {
+    return {
+      response: responseText || "Perfect — you're all set! I'll start looking for matches.",
+      profileComplete: true,
+      profileData: stateData,
+    };
+  }
+
   return { response: responseText };
+}
+
+const REQUIRED_FIELDS: Record<"influencer" | "business", string[]> = {
+  influencer: ["user_type", "name", "platform", "channel_name", "niche", "audience_size", "email"],
+  business: ["user_type", "contact_name", "company_name", "product_description", "target_customer", "niche", "budget_range", "email"],
+};
+
+function isStateComplete(state: Record<string, unknown>): boolean {
+  const ut = state.user_type as string | undefined;
+  if (ut !== "influencer" && ut !== "business") return false;
+  return REQUIRED_FIELDS[ut].every((k) => state[k] != null && state[k] !== "");
 }
 
 // Create profile from onboarding data
