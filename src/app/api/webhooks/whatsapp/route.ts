@@ -451,15 +451,30 @@ async function handleNewUser(
         .update({ user_id: profile.id, user_type: profile.userType })
         .eq("phone", phoneWithPlus).is("user_id", null);
 
-      // Send public profile link to creators
+      // Send public profile link + verification link to creators
       if (profile.userType === "newsletter") {
         const { data: nlProfile } = await supabase
           .from("newsletter_profiles").select("slug").eq("id", profile.id).single();
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+
         if (nlProfile?.slug) {
-          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
           const profileMsg = `Your public profile is live at ${appUrl}/creator/${nlProfile.slug} — feel free to share it in your bio!`;
           await sendWhatsAppMessage(phoneWithPlus, profileMsg);
+          await insertMessage({
+            direction: "outbound", user_type: "newsletter", user_id: profile.id,
+            phone: phoneWithPlus, content: profileMsg, message_type: "onboarding",
+          });
         }
+
+        // Verification link — gets the creator prioritized in matching.
+        // Sent automatically right after onboarding completes; user can act
+        // on it any time, no pressure.
+        const verifyMsg = `One thing that'll seriously help — verify your audience metrics here:\n\n${appUrl}/verify/${profile.id}\n\nConnect Beehiiv/ConvertKit (instant) or upload a screenshot. Verified creators get prioritized when I'm matching.`;
+        await sendWhatsAppMessage(phoneWithPlus, verifyMsg);
+        await insertMessage({
+          direction: "outbound", user_type: "newsletter", user_id: profile.id,
+          phone: phoneWithPlus, content: verifyMsg, message_type: "verification",
+        });
       }
 
       // Send welcome template with personalized link to /welcome/[id].
