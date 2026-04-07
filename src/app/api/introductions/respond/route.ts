@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { sendWhatsAppMessage, sendWhatsAppSmart } from "@/lib/whatsapp";
 import { getStripe } from "@/lib/stripe";
 import { updateUserInsights } from "@/lib/user-insights";
+import { verifyInternalBody, INTERNAL_SIG_HEADER } from "@/lib/internal-sig";
 
 // Helper to get creator profile from either table
 async function getCreatorProfile(
@@ -41,7 +42,21 @@ async function getCreatorProfile(
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  // Verify HMAC signature — this endpoint is server-to-server only.
+  // Without this, anyone with valid UUIDs could forge accept/decline.
+  const rawBody = await request.text();
+  const signature = request.headers.get(INTERNAL_SIG_HEADER);
+  if (!verifyInternalBody(rawBody, signature)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
+  let body;
+  try {
+    body = JSON.parse(rawBody);
+  } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
   const {
     introductionId,
     responderId,

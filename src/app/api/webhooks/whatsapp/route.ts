@@ -12,6 +12,7 @@ import {
 } from "@/lib/whatsapp-onboarding";
 import { downloadWhatsAppMedia } from "@/lib/whatsapp-media";
 import { checkRateLimit } from "@/lib/rate-limiter";
+import { signInternalBody, INTERNAL_SIG_HEADER } from "@/lib/internal-sig";
 
 // ── GET: Meta webhook verification ──
 export async function GET(request: NextRequest) {
@@ -310,16 +311,20 @@ async function handleKnownUser(
 
     if (pendingIntro) {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+      const payload = JSON.stringify({
+        introductionId: pendingIntro.id,
+        responderId: userId,
+        responderType: userType === "other" ? "newsletter" : userType,
+        response: intent.type,
+      });
       try {
         await fetch(`${baseUrl}/api/introductions/respond`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            introductionId: pendingIntro.id,
-            responderId: userId,
-            responderType: userType === "other" ? "newsletter" : userType,
-            response: intent.type,
-          }),
+          headers: {
+            "Content-Type": "application/json",
+            [INTERNAL_SIG_HEADER]: signInternalBody(payload),
+          },
+          body: payload,
         });
       } catch (err) {
         console.error("Failed to process intro response:", err);
