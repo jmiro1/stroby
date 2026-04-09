@@ -3,6 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
+import { Button } from "@/components/ui/button";
+import { ArrowRight } from "lucide-react";
 
 const WA_LINK = "https://wa.me/message/2QFL7QR7EBZTD1";
 
@@ -138,7 +142,18 @@ export default async function CreatorProfilePage({
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12">
+    <div className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader
+        right={
+          <Link href="/">
+            <Button size="default">
+              Book this creator
+              <ArrowRight data-icon="inline-end" />
+            </Button>
+          </Link>
+        }
+      />
+      <div className="flex flex-1 flex-col items-center justify-center px-4 py-12">
       <div className="flex w-full max-w-md flex-col items-center text-center">
         {/* Avatar / Logo — links home */}
         <Link href="/" className="mb-6 transition-transform hover:scale-105">
@@ -203,22 +218,9 @@ export default async function CreatorProfilePage({
           Edit your profile
         </a>
 
-        {/* Footer links */}
-        <div className="mt-6 flex gap-4 text-xs text-muted-foreground">
-          <Link href="/" className="underline hover:text-foreground">
-            Home
-          </Link>
-          <Link href="/about" className="underline hover:text-foreground">
-            About
-          </Link>
-          <Link href="/terms" className="underline hover:text-foreground">
-            Terms
-          </Link>
-          <Link href="/privacy" className="underline hover:text-foreground">
-            Privacy
-          </Link>
-        </div>
       </div>
+      </div>
+      <SiteFooter />
     </div>
   );
 }
