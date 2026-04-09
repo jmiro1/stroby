@@ -1,5 +1,44 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { resolveAttribution } from "@/lib/affiliates/attribution";
+import { AFFILIATE_CONFIG } from "@/lib/affiliates/config";
+import type { ReferralRole } from "@/lib/affiliates/types";
+
+/**
+ * Helper: extract affiliate attribution inputs from the inbound request.
+ * - Reads the stroby_aff cookie (if set by /r/[code])
+ * - Reads any signup code passed in body.data.affiliate_code
+ */
+function extractAttributionInputs(request: NextRequest, body: { data?: { affiliate_code?: string; email?: string } }) {
+  const cookieValue = request.cookies.get(AFFILIATE_CONFIG.REFERRAL_COOKIE_NAME)?.value;
+  return {
+    cookieAffiliateId: cookieValue || null,
+    signupCode: body.data?.affiliate_code || null,
+    ipHash: null as string | null,
+    userAgent: request.headers.get("user-agent"),
+  };
+}
+
+async function attributeProfile(
+  request: NextRequest,
+  body: { data?: { affiliate_code?: string; email?: string } },
+  profileType: ReferralRole,
+  profileId: string,
+  email: string,
+): Promise<void> {
+  try {
+    const inputs = extractAttributionInputs(request, body);
+    await resolveAttribution({
+      profileType,
+      profileId,
+      email: email.toLowerCase(),
+      ...inputs,
+    });
+  } catch (e) {
+    // Affiliate attribution must NEVER block onboarding
+    console.error("affiliate attribution failed:", e);
+  }
+}
 
 const BUDGET_MAP: Record<string, string> = {
   "<$500": "<500",
@@ -102,6 +141,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Affiliate attribution (best-effort, never blocks onboarding)
+      await attributeProfile(request, body, "newsletter", profile.id, data.email);
+
       return Response.json({ success: true, id: profile.id });
     }
 
@@ -141,6 +183,9 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Affiliate attribution (best-effort, never blocks onboarding)
+      await attributeProfile(request, body, "business", profile.id, data.email);
+
       return Response.json({ success: true, id: profile.id });
     }
 
@@ -174,6 +219,11 @@ export async function POST(request: NextRequest) {
           { error: "Failed to create profile" },
           { status: 500 }
         );
+      }
+
+      // Affiliate attribution (best-effort, never blocks onboarding)
+      if (data.email) {
+        await attributeProfile(request, body, "other", profile.id, data.email);
       }
 
       return Response.json({ success: true, id: profile.id });

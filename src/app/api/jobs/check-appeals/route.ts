@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { getStripe } from "@/lib/stripe";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { sendPlacementReminders } from "@/app/api/placements/remind/route";
+import { recordCommissionForTransaction } from "@/lib/affiliates/commissions";
 
 export async function POST(request: NextRequest) {
   // Verify cron secret to prevent unauthorized access
@@ -90,6 +91,22 @@ export async function POST(request: NextRequest) {
             updateError
           );
           continue;
+        }
+
+        // Affiliate commission hook — best-effort, never blocks the payout flow.
+        // See AFFILIATE_PRD.md §6 Flow D for the math + cases.
+        try {
+          const result = await recordCommissionForTransaction(transaction.id);
+          if (result.commissions_created > 0) {
+            console.log(
+              `affiliate: created ${result.commissions_created} commission(s) for transaction ${transaction.id}`
+            );
+          }
+        } catch (affErr) {
+          console.error(
+            `affiliate commission hook failed for transaction ${transaction.id}:`,
+            affErr
+          );
         }
 
         // Fetch business profile for messaging

@@ -24,6 +24,11 @@
 .DS_Store
 *.pem
 
+# Leadgen sidecar — fully isolated Python project at /leadgen/ with its
+# own venv, SQLite DB, n8n workflows, and secrets. Sibling for convenience
+# but not part of the Stroby app repo. See TODO.md for the isolation rationale.
+/leadgen/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

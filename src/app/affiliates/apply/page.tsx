@@ -1,0 +1,195 @@
+/**
+ * /affiliates/apply — application form (client component).
+ */
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { CheckCircle, ArrowLeft } from "lucide-react";
+
+interface FormState {
+  full_name: string;
+  email: string;
+  phone: string;
+  network_description: string;
+  bio: string;
+}
+
+const EMPTY: FormState = {
+  full_name: "",
+  email: "",
+  phone: "",
+  network_description: "",
+  bio: "",
+};
+
+export default function ApplyPage() {
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  function update<K extends keyof FormState>(key: K, val: FormState[K]) {
+    setForm((f) => ({ ...f, [key]: val }));
+    setError(null);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/affiliates/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Something went wrong. Please try again.");
+      } else {
+        setDone(true);
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <main className="min-h-screen bg-background">
+        <div className="mx-auto max-w-xl px-4 py-24">
+          <Card>
+            <CardHeader>
+              <CheckCircle className="size-8 text-primary" />
+              <CardTitle>Application received</CardTitle>
+              <CardDescription>
+                Thanks for applying. We hand-review every application — you&apos;ll
+                hear back via WhatsApp within 24 hours.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/">
+                <Button variant="outline">Back to Stroby</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-background">
+      <div className="mx-auto max-w-xl px-4 py-12">
+        <Link
+          href="/affiliates"
+          className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" /> Back
+        </Link>
+
+        <h1 className="font-heading text-3xl font-semibold tracking-tight">
+          Apply to the Stroby Affiliate Program
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          Tell us a bit about yourself. Approval usually takes 24 hours.
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="full_name">
+              Full name
+            </label>
+            <Input
+              id="full_name"
+              required
+              value={form.full_name}
+              onChange={(e) => update("full_name", e.target.value)}
+              placeholder="Jane Doe"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="email">
+              Email
+            </label>
+            <Input
+              id="email"
+              type="email"
+              required
+              value={form.email}
+              onChange={(e) => update("email", e.target.value)}
+              placeholder="jane@yourdomain.com"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="phone">
+              Phone (with country code)
+            </label>
+            <Input
+              id="phone"
+              type="tel"
+              required
+              value={form.phone}
+              onChange={(e) => update("phone", e.target.value)}
+              placeholder="+15551234567"
+            />
+            <p className="text-xs text-muted-foreground">
+              We&apos;ll send your sign-in link and notifications via WhatsApp to this number.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="network_description">
+              Tell us about your network
+            </label>
+            <Textarea
+              id="network_description"
+              required
+              value={form.network_description}
+              onChange={(e) => update("network_description", e.target.value)}
+              placeholder="I run a newsletter sponsorship agency. I work with ~30 B2B SaaS brands and ~50 mid-tier creators across dev tools and AI..."
+              rows={5}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium" htmlFor="bio">
+              Short bio (optional)
+            </label>
+            <Textarea
+              id="bio"
+              value={form.bio}
+              onChange={(e) => update("bio", e.target.value)}
+              placeholder="Two sentences about who you are and why this matters to you."
+              rows={3}
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          <Button type="submit" disabled={submitting} size="lg">
+            {submitting ? "Submitting..." : "Submit application"}
+          </Button>
+
+          <p className="text-xs text-muted-foreground">
+            By applying you agree to our affiliate terms. Approval is at our
+            discretion. We may follow up via WhatsApp before approving.
+          </p>
+        </form>
+      </div>
+    </main>
+  );
+}
