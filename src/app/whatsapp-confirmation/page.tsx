@@ -4,6 +4,8 @@ import Image from "next/image";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function WhatsAppConfirmationPage() {
   return (
@@ -55,7 +57,9 @@ function ConfirmationContent() {
   }, [searchParams]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
       <div className="flex max-w-md flex-col items-center text-center">
         <a href="/" className="mb-6 transition-transform hover:scale-105">
           <Image
@@ -117,7 +121,9 @@ function ConfirmationContent() {
           <a href="/terms" className="underline hover:text-foreground">Terms</a>
           <a href="/privacy" className="underline hover:text-foreground">Privacy</a>
         </div>
+        </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }

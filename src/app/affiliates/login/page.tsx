@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ArrowLeft, MessageSquare } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function LoginPage() {
   const [phone, setPhone] = useState("");
@@ -41,8 +43,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-md px-4 py-16">
+    <main className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="mx-auto w-full max-w-md flex-1 px-4 py-16">
         <Link
           href="/affiliates"
           className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -96,6 +99,7 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+      <SiteFooter />
     </main>
   );
 }

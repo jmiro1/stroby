@@ -4,6 +4,8 @@ import Image from "next/image";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2 } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export default function DataDeletionPage() {
   return (
@@ -22,8 +24,10 @@ function DeletionContent() {
   const code = searchParams.get("code");
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
-      <div className="flex max-w-md flex-col items-center text-center">
+    <div className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
+        <div className="flex max-w-md flex-col items-center text-center">
         <a href="/" className="mb-6 transition-transform hover:scale-105">
           <Image
             src="/logo-emoji.png"
@@ -68,7 +72,9 @@ function DeletionContent() {
           <a href="/" className="underline hover:text-foreground">Home</a>
           <a href="/privacy" className="underline hover:text-foreground">Privacy Policy</a>
         </div>
+        </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }

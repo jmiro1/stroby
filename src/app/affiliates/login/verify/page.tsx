@@ -13,6 +13,8 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 type Status = "verifying" | "success" | "error";
 
@@ -26,8 +28,9 @@ export default function VerifyPage() {
 
 function VerifyFallback() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-md px-4 py-16">
+    <main className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="mx-auto w-full max-w-md flex-1 px-4 py-16">
         <Card>
           <CardHeader>
             <Loader2 className="size-6 animate-spin text-primary" />
@@ -35,6 +38,7 @@ function VerifyFallback() {
           </CardHeader>
         </Card>
       </div>
+      <SiteFooter />
     </main>
   );
 }
@@ -85,8 +89,9 @@ function VerifyInner() {
   }, [token, router]);
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-md px-4 py-16">
+    <main className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="mx-auto w-full max-w-md flex-1 px-4 py-16">
         <Card>
           <CardHeader>
             {status === "verifying" && <Loader2 className="size-6 animate-spin text-primary" />}
@@ -112,6 +117,7 @@ function VerifyInner() {
           )}
         </Card>
       </div>
+      <SiteFooter />
     </main>
   );
 }

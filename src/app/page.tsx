@@ -192,9 +192,9 @@ export default function HomePage() {
               <Link href="/affiliates" className="transition-colors hover:text-foreground">
                 Affiliates
               </Link>
-              <a href="mailto:hello@stroby.ai" className="transition-colors hover:text-foreground">
+              <Link href="/contact" className="transition-colors hover:text-foreground">
                 Contact
-              </a>
+              </Link>
             </nav>
             <p className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} Stroby. All rights reserved.

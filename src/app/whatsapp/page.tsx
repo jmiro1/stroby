@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 const WA_LINK = "https://wa.me/message/2QFL7QR7EBZTD1";
 
@@ -31,7 +33,9 @@ export default function WhatsAppPage() {
   }, []);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="flex flex-1 flex-col items-center justify-center px-4">
       <div className="flex max-w-md flex-col items-center text-center">
         {/* Stroby character — links home */}
         <a href="/" className="mb-6 transition-transform hover:scale-105">
@@ -100,7 +104,9 @@ export default function WhatsAppPage() {
           <a href="/terms" className="underline hover:text-foreground">Terms</a>
           <a href="/privacy" className="underline hover:text-foreground">Privacy</a>
         </div>
+        </div>
       </div>
+      <SiteFooter />
     </div>
   );
 }

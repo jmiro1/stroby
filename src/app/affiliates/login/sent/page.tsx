@@ -5,6 +5,8 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { MessageSquare } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata = {
   title: "Check WhatsApp",
@@ -13,8 +15,9 @@ export const metadata = {
 
 export default function SentPage() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-md px-4 py-16">
+    <main className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="mx-auto w-full max-w-md flex-1 px-4 py-16">
         <Card>
           <CardHeader>
             <MessageSquare className="size-6 text-primary" />
@@ -35,6 +38,7 @@ export default function SentPage() {
           </CardContent>
         </Card>
       </div>
+      <SiteFooter />
     </main>
   );
 }

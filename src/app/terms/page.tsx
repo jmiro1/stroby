@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
@@ -11,29 +10,7 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <>
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-4xl items-center gap-4 px-4 sm:px-6">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-            <span className="text-sm">Back</span>
-          </Link>
-          <Link href="/" className="flex items-center gap-2">
-            <div className="relative size-8 overflow-hidden rounded-lg bg-primary">
-              <Image
-                src="/logo-emoji.png"
-                alt="Stroby"
-                width={32}
-                height={32}
-                className="size-full object-cover"
-              />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">Stroby</span>
-          </Link>
-        </div>
-      </header>
+      <MarketingHeader />
 
       <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -204,6 +181,8 @@ export default function TermsPage() {
           </ul>
         </div>
       </main>
+
+      <SiteFooter />
     </>
   );
 }

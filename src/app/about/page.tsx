@@ -74,7 +74,7 @@ export default function AboutPage() {
                 I&apos;ll connect you with perfect influencers and businesses.
               </h1>
               <p className="mt-6 text-xl text-muted-foreground sm:text-2xl">
-                AI-powered matching. Verified metrics. Payment guaranteed.
+                AI-powered matching with verified metrics that get better with every interaction.
               </p>
               <div className="mt-10">
                 <Link href="/">
@@ -455,9 +455,9 @@ export default function AboutPage() {
               <Link href="/affiliates" className="transition-colors hover:text-foreground">
                 Affiliates
               </Link>
-              <a href="mailto:hello@stroby.ai" className="transition-colors hover:text-foreground">
+              <Link href="/contact" className="transition-colors hover:text-foreground">
                 Contact
-              </a>
+              </Link>
             </nav>
             <p className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} Stroby. All rights reserved.

@@ -10,6 +10,7 @@
  * `pending` for an admin to approve at /admin/affiliates.
  */
 import { NextRequest } from "next/server";
+import nodemailer from "nodemailer";
 import { createServiceClient } from "@/lib/supabase";
 import { generateUniqueReferralCode } from "@/lib/affiliates/codes";
 import { AFFILIATE_CONFIG } from "@/lib/affiliates/config";
@@ -17,6 +18,83 @@ import {
   notifyAdminNewApplication,
   notifyApplicationApproved,
 } from "@/lib/affiliates/notify";
+
+/**
+ * Send a friendly confirmation email to the applicant. Best-effort: never
+ * blocks the apply flow if SMTP fails. Uses the same Gmail SMTP credentials
+ * as /api/contact (GMAIL_SMTP_USER + GMAIL_APP_PASSWORD).
+ */
+async function sendApplicationConfirmation(args: {
+  to: string;
+  name: string;
+}): Promise<void> {
+  const smtpUser = process.env.GMAIL_SMTP_USER;
+  const smtpPass = process.env.GMAIL_APP_PASSWORD;
+  if (!smtpUser || !smtpPass) {
+    console.warn("Apply confirmation email skipped: GMAIL_SMTP_USER / GMAIL_APP_PASSWORD not set");
+    return;
+  }
+
+  const firstName = args.name.split(/\s+/)[0] || args.name;
+  const subject = "We've received your Stroby affiliate application";
+  const text = [
+    `Hey ${firstName},`,
+    ``,
+    `Thanks for applying to the Stroby affiliate program — we've got your application and a real human will hand-review it in the next 24 hours.`,
+    ``,
+    `WHAT HAPPENS NEXT`,
+    `When your application is approved, we'll send you a WhatsApp message with your personal referral link and a sign-in link for your dashboard. The 10% commission clock starts as soon as you're active.`,
+    ``,
+    `IMPORTANT — DON'T LOSE THIS EMAIL`,
+    `If you don't see further updates from us, check your spam and promotions folders. Marking this email as "Not spam" or moving it to your primary inbox makes sure future updates land where you can see them.`,
+    ``,
+    `In the meantime, you can also message Stroby directly on WhatsApp to get a head start: https://wa.me/message/2QFL7QR7EBZTD1`,
+    ``,
+    `Talk soon,`,
+    `Stroby`,
+  ].join("\n");
+
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:560px;margin:auto;color:#333;">
+      <p>Hey ${firstName},</p>
+      <p>Thanks for applying to the Stroby affiliate program — we&rsquo;ve got your application and a real human will hand-review it in the next 24 hours.</p>
+
+      <h3 style="margin-top:24px;">What happens next</h3>
+      <p>When your application is approved, we&rsquo;ll send you a WhatsApp message with your personal referral link and a sign-in link for your dashboard. The 10% commission clock starts as soon as you&rsquo;re active.</p>
+
+      <h3 style="margin-top:24px;">⚠️ Don&rsquo;t lose this email</h3>
+      <p>If you don&rsquo;t see further updates from us, check your <strong>spam and promotions folders</strong>. Marking this email as &ldquo;Not spam&rdquo; or moving it to your primary inbox makes sure future updates land where you can see them.</p>
+
+      <p style="margin-top:24px;">In the meantime, you can also message Stroby directly on WhatsApp to get a head start:</p>
+      <p>
+        <a href="https://wa.me/message/2QFL7QR7EBZTD1" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:999px;text-decoration:none;font-weight:600;">
+          Open WhatsApp →
+        </a>
+      </p>
+
+      <p style="margin-top:32px;color:#666;">Talk soon,<br/>Stroby</p>
+    </div>
+  `;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: { user: smtpUser, pass: smtpPass },
+    });
+    await transporter.sendMail({
+      from: `"Stroby" <${smtpUser}>`,
+      to: args.to,
+      subject,
+      text,
+      html,
+    });
+  } catch (err) {
+    console.error("Apply confirmation email send failed:", err);
+    // Don't throw — confirmation email is best-effort
+  }
+}
 
 interface ApplyBody {
   email?: string;
@@ -107,6 +185,12 @@ export async function POST(request: NextRequest) {
   } else {
     await notifyAdminNewApplication(affiliate);
   }
+
+  // Confirmation email to the applicant (best-effort)
+  await sendApplicationConfirmation({
+    to: affiliate.email,
+    name: affiliate.full_name,
+  });
 
   return Response.json({
     success: true,

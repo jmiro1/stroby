@@ -5,6 +5,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 import {
   ArrowRight,
   DollarSign,
@@ -24,12 +26,9 @@ export const metadata = {
 export default function AffiliatesLandingPage() {
   return (
     <main className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="text-xl font-semibold tracking-tight">
-            Stroby
-          </Link>
-          <div className="flex items-center gap-3">
+      <MarketingHeader
+        right={
+          <>
             <Link
               href="/affiliates/login"
               className="text-sm font-medium text-muted-foreground hover:text-foreground"
@@ -37,14 +36,14 @@ export default function AffiliatesLandingPage() {
               Sign in
             </Link>
             <Link href="/affiliates/apply">
-              <Button>
+              <Button size="default">
                 Apply
                 <ArrowRight data-icon="inline-end" />
               </Button>
             </Link>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Hero */}
       <section className="mx-auto max-w-4xl px-4 py-16 text-center sm:py-24">
@@ -211,6 +210,8 @@ export default function AffiliatesLandingPage() {
           </Link>
         </div>
       </section>
+
+      <SiteFooter />
     </main>
   );
 }

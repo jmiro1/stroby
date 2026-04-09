@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CheckCircle, ArrowLeft } from "lucide-react";
+import { CheckCircle, ArrowLeft, AlertTriangle } from "lucide-react";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
+import { WhatsAppCTA } from "@/components/whatsapp-cta";
 
 interface FormState {
   full_name: string;
@@ -63,31 +66,55 @@ export default function ApplyPage() {
 
   if (done) {
     return (
-      <main className="min-h-screen bg-background">
-        <div className="mx-auto max-w-xl px-4 py-24">
+      <main className="flex min-h-dvh flex-col bg-background">
+        <MarketingHeader right={null} />
+        <div className="mx-auto w-full max-w-xl px-4 py-16">
           <Card>
             <CardHeader>
               <CheckCircle className="size-8 text-primary" />
               <CardTitle>Application received</CardTitle>
               <CardDescription>
-                Thanks for applying. We hand-review every application — you&apos;ll
-                hear back via WhatsApp within 24 hours.
+                Thanks for applying — we hand-review every application and a
+                real human will get back to you within 24 hours.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4 text-sm">
+              <p>
+                You&apos;ll receive a <strong>confirmation email shortly</strong>{" "}
+                so you can keep an eye on your application status. When
+                you&apos;re approved we&apos;ll also send a WhatsApp message
+                with your personal referral link.
+              </p>
+              <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="size-5 shrink-0" />
+                <div>
+                  <p className="font-medium">Check your spam &amp; promotions folders.</p>
+                  <p className="mt-1 text-xs">
+                    Move our email to your primary inbox and mark it &quot;Not
+                    spam&quot; so you don&apos;t miss the approval and the link
+                    to your dashboard.
+                  </p>
+                </div>
+              </div>
               <Link href="/">
                 <Button variant="outline">Back to Stroby</Button>
               </Link>
             </CardContent>
           </Card>
         </div>
+
+        {/* While they wait — onboard with Stroby on WhatsApp */}
+        <WhatsAppCTA headline="While we review, get a head start by onboarding with Stroby on WhatsApp" />
+
+        <SiteFooter />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="mx-auto max-w-xl px-4 py-12">
+    <main className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="mx-auto w-full max-w-xl flex-1 px-4 py-12">
         <Link
           href="/affiliates"
           className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -190,6 +217,7 @@ export default function ApplyPage() {
           </p>
         </form>
       </div>
+      <SiteFooter />
     </main>
   );
 }
