@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ActivityFeed } from "@/components/activity-feed";
-import { SiteHeader } from "@/components/site-header";
+import { MarketingHeader } from "@/components/marketing-header";
 import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
@@ -104,7 +104,7 @@ export default async function StatsPage() {
         <div className="absolute -left-20 bottom-1/4 h-72 w-72 rounded-full bg-blue-500/5 blur-3xl" />
       </div>
 
-      <SiteHeader />
+      <MarketingHeader right={null} />
 
       <main className="relative mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-6 sm:py-12">
         {/* Header */}

@@ -8,6 +8,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { getAffiliateFromSessionToken } from "@/lib/affiliates/auth";
 import { AFFILIATE_CONFIG } from "@/lib/affiliates/config";
 
@@ -34,10 +35,21 @@ export default async function DashboardLayout({
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-6">
             <Link
-              href="/affiliates/dashboard"
-              className="text-xl font-semibold tracking-tight"
+              href="/"
+              className="flex items-center gap-2"
             >
-              Stroby
+              <div className="relative size-9 overflow-hidden rounded-lg bg-primary">
+                <Image
+                  src="/logo-emoji.png"
+                  alt="Stroby"
+                  width={36}
+                  height={36}
+                  className="size-full object-cover"
+                />
+              </div>
+              <span className="text-xl font-semibold tracking-tight">
+                Stroby
+              </span>
             </Link>
             <nav className="hidden gap-4 text-sm font-medium text-muted-foreground sm:flex">
               <Link

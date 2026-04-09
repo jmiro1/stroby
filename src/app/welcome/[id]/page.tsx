@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase";
 import { Zap } from "lucide-react";
 import WelcomeContent from "@/components/welcome-content";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export const metadata: Metadata = {
   title: "Welcome to Stroby",
@@ -103,18 +105,7 @@ export default async function WelcomePage({
   if (!result) {
     return (
       <>
-        <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
-          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-                <Zap className="size-4 text-primary-foreground" />
-              </div>
-              <span className="text-lg font-semibold tracking-tight">
-                Stroby
-              </span>
-            </Link>
-          </div>
-        </header>
+        <MarketingHeader right={null} />
         <main className="flex flex-1 items-center justify-center px-4 py-20">
           <div className="mx-auto max-w-lg text-center">
             <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-2xl bg-primary/10">
@@ -136,6 +127,7 @@ export default async function WelcomePage({
             </Link>
           </div>
         </main>
+        <SiteFooter />
       </>
     );
   }
@@ -151,24 +143,7 @@ export default async function WelcomePage({
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-              <Zap className="size-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">
-              Stroby
-            </span>
-          </Link>
-          <Link
-            href="/"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Back to home
-          </Link>
-        </div>
-      </header>
+      <MarketingHeader right={null} />
       <main className="flex-1">
         <WelcomeContent
           profile={profile}
@@ -177,6 +152,7 @@ export default async function WelcomePage({
           nicheCounts={nicheCounts}
         />
       </main>
+      <SiteFooter />
     </>
   );
 }

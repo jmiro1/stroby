@@ -1,5 +1,7 @@
 import { createServiceClient } from "@/lib/supabase";
 import { VerifyForm } from "@/components/verify-form";
+import { MarketingHeader } from "@/components/marketing-header";
+import { SiteFooter } from "@/components/site-footer";
 
 export default async function VerifyPage({
   params,
@@ -18,11 +20,15 @@ export default async function VerifyPage({
   const newsletterName = profile?.newsletter_name ?? "Your Newsletter";
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <VerifyForm
-        newsletterId={newsletterId}
-        newsletterName={newsletterName}
-      />
+    <div className="flex min-h-dvh flex-col bg-background">
+      <MarketingHeader right={null} />
+      <div className="flex flex-1 items-center justify-center p-4">
+        <VerifyForm
+          newsletterId={newsletterId}
+          newsletterName={newsletterName}
+        />
+      </div>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { MarketingHeader } from "@/components/marketing-header";
 
 const WA_LINK = "https://wa.me/message/2QFL7QR7EBZTD1";
 const QR_500 = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(WA_LINK)}&bgcolor=ffffff&color=000000&margin=2`;
@@ -15,8 +16,12 @@ export const metadata: Metadata = {
 
 export default function QrPage() {
   return (
-    <div className="min-h-dvh bg-background px-4 py-12 print:bg-white print:py-0">
-      <div className="mx-auto flex max-w-xl flex-col items-center text-center">
+    <>
+      <div className="print:hidden">
+        <MarketingHeader right={null} />
+      </div>
+      <div className="min-h-dvh bg-background px-4 py-12 print:bg-white print:py-0">
+        <div className="mx-auto flex max-w-xl flex-col items-center text-center">
         <a href="/" className="mb-6 print:hidden">
           <Image
             src="/logo-emoji.png"
@@ -85,7 +90,8 @@ export default function QrPage() {
           <a href="/" className="underline hover:text-foreground">Home</a>
           <a href="/whatsapp" className="underline hover:text-foreground">WhatsApp page</a>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

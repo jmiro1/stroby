@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { MarketingHeader } from "@/components/marketing-header";
 import {
   Accordion,
   AccordionItem,
@@ -26,39 +27,7 @@ import {
 export default function AboutPage() {
   return (
     <>
-      {/* Navigation */}
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="relative size-9 overflow-hidden rounded-lg bg-primary">
-              <Image
-                src="/logo-emoji.png"
-                alt="Stroby"
-                width={36}
-                height={36}
-                className="size-full object-cover"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  target.style.display = "none";
-                  if (target.parentElement) {
-                    target.parentElement.innerHTML =
-                      '<div class="flex size-full items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary-foreground"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg></div>';
-                  }
-                }}
-              />
-            </div>
-            <span className="text-xl font-semibold tracking-tight">
-              Stroby
-            </span>
-          </Link>
-          <Link href="/">
-            <Button size="default">
-              Get Started
-              <ArrowRight data-icon="inline-end" />
-            </Button>
-          </Link>
-        </div>
-      </header>
+      <MarketingHeader />
 
       <main className="flex-1">
         {/* Hero Section */}
