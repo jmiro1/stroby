@@ -452,6 +452,9 @@ export default function AboutPage() {
               <Link href="/terms" className="transition-colors hover:text-foreground">
                 Terms
               </Link>
+              <Link href="/affiliates" className="transition-colors hover:text-foreground">
+                Affiliates
+              </Link>
               <a href="mailto:hello@stroby.ai" className="transition-colors hover:text-foreground">
                 Contact
               </a>
