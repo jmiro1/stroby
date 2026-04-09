@@ -835,10 +835,34 @@ Phase 1 is complete when ALL of the following are true:
 - ✅ TypeScript compiles cleanly — `tsc --noEmit` exit 0
 
 **Not yet shipped (next session):**
-- ⏳ Frontend pages (8 pages: landing, apply, login flow, dashboard, manual intro form, admin)
-- ⏳ Lower-priority API routes: `/logout`, `/me/payouts`, `/validate-code`, `/reject`, `/override-attribution`, `/cancel-commission`
-- ⏳ Migration applied to actual Supabase project
-- ⏳ Env vars set in Vercel (`AFFILIATE_SESSION_SECRET` is the only required one)
+- ⏳ Lower-priority API routes: `/logout`, `/me/payouts` (GET — payouts page reads via queries lib instead), `/validate-code`, `/reject`, `/override-attribution`, `/cancel-commission`
+
+### 2026-04-09 — frontend + deploy + Phase 2 Stripe Connect
+
+**Shipped:**
+- ✅ All 8 frontend pages (landing, apply, login, login/sent, login/verify, dashboard, dashboard/intros/new, dashboard/payouts, admin/affiliates)
+- ✅ Custom on-brand 404 page using the Stroby character
+- ✅ Migration applied to production Supabase via `supabase db push --linked`
+- ✅ `AFFILIATE_SESSION_SECRET` set in Vercel production
+- ✅ `AFFILIATE_ADMIN_PHONE` set to `+5491176345405` (Stroby's main WhatsApp number)
+- ✅ Code committed (a19d578) and 1550ac8 and pushed to main, deployed to stroby.ai
+- ✅ Onboarding chat now auto-detects referral codes in the existing "how did you hear about Stroby?" answer (regex match against the no-confusable code alphabet, server-side validation rejects false positives)
+- ✅ Phase 2 Stripe Connect code shipped (untested in production until Connect is enabled at the platform Stripe account level):
+  - `POST /api/affiliates/me/stripe-connect` — generates Stripe Express onboarding link
+  - `POST /api/jobs/affiliate-payouts` — monthly payout cron (handles netting, clawbacks, rollover, transfer, status updates, lifetime stats)
+  - `charge.refunded` handler in the existing Stripe webhook → calls `processRefundClawback()` for any matching transaction's commissions
+  - `account.updated` webhook handler now mirrors affiliate `stripe_payouts_enabled` state from Stripe
+  - `/affiliates/dashboard/payouts` page — Stripe Connect status, current balance, payout history
+  - `ConnectButton` client component for the onboarding flow
+
+**Phase 2 — what still needs your action:**
+1. **Enable Stripe Connect at the platform account level** in your Stripe dashboard (`https://dashboard.stripe.com/connect/overview`). This unblocks BOTH affiliate payouts AND newsletter creator payouts (currently a TODO blocker for both).
+2. **Vercel Hobby allows only 1 cron** so I did NOT add `/api/jobs/affiliate-payouts` to `vercel.json` — that would have broken the daily matching cron. Workaround until Vercel Pro: invoke the endpoint manually on the 1st of each month with a curl call:
+   ```bash
+   curl -X POST https://stroby.ai/api/jobs/affiliate-payouts \
+     -H "Authorization: Bearer ${CRON_SECRET}"
+   ```
+   Or upgrade to Vercel Pro and add a second cron entry pointing to that path with schedule `0 8 1 * *`.
 
 **Required env vars before deployment:**
 - `AFFILIATE_SESSION_SECRET` — random 32-byte hex (REQUIRED — `assertConfigValid()` will throw at runtime if missing)
