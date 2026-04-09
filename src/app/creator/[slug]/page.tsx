@@ -147,7 +147,7 @@ export default async function CreatorProfilePage({
         right={
           <Link href="/whatsapp">
             <Button size="default">
-              Connect with {name.split(" ")[0]}
+              Connect with Creator
               <ArrowRight data-icon="inline-end" />
             </Button>
           </Link>
