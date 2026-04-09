@@ -52,6 +52,12 @@ export default async function DashboardLayout({
               >
                 New intro
               </Link>
+              <Link
+                href="/affiliates/dashboard/payouts"
+                className="hover:text-foreground"
+              >
+                Payouts
+              </Link>
             </nav>
           </div>
           <div className="text-sm text-muted-foreground">

@@ -467,11 +467,23 @@ export default function OnboardingChat() {
         setMessages((prev) => [...prev, { role: "bot", content: "Perfect — saving your profile..." }]);
         setIsTyping(false);
 
+        // Auto-detect an affiliate referral code in the "how did you hear"
+        // answer. Codes are 8 chars from a no-confusable alphabet
+        // (A-H, J-N, P-Z, 2-9). If a substring matches that shape we route
+        // it to affiliate_code so the server-side resolver can attribute it.
+        // The original referral_source text is preserved for analytics.
+        // Server-side validation rejects false positives — this is best-effort.
+        const referralText = String(finalData.referral_source ?? "");
+        const codeMatch = referralText.toUpperCase().match(/[A-HJ-NP-Z2-9]{8}/);
+        const enrichedData = codeMatch
+          ? { ...finalData, affiliate_code: codeMatch[0] }
+          : finalData;
+
         try {
           const res = await fetch("/api/onboard", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userType, data: finalData }),
+            body: JSON.stringify({ userType, data: enrichedData }),
           });
 
           if (!res.ok) throw new Error("Failed to submit");

@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
       case "account.updated": {
         const account = event.data.object;
         const profileId = account.metadata?.profile_id;
+        const affiliateId = account.metadata?.affiliate_id;
 
         if (profileId) {
           const updateData: Record<string, unknown> = {
@@ -100,6 +101,56 @@ export async function POST(request: NextRequest) {
               error
             );
           }
+        }
+
+        // Affiliate Connect onboarding (Phase 2)
+        if (affiliateId) {
+          const { error } = await supabase
+            .from("affiliates")
+            .update({
+              stripe_account_id: account.id,
+              stripe_payouts_enabled: !!(
+                account.charges_enabled && account.payouts_enabled
+              ),
+            })
+            .eq("id", affiliateId);
+          if (error) {
+            console.error("Failed to update affiliate stripe onboarding:", error);
+          }
+        }
+        break;
+      }
+
+      case "charge.refunded": {
+        // Affiliate clawback hook — best-effort, never blocks the webhook ack.
+        // Looks up the transaction by stripe_payment_intent_id and runs the
+        // clawback flow against any commissions tied to it.
+        try {
+          const charge = event.data.object;
+          const piId = charge.payment_intent;
+          if (typeof piId === "string") {
+            const { data: txn } = await supabase
+              .from("transactions")
+              .select("id")
+              .eq("stripe_payment_intent_id", piId)
+              .maybeSingle();
+            if (txn) {
+              const { processRefundClawback } = await import(
+                "@/lib/affiliates/commissions"
+              );
+              const result = await processRefundClawback(
+                txn.id,
+                `stripe charge.refunded ${charge.id}`,
+              );
+              if (result.cancelled || result.clawbacks_created) {
+                console.log(
+                  `affiliate clawback: txn=${txn.id} cancelled=${result.cancelled} clawbacks=${result.clawbacks_created}`
+                );
+              }
+            }
+          }
+        } catch (clawbackErr) {
+          console.error("affiliate clawback hook failed:", clawbackErr);
         }
         break;
       }
