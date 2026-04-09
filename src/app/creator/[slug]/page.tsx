@@ -145,9 +145,9 @@ export default async function CreatorProfilePage({
     <div className="flex min-h-dvh flex-col bg-background">
       <MarketingHeader
         right={
-          <Link href="/">
+          <Link href="/whatsapp">
             <Button size="default">
-              Book this creator
+              Connect with {name.split(" ")[0]}
               <ArrowRight data-icon="inline-end" />
             </Button>
           </Link>
@@ -204,7 +204,7 @@ export default async function CreatorProfilePage({
           rel="noopener noreferrer"
           className="w-full rounded-full bg-primary px-6 py-4 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-105 hover:shadow-xl active:scale-100 sm:w-auto sm:px-8 sm:text-lg"
         >
-          Work with {name} through Stroby
+          Connect with {name}
         </a>
 
         <p className="mt-10 text-sm text-muted-foreground">

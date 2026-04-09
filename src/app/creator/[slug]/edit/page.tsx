@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Upload, X, CheckCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Upload, X, CheckCircle, Loader2, ArrowLeft } from "lucide-react";
 import { MarketingHeader } from "@/components/marketing-header";
 import { SiteFooter } from "@/components/site-footer";
 
@@ -99,6 +100,14 @@ export default function EditCreatorPage({
       <MarketingHeader right={null} />
       <div className="flex flex-1 items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm space-y-6">
+        {slug && (
+          <Link
+            href={`/creator/${slug}`}
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="size-4" /> Back to profile
+          </Link>
+        )}
         <div className="flex flex-col items-center gap-2">
           <Image src="/logo-emoji.png" alt="Stroby" width={48} height={48} />
           <h1 className="text-xl font-bold">Edit Your Profile</h1>
