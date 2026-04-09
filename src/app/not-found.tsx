@@ -39,7 +39,7 @@ export default function NotFound() {
             </svg>
           </a>
           <a
-            href="https://x.com/stroby_ai"
+            href="https://x.com/strobyai"
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted-foreground transition-colors hover:text-foreground"
