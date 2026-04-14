@@ -129,6 +129,7 @@ export default function AdminPage() {
           </div>
           <div className="flex gap-2">
             <a href="/admin/matches" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Matches</a>
+            <a href="/admin/growth" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Growth</a>
             <a href="/admin/analytics" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Analytics</a>
             <a href="/admin/costs" className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Costs</a>
             <button onClick={refresh} className="rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted">Refresh</button>

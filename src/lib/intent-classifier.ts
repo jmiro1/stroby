@@ -21,8 +21,19 @@ const STOP = ["stop", "unsubscribe", "opt out", "remove me", "delete my account"
 const STATUS = ["status", "my profile", "my status", "profile", "show my profile", "what's my status", "whats my status", "how am i doing", "check my profile"];
 const VERIFY = ["verify", "verification", "verify me", "get verified", "send verification", "verify my account"];
 
-export function classifyIntent(message: string): ClassifiedIntent {
+export function classifyIntent(message: string, lastBotMessage?: string): ClassifiedIntent {
   const normalized = message.toLowerCase().trim();
+  const lastBot = (lastBotMessage || "").toLowerCase();
+
+  // Context-aware: if the bot just asked about verification and user says "yes"/"sure"/etc.,
+  // treat it as verify_request, not accept. Fixes the loop where "yes" to "Want me to send
+  // you a verification link?" was classified as "accept" (match intro acceptance).
+  if (lastBot.includes("verification") || lastBot.includes("verify") || lastBot.includes("verified")) {
+    const affirmatives = ["yes", "yeah", "yep", "yup", "sure", "ok", "okay", "absolutely", "go ahead", "please", "send it", "do it"];
+    for (const phrase of affirmatives) {
+      if (normalized === phrase || normalized === phrase + "!") return { type: "verify_request" };
+    }
+  }
 
   // Rating: standalone digit 1-5
   const ratingMatch = normalized.match(/^(\d)(?:\s*(?:\/5|out of 5|stars?))?$/);

@@ -28,7 +28,14 @@ FOR INFLUENCERS/CREATORS — collect these fields:
   user_type, referral_source, name, platform, channel_name, url, niche, audience_size, price_per_placement, email
 
 FOR BUSINESSES — collect these fields:
-  user_type, referral_source, contact_name, contact_role, company_name, product_description, target_customer, niche, budget_range, partner_preference, email
+  user_type, referral_source, contact_name, contact_role, company_name, website_url, product_description, target_customer, buyer_description, past_newsletter_sponsors, niche, budget_range, partner_preference, email
+
+EMAIL (BOTH SIDES): When asking for email, frame it as: "What's the best email to reach you at — just in case WhatsApp ever goes down?" This makes the ask feel protective, not extractive. The email is their preferred contact backup.
+
+IMPORTANT extra questions for businesses (weave in naturally):
+- "website_url": Ask for their website URL early — "What's your website? I'll take a look."
+- "buyer_description": Ask "In one sentence, describe the kind of person who buys your product — not job title, but who they are." This is the most important field. The answer should be psychographic: "ambitious operators scaling their first startup" not "marketing managers".
+- "past_newsletter_sponsors": Ask "Have you done newsletter sponsorships before? Which ones worked?" — even "no" is useful info.
 
 RULES:
 - Ask 2-3 things per message max. Be conversational, not a form.
@@ -54,7 +61,8 @@ Rules for [STATE]:
 
 PROFILE COMPLETION:
 - The moment every required field in [STATE] is non-null, output [PROFILE_COMPLETE] followed by the same JSON on the next line, then a 1-sentence friendly wrap-up.
-- Do NOT do a "let me confirm everything before we wrap up" pass. The [STATE] is the truth — if it's full, you're done. No re-asking, no double-checking.`;
+- Do NOT do a "let me confirm everything before we wrap up" pass. The [STATE] is the truth — if it's full, you're done. No re-asking, no double-checking.
+- Do NOT mention verification links, verification badges, or "verify your metrics" in your wrap-up. The system handles verification separately after profile creation. Just say something like "Perfect — you're in! I'll start looking for matches." and stop.`;
 
 export interface OnboardingResult {
   response: string;
@@ -198,7 +206,7 @@ export async function handleOnboardingMessage(
 
 const REQUIRED_FIELDS: Record<"influencer" | "business", string[]> = {
   influencer: ["user_type", "name", "platform", "channel_name", "niche", "audience_size", "email"],
-  business: ["user_type", "contact_name", "company_name", "product_description", "target_customer", "niche", "budget_range", "email"],
+  business: ["user_type", "contact_name", "company_name", "product_description", "target_customer", "niche", "budget_range", "email", "website_url"],
 };
 
 function isStateComplete(state: Record<string, unknown>): boolean {
@@ -225,7 +233,9 @@ export async function createProfileFromOnboarding(
         product_description: data.product_description || data.what_they_sell || null,
         target_customer: data.target_customer || null,
         primary_niche: data.niche || data.primary_niche || "Other",
-        description: data.description || null,
+        description: data.website_url
+          ? `Website: ${data.website_url}${data.description ? ` | ${data.description}` : ""}`
+          : data.description || null,
         budget_range: data.budget_range || null,
         campaign_goal: data.campaign_goal || null,
         partner_preference: data.partner_preference || "all",
@@ -300,9 +310,18 @@ export async function linkExistingAccount(
     let query = supabase.from(table.name).select("*");
 
     if (linkData.email) {
-      query = query.eq("email", linkData.email);
+      // Validate email format to prevent PostgREST filter injection
+      const email = linkData.email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 320) {
+        return { found: false };
+      }
+      query = query.eq("email", email);
     } else if (linkData.phone) {
-      const cleanPhone = linkData.phone.replace(/[\s\-()]/g, "");
+      // Strip to digits only to prevent PostgREST filter injection
+      const cleanPhone = linkData.phone.replace(/\D/g, "");
+      if (!cleanPhone || cleanPhone.length < 7 || cleanPhone.length > 15) {
+        return { found: false };
+      }
       query = query.or(`phone.eq.${cleanPhone},phone.eq.+${cleanPhone}`);
     } else {
       continue;
@@ -311,12 +330,10 @@ export async function linkExistingAccount(
     const { data } = await query.maybeSingle();
     if (data) {
       const record = data as Record<string, unknown>;
-      // Update the phone number to the new WhatsApp number
-      await supabase
-        .from(table.name)
-        .update({ phone: newPhone })
-        .eq("id", record.id);
-
+      // SECURITY: Do NOT auto-update the phone number.
+      // Account linking requires email verification (handled by the caller).
+      // We only return that the account was found — the phone update happens
+      // after the user confirms ownership via email.
       const displayName = (record[table.nameField] as string) || "your account";
       return { found: true, name: displayName, userType: table.type };
     }

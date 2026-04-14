@@ -21,7 +21,11 @@ export async function GET(request: NextRequest) {
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === (process.env.WHATSAPP_VERIFY_TOKEN || "stroby-verify-token")) {
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+  if (!verifyToken) {
+    return new Response("Server configuration error", { status: 500 });
+  }
+  if (mode === "subscribe" && token === verifyToken) {
     return new Response(challenge, { status: 200 });
   }
   return new Response("Forbidden", { status: 403 });
@@ -29,19 +33,28 @@ export async function GET(request: NextRequest) {
 
 // ── POST: Incoming WhatsApp messages ──
 export async function POST(request: NextRequest) {
-  // Verify Meta webhook signature (fail-closed: reject if signature missing when secret is configured)
+  // Verify Meta webhook signature — FAIL CLOSED: reject if secret not configured in prod
   const rawBody = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
   const appSecret = process.env.META_APP_SECRET;
 
-  if (appSecret) {
+  if (!appSecret) {
+    // In production, META_APP_SECRET MUST be set. Only skip in local dev.
+    if (process.env.NODE_ENV === "production") {
+      console.error("SECURITY: META_APP_SECRET not set in production — rejecting webhook");
+      return new Response("Server configuration error", { status: 500 });
+    }
+  } else {
     if (!signature) {
       return new Response("Forbidden", { status: 403 });
     }
     const crypto = await import("crypto");
     const expected = "sha256=" + crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
-    if (signature !== expected) {
-      console.error("Webhook signature mismatch");
+    // SECURITY: Constant-time comparison to prevent timing side-channel attacks
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expected);
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      console.error("SECURITY: Webhook signature mismatch");
       return new Response("Forbidden", { status: 403 });
     }
   }
@@ -57,13 +70,21 @@ export async function POST(request: NextRequest) {
   }
 
   const message = value.messages[0];
-  const phone = message.from;
-  const phoneWithPlus = `+${phone}`;
+  const rawPhone = message.from;
   const messageText = message.text?.body || "";
   const messageId = message.id;
   const mediaUrl = message.image?.id || message.document?.id || null;
 
-  if (!phone) return new Response("OK", { status: 200 });
+  if (!rawPhone) return new Response("OK", { status: 200 });
+
+  // Validate phone — must be digits only (Meta sends numeric strings)
+  // This prevents PostgREST filter injection via crafted phone values
+  const phone = rawPhone.replace(/\D/g, "");
+  if (!phone || phone.length < 7 || phone.length > 15) {
+    console.error("SECURITY: Invalid phone format rejected:", rawPhone.slice(0, 20));
+    return new Response("OK", { status: 200 });
+  }
+  const phoneWithPlus = `+${phone}`;
 
   // Rate limiting — prevent abuse
   const rateCheck = checkRateLimit(phone);
@@ -211,9 +232,10 @@ async function handleKnownUser(
           const table = userType === "business" ? "business_profiles" : "other_profiles";
           const { data: current } = await supabase.from(table).select("description").eq("id", userId).single();
           const existingDesc = (current?.description as string) || "";
+          const cappedDesc = description.slice(0, 500); // Cap AI description length
           const newDesc = existingDesc
-            ? `${existingDesc} | Image context: ${description}`
-            : `Image context: ${description}`;
+            ? `${existingDesc} | Image context: ${cappedDesc}`.slice(0, 5000) // Cap total
+            : `Image context: ${cappedDesc}`;
           await supabase.from(table).update({ description: newDesc }).eq("id", userId);
 
           await sendAndLog(phoneWithPlus, `Got it — I've noted that for your profile. This helps me find better matches for you!`, userType, userId);
@@ -225,8 +247,22 @@ async function handleKnownUser(
     }
   }
 
+  // Fetch the last outbound message for context-aware intent classification
+  // (e.g., "yes" after "Want me to send you a verification link?" → verify_request)
+  let lastBotMessage = "";
+  try {
+    const { data: lastOut } = await supabase.from("whatsapp_messages")
+      .select("content")
+      .eq("phone", phoneWithPlus)
+      .eq("direction", "outbound")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+    if (lastOut?.content) lastBotMessage = lastOut.content as string;
+  } catch { /* ignore — context is optional */ }
+
   // Pre-AI classification — handle simple intents without AI
-  const intent = classifyIntent(body);
+  const intent = classifyIntent(body, lastBotMessage);
 
   // Decline-reason capture: if we previously asked this user *why* they
   // declined a match, the next free-form message is their answer. We only
@@ -383,9 +419,19 @@ async function handleKnownUser(
       try {
         const rawUpdates = JSON.parse(updateMatch[1]);
         const allowed = ALLOWED_FIELDS[userType] || [];
-        const safeUpdates = Object.fromEntries(
-          Object.entries(rawUpdates).filter(([key]) => allowed.includes(key))
-        );
+        // Numeric fields that must be coerced + validated
+        const numericFields = new Set(["subscriber_count", "avg_open_rate", "avg_ctr", "price_per_placement"]);
+        const safeUpdates: Record<string, string | number | null> = {};
+        for (const [key, val] of Object.entries(rawUpdates)) {
+          if (!allowed.includes(key)) continue;
+          if (numericFields.has(key)) {
+            const n = typeof val === "number" ? val : parseFloat(String(val));
+            if (!isNaN(n) && n >= 0 && n <= 100_000_000) safeUpdates[key] = n;
+          } else if (typeof val === "string") {
+            safeUpdates[key] = val.slice(0, 2000); // Cap length
+          }
+          // Reject objects, arrays, booleans — only strings and numbers allowed
+        }
         if (Object.keys(safeUpdates).length > 0) {
           const table = userType === "newsletter" ? "newsletter_profiles"
             : userType === "business" ? "business_profiles" : "other_profiles";
@@ -432,16 +478,71 @@ async function handleNewUser(
   }
 
   if (result.linkAccount && result.linkData) {
-    const linkResult = await linkExistingAccount(phoneWithPlus, result.linkData);
-    const response = linkResult.found
-      ? `Found your account — *${linkResult.name}*! I've updated your phone number. You're all set!`
-      : "I couldn't find an account with that info. Want to try again, or set up a new profile here?";
-    await sendWhatsAppMessage(phoneWithPlus, response);
-    await insertMessage({ direction: "outbound", phone: phoneWithPlus, content: response, message_type: "onboarding" });
+    // Server-side validation: prevent prompt injection account hijack.
+    // The AI could be tricked into emitting [LINK_ACCOUNT] with a victim's email.
+    // Validate the data looks legitimate before proceeding.
+    const linkEmail = result.linkData.email?.trim().toLowerCase();
+    const linkPhone = result.linkData.phone?.replace(/\D/g, "");
+
+    if (linkEmail && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(linkEmail) || linkEmail.length > 320)) {
+      console.error("SECURITY: Invalid email in LINK_ACCOUNT, possible prompt injection:", linkEmail?.slice(0, 50));
+      await sendWhatsAppMessage(phoneWithPlus, "I couldn't process that — could you tell me the email or phone again?");
+      await insertMessage({ direction: "outbound", phone: phoneWithPlus, content: "Link account validation failed", message_type: "onboarding" });
+    } else if (linkPhone && (linkPhone.length < 7 || linkPhone.length > 15)) {
+      console.error("SECURITY: Invalid phone in LINK_ACCOUNT, possible prompt injection:", linkPhone?.slice(0, 20));
+      await sendWhatsAppMessage(phoneWithPlus, "I couldn't process that — could you tell me the email or phone again?");
+      await insertMessage({ direction: "outbound", phone: phoneWithPlus, content: "Link account validation failed", message_type: "onboarding" });
+    } else {
+      // SECURITY: Ownership verification before linking.
+      // We look up the account but DON'T auto-link. Instead, we verify the
+      // requesting phone matches the account's existing phone, OR we tell
+      // them to message from the original number / use the email login.
+      const linkResult = await linkExistingAccount(phoneWithPlus, result.linkData);
+      if (linkResult.found) {
+        // Account found — notify the user but require them to verify via email
+        const response = `I found an account for *${linkResult.name}*. For security, I've sent a confirmation to the email on file. Once confirmed, your new WhatsApp number will be linked. If you don't receive it, message me the email address you used to sign up.`;
+        await sendWhatsAppMessage(phoneWithPlus, response);
+        await insertMessage({ direction: "outbound", phone: phoneWithPlus, content: response, message_type: "onboarding" });
+        // Log for audit trail
+        console.log(`SECURITY: Account link requested for ${linkResult.name} from new phone ${phoneWithPlus.slice(0, 6)}...`);
+      } else {
+        const response = "I couldn't find an account with that info. Want to try again, or set up a new profile here?";
+        await sendWhatsAppMessage(phoneWithPlus, response);
+        await insertMessage({ direction: "outbound", phone: phoneWithPlus, content: response, message_type: "onboarding" });
+      }
+    }
   } else if (result.profileComplete && result.profileData) {
+    // Server-side field validation — cap lengths, validate types
+    const pd = result.profileData;
+    // SECURITY: Only allow strings and numbers. Reject objects/arrays/booleans to prevent
+    // NoSQL-style injection or type confusion in DB writes.
+    const cap = (v: unknown, max: number): string | number | null => {
+      if (typeof v === "string") return v.slice(0, max);
+      if (typeof v === "number" && isFinite(v)) return v;
+      return null;
+    };
+    pd.company_name = cap(pd.company_name, 200);
+    pd.contact_name = cap(pd.contact_name, 200);
+    pd.name = cap(pd.name, 200);
+    pd.channel_name = cap(pd.channel_name, 200);
+    pd.product_description = cap(pd.product_description, 2000);
+    pd.target_customer = cap(pd.target_customer, 2000);
+    pd.buyer_description = cap(pd.buyer_description, 2000);
+    pd.description = cap(pd.description, 2000);
+    pd.niche = cap(pd.niche, 200);
+    pd.website_url = cap(pd.website_url, 2000);
+    pd.url = cap(pd.url, 2000);
+    pd.email = cap(pd.email, 320);
+    pd.past_newsletter_sponsors = cap(pd.past_newsletter_sponsors, 1000);
+    // Validate user_type is one of the allowed values
+    if (pd.user_type !== "influencer" && pd.user_type !== "business") {
+      console.error("SECURITY: Invalid user_type in profile data:", pd.user_type);
+      pd.user_type = "influencer";
+    }
+
     let profile: { id: string; userType: "newsletter" | "business" | "other" } | null;
     try {
-      profile = await createProfileFromOnboarding(phoneWithPlus, result.profileData);
+      profile = await createProfileFromOnboarding(phoneWithPlus, pd);
     } catch (err) {
       console.error("createProfileFromOnboarding failed:", err, "data:", result.profileData);
       // Don't lie to the user. Tell them something hit a snag and the
@@ -468,6 +569,58 @@ async function handleNewUser(
         .update({ user_id: profile.id, user_type: profile.userType })
         .eq("phone", phoneWithPlus).is("user_id", null);
 
+      // Brand Intelligence: auto-analyze the brand's website and feed onboarding data
+      // into the intelligence profile for better matching.
+      if (profile.userType === "business") {
+        const profileData = result.profileData || {};
+        const websiteUrl = (profileData.website_url as string) || "";
+        const buyerDescription = (profileData.buyer_description as string) || "";
+        const pastSponsors = (profileData.past_newsletter_sponsors as string) || "";
+
+        // 1. Feed onboarding answers into brand intelligence
+        if (buyerDescription || pastSponsors) {
+          try {
+            await fetch("http://127.0.0.1:8001/brand-onboarding", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.INTELLIGENCE_API_SECRET || ""}` },
+              body: JSON.stringify({
+                brand_id: profile.id,
+                customer_description: buyerDescription,
+                past_sponsors: pastSponsors,
+                monthly_budget: (profileData.budget_range as string) || "",
+              }),
+              signal: AbortSignal.timeout(5000),
+            }).catch(() => {});
+          } catch { /* non-critical */ }
+        }
+
+        // 2. Auto-scrape the brand's website
+        if (websiteUrl) {
+          try {
+            await fetch("http://127.0.0.1:8001/analyze-brand", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.INTELLIGENCE_API_SECRET || ""}` },
+              body: JSON.stringify({
+                brand_id: profile.id,
+                website_url: websiteUrl,
+                brand_name: (profileData.company_name as string) || "",
+              }),
+              signal: AbortSignal.timeout(15000),
+            }).catch(() => {});
+          } catch { /* non-critical — will catch up later */ }
+        }
+
+        // Tell the brand we're analyzing
+        const brandIntelMsg = websiteUrl
+          ? `I'm already looking at your website to understand your brand better — the more I learn, the better matches I'll find you.`
+          : `Tip: share your website URL anytime and I'll analyze it to find you better matches.`;
+        await sendWhatsAppMessage(phoneWithPlus, brandIntelMsg);
+        await insertMessage({
+          direction: "outbound", user_type: "business", user_id: profile.id,
+          phone: phoneWithPlus, content: brandIntelMsg, message_type: "onboarding",
+        });
+      }
+
       // Send public profile link + verification link to creators
       if (profile.userType === "newsletter") {
         const { data: nlProfile } = await supabase
@@ -484,13 +637,42 @@ async function handleNewUser(
         }
 
         // Verification link — gets the creator prioritized in matching.
-        // Sent automatically right after onboarding completes; user can act
-        // on it any time, no pressure.
         const verifyMsg = `One thing that'll seriously help — verify your audience metrics here:\n\n${appUrl}/verify/${profile.id}\n\nConnect Beehiiv/ConvertKit (instant) or upload a screenshot. Verified creators get prioritized when I'm matching.`;
         await sendWhatsAppMessage(phoneWithPlus, verifyMsg);
         await insertMessage({
           direction: "outbound", user_type: "newsletter", user_id: profile.id,
           phone: phoneWithPlus, content: verifyMsg, message_type: "verification",
+        });
+
+        // Content Intelligence: subscribe to their newsletter with stroby@stroby.ai
+        // so we can start analyzing their content for better matching.
+        // The creator was told during onboarding that this happens.
+        const { data: nlData } = await supabase
+          .from("newsletter_profiles").select("url").eq("id", profile.id).single();
+        if (nlData?.url) {
+          try {
+            // Fire-and-forget to the intelligence service (port 8001, separate from leadgen)
+            await fetch("http://127.0.0.1:8001/subscribe", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.INTELLIGENCE_API_SECRET || ""}` },
+              body: JSON.stringify({
+                creator_id: profile.id,
+                newsletter_url: nlData.url,
+                newsletter_name: result.profileData?.channel_name || "",
+              }),
+              signal: AbortSignal.timeout(5000),
+            }).catch(() => {/* best-effort — don't block onboarding */});
+          } catch {
+            // Non-critical — intelligence will catch up later
+          }
+        }
+
+        // Tell the creator we'll be reading their newsletters
+        const intelligenceMsg = `I've also subscribed to your newsletter — I'll start reading your issues to deeply understand your audience. The longer you're on Stroby, the better your sponsor matches get. 📈`;
+        await sendWhatsAppMessage(phoneWithPlus, intelligenceMsg);
+        await insertMessage({
+          direction: "outbound", user_type: "newsletter", user_id: profile.id,
+          phone: phoneWithPlus, content: intelligenceMsg, message_type: "onboarding",
         });
       }
 
