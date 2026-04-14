@@ -78,7 +78,14 @@ export default function GrowthPage() {
     );
   }
 
-  if (!data) return null;
+  if (!data) return (
+    <div className="flex min-h-dvh items-center justify-center bg-background">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <span className="text-sm">Loading growth data...</span>
+      </div>
+    </div>
+  );
 
   const weekly = data.weekly_growth;
   const latestWeek = weekly[weekly.length - 1];

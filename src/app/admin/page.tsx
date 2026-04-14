@@ -114,7 +114,14 @@ export default function AdminPage() {
     );
   }
 
-  if (!stats) return null;
+  if (!stats) return (
+    <div className="flex min-h-dvh items-center justify-center bg-background">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+        <span className="text-sm">Loading dashboard...</span>
+      </div>
+    </div>
+  );
 
   const totalIntros = Object.values(stats.introductions).reduce((a, b) => a + b, 0);
   const acceptedIntros = (stats.introductions.introduced || 0) + (stats.introductions.newsletter_accepted || 0) + (stats.introductions.business_accepted || 0) + (stats.introductions.completed || 0);

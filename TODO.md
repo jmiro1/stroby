@@ -1,5 +1,39 @@
 # Stroby.ai — MVP TODO List
 
+> **SCOPE — READ FIRST (for Claude / future me)**
+>
+> This TODO is **only for the production Stroby app**: the Next.js codebase
+> at `/Users/joaquimmiro/stroby/`, its Supabase project, and the real users
+> (creators, businesses, transactions) it serves.
+>
+> **Marketing / lead-gen / scraping / cold outreach work is OUT OF SCOPE here.**
+> That lives in a fully separate sidecar at `/Users/joaquimmiro/stroby/leadgen/`
+> with its own SQLite database, its own n8n workflows, its own TODO at
+> `/Users/joaquimmiro/stroby/leadgen/marketingtodo.md`. The leadgen system never reads
+> from or writes to the Stroby app's Supabase. The only crossover is a UTM
+> link in an outreach message that, when clicked by a real human, takes them
+> through the normal Stroby onboarding flow.
+>
+> **Why the strict split:**
+> 1. **Security** — marketing automation has different access patterns and
+>    failure modes than a customer-facing product. Mixing them widens the
+>    blast radius of any bug or compromise.
+> 2. **Data hygiene** — cold prospects are not customers. Putting thousands
+>    of unenriched scraped rows in the production DB pollutes analytics,
+>    matching jobs, and the user experience.
+> 3. **Independent iteration** — the marketing system changes weekly; the
+>    product DB schema should not.
+>
+> **When unsure where a task belongs, ask first.** Don't add scraper /
+> outreach / lead-enrichment / Clay / n8n tasks here, and don't add
+> product-feature / customer-data / Supabase-schema tasks to the leadgen
+> TODO. If a task touches both worlds (e.g. "track which onboarding signups
+> came from leadgen outreach"), the answer is usually: instrument the app
+> side with a UTM param and let leadgen read its own attribution from its
+> own logs.
+
+
+
 ## ~~Priority 1: Chat Widget Hybrid AI Upgrade~~ DONE
 - [x] Build `/api/chat` endpoint that sends user messages to Claude
 - [x] Three onboarding paths: Business survey, Influencer survey, free-form Claude chat ("Other")
@@ -131,6 +165,42 @@
 - [x] Welcome template message for new signups (sent right after createProfileFromOnboarding via sendWelcomeWithFallback)
 - [x] Dynamic URL in welcome_confirmation template (pass user ID — sent as URL button param, lands on /welcome/[id])
 - [ ] Add email as fallback communication channel
+
+### Priority D2: Migrate Intelligence Service from Local Mac to Vercel (HIGH PRIORITY)
+
+The **Matching Intelligence Engine** (Layers 1-3) currently runs as a standalone
+Python FastAPI service on Joaquim's Mac (`/stroby/intelligence/`, port 8001). This
+works for now but MUST be migrated before scaling.
+
+**What runs locally today:**
+- `content_intelligence.py` — Haiku extraction of newsletter issues (via Claude CLI subprocess)
+- `brand_intelligence.py` — Website scraping + Haiku extraction of brand profiles
+- `competitive_intel.py` — Cross-reference sponsor mentions with brand competitors
+- `embeddings.py` — Voyage AI embeddings (voyage-3-lite, 1024d)
+- `semantic_matching.py` — Cosine similarity + industry-aware scoring (4 value tiers)
+- `server.py` — FastAPI with Bearer auth, SSRF protection, rate limiting
+- `poll.sh` — launchd cron polling IMAP every 2 hours
+
+**Why it needs to move:**
+- Service goes down when laptop sleeps/travels — creators stop getting analyzed
+- WhatsApp webhook calls `http://127.0.0.1:8001` — only works when Mac is on same network
+- Can't scale beyond one machine
+- No redundancy, no auto-restart on crash
+
+**Migration plan:**
+1. Convert Python endpoints to Next.js API routes under `/api/intelligence/`
+2. Replace Claude CLI subprocess calls with Anthropic TypeScript SDK (`@anthropic-ai/sdk`)
+3. Replace Python httpx Supabase calls with Supabase JS client (already in the app)
+4. Replace Python Voyage AI calls with Voyage AI REST API via fetch (or npm package)
+5. Replace IMAP polling with an email forwarding rule → webhook (e.g., Zapier/Make/Cloudflare Email Workers → POST /api/intelligence/analyze)
+6. Move SSRF protection (`url_safety.py`) to TypeScript
+7. Remove the local FastAPI service entirely
+
+**Estimated effort:** 1-2 sessions. Most logic is straightforward to port.
+The hardest part is replacing IMAP polling with a push-based email webhook.
+
+**Trigger to migrate:** When the first real creator signs up and starts publishing,
+or when Joaquim travels and the laptop is offline.
 
 ### Priority E: Matching Refinement
 
