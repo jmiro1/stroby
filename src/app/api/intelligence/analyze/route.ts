@@ -6,9 +6,8 @@ import { processIncomingIssue } from "@/lib/intelligence/content";
  * Called when a newsletter issue arrives (via email forwarding webhook, manual trigger, etc.)
  */
 export async function POST(request: NextRequest) {
-  const secret = process.env.INTELLIGENCE_API_SECRET;
-  const auth = request.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
+  const { verifyIntelligenceAuth } = await import("@/lib/intelligence/auth");
+  if (!verifyIntelligenceAuth(request.headers.get("authorization"))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

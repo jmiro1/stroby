@@ -2,9 +2,8 @@ import { NextRequest } from "next/server";
 import { getMatchesForBrand } from "@/lib/intelligence/matching";
 
 export async function GET(request: NextRequest) {
-  const secret = process.env.INTELLIGENCE_API_SECRET;
-  const auth = request.headers.get("authorization");
-  if (!secret || auth !== `Bearer ${secret}`) {
+  const { verifyIntelligenceAuth } = await import("@/lib/intelligence/auth");
+  if (!verifyIntelligenceAuth(request.headers.get("authorization"))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

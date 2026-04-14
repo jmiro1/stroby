@@ -112,6 +112,7 @@ function synthesizeProfile(analyses: Record<string, unknown>[]): Record<string, 
   // Most common audience signals
   const professions = analyses.map(a => (a.audience_signals as Record<string, unknown>)?.likely_profession).filter(Boolean) as string[];
   const seniorities = analyses.map(a => (a.audience_signals as Record<string, unknown>)?.likely_seniority).filter(Boolean) as string[];
+  const incomes = analyses.map(a => (a.audience_signals as Record<string, unknown>)?.likely_income_bracket).filter(v => v && v !== "unknown") as string[];
   const interests: string[] = [];
   for (const a of analyses) {
     interests.push(...((a.audience_signals as Record<string, unknown>)?.likely_interests as string[] || []));
@@ -143,6 +144,24 @@ function synthesizeProfile(analyses: Record<string, unknown>[]): Record<string, 
 
   const profession = mostCommon(professions);
   const seniority = mostCommon(seniorities);
+  // Content consistency: how similar are topics across issues?
+  let contentConsistency: number | null = null;
+  if (analyses.length >= 3) {
+    const topicSets = analyses.map(a => new Set((a.topics as string[]) || []));
+    let totalOverlap = 0, pairs = 0;
+    for (let i = 0; i < topicSets.length - 1; i++) {
+      for (let j = i + 1; j < topicSets.length; j++) {
+        const union = new Set([...topicSets[i], ...topicSets[j]]);
+        if (union.size > 0) {
+          const intersection = [...topicSets[i]].filter(t => topicSets[j].has(t)).length;
+          totalOverlap += intersection / union.size;
+          pairs++;
+        }
+      }
+    }
+    contentConsistency = pairs > 0 ? Math.round((totalOverlap / pairs) * 100) / 100 : 0;
+  }
+
   const oneLine = `${seniority || ""} ${profession || "readers"} interested in ${topTopics.slice(0, 3).join(", ")}`.trim();
 
   return {
@@ -150,11 +169,13 @@ function synthesizeProfile(analyses: Record<string, unknown>[]): Record<string, 
     audience_profile: {
       likely_profession: profession,
       likely_seniority: seniority,
+      likely_income_bracket: mostCommon(incomes),
       top_interests: topInterests,
     },
     writing_style: style,
     advertiser_friendliness: avgAf,
     existing_sponsors: [...sponsors],
+    content_consistency: contentConsistency,
     content_category: category,
     one_line_profile: oneLine,
   };
