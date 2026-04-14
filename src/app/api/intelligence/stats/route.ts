@@ -3,7 +3,14 @@ import { createServiceClient } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const { verifyIntelligenceAuth } = await import("@/lib/intelligence/auth");
-  if (!verifyIntelligenceAuth(request.headers.get("authorization"))) {
+  const authResult = verifyIntelligenceAuth(request.headers.get("authorization"));
+  if (!authResult) {
+    // Debug: check if secret is set (don't leak value)
+    const hasSecret = !!process.env.INTELLIGENCE_API_SECRET;
+    const secretLen = (process.env.INTELLIGENCE_API_SECRET || "").length;
+    const authHeader = request.headers.get("authorization") || "";
+    const tokenLen = authHeader.startsWith("Bearer ") ? authHeader.length - 7 : 0;
+    console.error(`Auth failed: hasSecret=${hasSecret}, secretLen=${secretLen}, tokenLen=${tokenLen}`);
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
