@@ -577,37 +577,24 @@ async function handleNewUser(
         const buyerDescription = (profileData.buyer_description as string) || "";
         const pastSponsors = (profileData.past_newsletter_sponsors as string) || "";
 
-        // 1. Feed onboarding answers into brand intelligence
+        // 1. Feed onboarding answers into brand intelligence (direct call, no localhost)
         if (buyerDescription || pastSponsors) {
           try {
-            await fetch("http://127.0.0.1:8001/brand-onboarding", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.INTELLIGENCE_API_SECRET || ""}` },
-              body: JSON.stringify({
-                brand_id: profile.id,
-                customer_description: buyerDescription,
-                past_sponsors: pastSponsors,
-                monthly_budget: (profileData.budget_range as string) || "",
-              }),
-              signal: AbortSignal.timeout(5000),
-            }).catch(() => {});
-          } catch { /* non-critical */ }
+            const { updateOnboardingData } = await import("@/lib/intelligence/brand");
+            const answers: Record<string, string> = {};
+            if (buyerDescription) answers.customer_description = buyerDescription;
+            if (pastSponsors) answers.past_sponsors = pastSponsors;
+            if (profileData.budget_range) answers.monthly_budget = profileData.budget_range as string;
+            await updateOnboardingData(profile.id, answers);
+          } catch (e) { console.error("Brand onboarding intelligence failed:", e); }
         }
 
-        // 2. Auto-scrape the brand's website
+        // 2. Auto-scrape the brand's website (direct call, no localhost)
         if (websiteUrl) {
           try {
-            await fetch("http://127.0.0.1:8001/analyze-brand", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.INTELLIGENCE_API_SECRET || ""}` },
-              body: JSON.stringify({
-                brand_id: profile.id,
-                website_url: websiteUrl,
-                brand_name: (profileData.company_name as string) || "",
-              }),
-              signal: AbortSignal.timeout(15000),
-            }).catch(() => {});
-          } catch { /* non-critical — will catch up later */ }
+            const { processBrand } = await import("@/lib/intelligence/brand");
+            await processBrand(profile.id, websiteUrl, (profileData.company_name as string) || "");
+          } catch (e) { console.error("Brand website analysis failed:", e); }
         }
 
         // Tell the brand we're analyzing
@@ -644,28 +631,10 @@ async function handleNewUser(
           phone: phoneWithPlus, content: verifyMsg, message_type: "verification",
         });
 
-        // Content Intelligence: subscribe to their newsletter with stroby@stroby.ai
-        // so we can start analyzing their content for better matching.
-        // The creator was told during onboarding that this happens.
-        const { data: nlData } = await supabase
-          .from("newsletter_profiles").select("url").eq("id", profile.id).single();
-        if (nlData?.url) {
-          try {
-            // Fire-and-forget to the intelligence service (port 8001, separate from leadgen)
-            await fetch("http://127.0.0.1:8001/subscribe", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.INTELLIGENCE_API_SECRET || ""}` },
-              body: JSON.stringify({
-                creator_id: profile.id,
-                newsletter_url: nlData.url,
-                newsletter_name: result.profileData?.channel_name || "",
-              }),
-              signal: AbortSignal.timeout(5000),
-            }).catch(() => {/* best-effort — don't block onboarding */});
-          } catch {
-            // Non-critical — intelligence will catch up later
-          }
-        }
+        // Content Intelligence: the creator's newsletter content will be analyzed
+        // when issues arrive. The subscribe step is handled by the leadgen Echo
+        // pipeline (separate from this app). The intelligence analysis happens
+        // when newsletter issues are forwarded to the /api/intelligence/analyze endpoint.
 
         // Tell the creator we'll be reading their newsletters
         const intelligenceMsg = `I've also subscribed to your newsletter — I'll start reading your issues to deeply understand your audience. The longer you're on Stroby, the better your sponsor matches get. 📈`;
