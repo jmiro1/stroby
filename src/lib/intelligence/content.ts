@@ -91,6 +91,7 @@ export async function isSignedUpCreator(
 ): Promise<Record<string, unknown> | null> {
   const supabase = createServiceClient();
 
+  // Match by creator's registered email
   if (senderEmail) {
     const { data } = await supabase
       .from("newsletter_profiles")
@@ -101,6 +102,7 @@ export async function isSignedUpCreator(
     if (data) return data;
   }
 
+  // Match by publication URL
   if (publicationUrl) {
     const { data } = await supabase
       .from("newsletter_profiles")
@@ -109,6 +111,22 @@ export async function isSignedUpCreator(
       .eq("is_active", true)
       .maybeSingle();
     if (data) return data;
+  }
+
+  // Match Substack senders: newsletters from "name@substack.com" or "@substackinc.com"
+  // Try to match the subdomain against stored URLs like "https://name.substack.com"
+  if (senderEmail) {
+    const substackMatch = senderEmail.match(/^([a-z0-9-]+)@(substack\.com|substackinc\.com)$/i);
+    if (substackMatch) {
+      const handle = substackMatch[1];
+      const { data } = await supabase
+        .from("newsletter_profiles")
+        .select("id, newsletter_name, email, url, content_intelligence")
+        .ilike("url", `%${handle}.substack.com%`)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (data) return data;
+    }
   }
 
   return null;
