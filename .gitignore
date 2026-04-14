@@ -29,6 +29,10 @@
 # but not part of the Stroby app repo. See TODO.md for the isolation rationale.
 /leadgen/
 
+# Intelligence service — Python venv + logs (code is tracked, deps are not)
+intelligence/venv/
+intelligence/*.log
+
 # debug
 npm-debug.log*
 yarn-debug.log*
