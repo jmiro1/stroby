@@ -44,7 +44,24 @@ export async function analyzeIssue(
 ): Promise<Record<string, unknown> | null> {
   if (!issueText || issueText.trim().length < 100) return null;
 
-  const text = issueText.slice(0, 6000);
+  // Strip HTML if present (newsletters are typically HTML)
+  let cleaned = issueText;
+  if (cleaned.includes("<") && cleaned.includes(">")) {
+    // Remove script/style blocks
+    for (const tag of ["script", "style", "noscript"]) {
+      const parts = cleaned.split(new RegExp(`<${tag}[^>]*>`, "gi"));
+      const rebuilt = [parts[0]];
+      for (const part of parts.slice(1)) {
+        const closeIdx = part.toLowerCase().indexOf(`</${tag}>`);
+        if (closeIdx >= 0) rebuilt.push(part.slice(closeIdx + tag.length + 3));
+      }
+      cleaned = rebuilt.join("");
+    }
+    cleaned = cleaned.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+    cleaned = cleaned.replace(/\s+/g, " ").trim();
+  }
+
+  const text = cleaned.slice(0, 6000);
   const anthropic = getAnthropic();
 
   try {
