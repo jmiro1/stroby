@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
+import { CreatorAvatar } from "@/components/creator-avatar";
 import { notFound } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase";
 import { MarketingHeader } from "@/components/marketing-header";
@@ -138,7 +138,7 @@ export default async function CreatorProfilePage({
   const niche = getNiche(profile, source);
   const audience = getAudienceLabel(profile, source);
   const isVerified = profile.verification_status !== "unverified" && !!profile.verification_status;
-  const avatarSrc = profile.avatar_url || "/logo-emoji.png";
+  const avatarUrl = profile.avatar_url || null;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
 
   return (
@@ -155,17 +155,8 @@ export default async function CreatorProfilePage({
       />
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-12">
       <div className="flex w-full max-w-md flex-col items-center text-center">
-        {/* Avatar / Logo — links home */}
-        <Link href="/" className="mb-6 transition-transform hover:scale-105">
-          <Image
-            src={avatarSrc}
-            alt={name}
-            width={120}
-            height={120}
-            className="size-[100px] rounded-full object-cover drop-shadow-lg sm:size-[120px]"
-            priority
-          />
-        </Link>
+        {/* Avatar / Logo — upload placeholder if no avatar */}
+        <CreatorAvatar avatarUrl={avatarUrl} name={name} slug={slug} />
 
         {/* Creator name */}
         <h1 className="mb-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
