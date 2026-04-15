@@ -222,6 +222,12 @@ No more local Mac dependency — everything runs on Vercel.
 - [ ] Time-of-day / day-of-week optimization for match sending
 - [ ] Match explainability page — click a link in the match message to see scoring breakdown
 
+### Priority E2: Application & Scalability Level-Ups
+
+Infrastructure changes that unlock the next order of magnitude for creator/brand density and matching quality. Pick these up before any more feature work once the DM/Echo pacing is proven.
+
+- [ ] **Shadow profiles architecture** — let scraped creator/brand rows live in the product DB as shadows, invisible to the app but visible to the matching engine, with a claim flow that promotes them when they sign up. Solves the "no matches yet" cold-start problem by making matching work against 3-8k profiles from day 1 instead of ~10. Full plan: [SHADOW_PROFILES_PLAN.md](./SHADOW_PROFILES_PLAN.md). Pairs with the OpenClaw browser-automation scrapers in `leadgen/openclaw-todo.md` — scrapers produce shadow rows, this plan is how the app receives them safely.
+
 ### Priority F: Highest Priority (Next Up)
 - [ ] #5 AI voice calls integration (Vapi/Bland.ai) — `call_permission_1` template ready
 - [ ] #9 Real-time activity feed on public stats page ("Maria just joined", etc.)
