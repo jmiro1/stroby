@@ -166,41 +166,29 @@
 - [x] Dynamic URL in welcome_confirmation template (pass user ID — sent as URL button param, lands on /welcome/[id])
 - [ ] Add email as fallback communication channel
 
-### Priority D2: Migrate Intelligence Service from Local Mac to Vercel (HIGH PRIORITY)
+### ~~Priority D2: Migrate Intelligence Service from Local Mac to Vercel~~ DONE (2026-04-15)
 
-The **Matching Intelligence Engine** (Layers 1-3) currently runs as a standalone
-Python FastAPI service on Joaquim's Mac (`/stroby/intelligence/`, port 8001). This
-works for now but MUST be migrated before scaling.
+Matching Intelligence Engine fully ported from Python/local to TypeScript/Vercel.
+No more local Mac dependency — everything runs on Vercel.
 
-**What runs locally today:**
-- `content_intelligence.py` — Haiku extraction of newsletter issues (via Claude CLI subprocess)
-- `brand_intelligence.py` — Website scraping + Haiku extraction of brand profiles
-- `competitive_intel.py` — Cross-reference sponsor mentions with brand competitors
-- `embeddings.py` — Voyage AI embeddings (voyage-3-lite, 1024d)
-- `semantic_matching.py` — Cosine similarity + industry-aware scoring (4 value tiers)
-- `server.py` — FastAPI with Bearer auth, SSRF protection, rate limiting
-- `poll.sh` — launchd cron polling IMAP every 2 hours
+**What was built (all in `src/lib/intelligence/`):**
+- `content.ts` — Haiku extraction of newsletter issues via Anthropic TS SDK
+- `brand.ts` — Website scraping + Haiku brand profile extraction + SSRF protection
+- `embeddings.ts` — Voyage AI embeddings (voyage-3-lite, batched, 1024d→1536 padded)
+- `matching.ts` — Cosine similarity + industry-aware 4-tier value scoring
+- `url-safety.ts` — SSRF protection (DNS resolution, private IP blocking)
+- `auth.ts` — Constant-time Bearer token verification (crypto.timingSafeEqual)
 
-**Why it needs to move:**
-- Service goes down when laptop sleeps/travels — creators stop getting analyzed
-- WhatsApp webhook calls `http://127.0.0.1:8001` — only works when Mac is on same network
-- Can't scale beyond one machine
-- No redundancy, no auto-restart on crash
+**API routes (all at `/api/intelligence/`):**
+- POST `/analyze` — analyze a newsletter issue
+- POST `/analyze-brand` — scrape + analyze a brand website
+- POST `/brand-onboarding` — merge onboarding answers
+- GET `/matches/brand?id=` — top creator matches
+- GET `/matches/creator?id=` — top brand matches
+- POST `/embeddings` — refresh all embeddings
+- GET `/stats` — intelligence profile counts
 
-**Migration plan:**
-1. Convert Python endpoints to Next.js API routes under `/api/intelligence/`
-2. Replace Claude CLI subprocess calls with Anthropic TypeScript SDK (`@anthropic-ai/sdk`)
-3. Replace Python httpx Supabase calls with Supabase JS client (already in the app)
-4. Replace Python Voyage AI calls with Voyage AI REST API via fetch (or npm package)
-5. Replace IMAP polling with an email forwarding rule → webhook (e.g., Zapier/Make/Cloudflare Email Workers → POST /api/intelligence/analyze)
-6. Move SSRF protection (`url_safety.py`) to TypeScript
-7. Remove the local FastAPI service entirely
-
-**Estimated effort:** 1-2 sessions. Most logic is straightforward to port.
-The hardest part is replacing IMAP polling with a push-based email webhook.
-
-**Trigger to migrate:** When the first real creator signs up and starts publishing,
-or when Joaquim travels and the laptop is offline.
+**Remaining:** Newsletter content ingestion needs a push-based trigger (email forwarding → webhook) instead of the old IMAP polling. Low priority until creators start publishing.
 
 ### Priority E: Matching Refinement
 
@@ -221,9 +209,14 @@ or when Joaquim travels and the laptop is offline.
 - [ ] Use concerns data to refine niche affinity map (find false positives)
 - [ ] Track time-to-accept as a quality signal
 
-**Level 3 (Deeper)**
+**Level 3 (Done — 2026-04-15)**
+- [x] Semantic embeddings via Voyage AI (audience/need-based, NOT keyword matching)
+- [x] Industry-aware value-per-subscriber model (4 tiers: ultra_high_ticket → volume_play)
+- [x] Brand Intelligence: website scraping + Haiku extraction + competitive intel
+- [x] Content Intelligence: newsletter issue analysis + audience profiling
+- [x] Cosine similarity + 5 adjustment factors (audience size, ad-friendliness, consistency, income, competitors)
+- [x] Match explanations with human-readable reasoning
 - [ ] Audience geography overlap — collect region data, match by location
-- [ ] Semantic embeddings for true audience similarity (beyond niche labels)
 - [ ] A/B test different scoring prompts to optimize acceptance rates
 - [ ] Collaborative filtering — "businesses like yours accepted these"
 - [ ] Time-of-day / day-of-week optimization for match sending
@@ -247,13 +240,22 @@ or when Joaquim travels and the laptop is offline.
 - [ ] Case study auto-generator after successful deals
 
 ### Priority G: Enterprise Roadmap
-- [x] Meta webhook signature verification (HMAC-SHA256, fail-closed)
+- [x] Meta webhook signature verification (HMAC-SHA256, fail-closed, constant-time comparison)
 - [x] Batch scoring, engagement pre-ranking, cross-niche matching
 - [x] Proactive engagement drips (day 1/3/7)
 - [x] Rate limiting (30 msg/phone/hour)
 - [x] Admin panel with conversations, analytics, manual matching
+- [x] Admin growth dashboard (`/admin/growth`) — weekly signup charts, DAU, stickiness tracking
+- [x] `/api/health` endpoint — Supabase connectivity check + response time
+- [x] DB performance indexes — phone columns on all profile tables, agent_messages compound indexes
+- [x] Parallelized admin stats queries (~400ms latency reduction)
+- [x] Security hardening (2026-04-15): SSRF protection, constant-time auth, phone validation, LINK_ACCOUNT ownership verification, PROFILE_UPDATE type validation, field length caps, webhook sig fail-closed in prod
+- [x] Intelligence API auth (Bearer token, crypto.timingSafeEqual)
+- [x] Brand onboarding enhanced: website_url, buyer_description, past_newsletter_sponsors collected
+- [x] "Preferred email in case WhatsApp disconnects" framing on both sides
 - [ ] Referral system with unique codes and priority matching
 - [ ] Monitoring & alerting (Sentry, uptime checks, token expiry alerts)
+- [ ] Redis-backed rate limiting (current in-memory limiter doesn't persist across serverless instances)
 - [ ] Vercel Pro + separate cron jobs
 - [ ] Database hardening (real RLS policies, row-level encryption, soft deletes)
 - [ ] WhatsApp template optimization (track last message time)
