@@ -772,10 +772,29 @@ export default function OnboardingChat() {
           </div>
         );
 
-      case "multi-checkbox":
+      case "multi-checkbox": {
+        const allOpts = (step.options || []) as readonly string[];
+        const allSelected = allOpts.length > 0 && allOpts.every((o) => checkedValues.includes(o));
         return (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (allSelected) {
+                    setCheckedValues([]);
+                  } else {
+                    setCheckedValues([...allOpts]);
+                  }
+                }}
+                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  allSelected
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                }`}
+              >
+                All
+              </button>
               {step.options?.map((opt) => {
                 const isChecked = checkedValues.includes(opt);
                 return (
@@ -800,6 +819,7 @@ export default function OnboardingChat() {
             </Button>
           </div>
         );
+      }
 
       case "consent":
         return (

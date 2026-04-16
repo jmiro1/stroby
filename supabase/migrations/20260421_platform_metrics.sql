@@ -38,7 +38,7 @@ ALTER TABLE newsletter_profiles_all
 ALTER TABLE newsletter_profiles_all
   ADD CONSTRAINT newsletter_profiles_platform_check
   CHECK (platform IS NULL OR platform IN (
-    'beehiiv', 'substack', 'convertkit', 'mailchimp',
+    'newsletter', 'beehiiv', 'substack', 'convertkit', 'mailchimp',
     'youtube', 'instagram', 'tiktok', 'podcast',
     'linkedin', 'twitter', 'blog', 'other'
   ));
