@@ -615,7 +615,7 @@ async function handleNewUser(
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
 
         if (nlProfile?.slug) {
-          const profileMsg = `Your public profile is live at ${appUrl}/creator/${nlProfile.slug} — feel free to share it in your bio!`;
+          const profileMsg = `Your public profile is live at ${appUrl}/creator/${nlProfile.slug} — feel free to share it in your bio! And if you ever want to update anything on your profile, just tell me right here in this chat.`;
           await sendWhatsAppMessage(phoneWithPlus, profileMsg);
           await insertMessage({
             direction: "outbound", user_type: "newsletter", user_id: profile.id,
