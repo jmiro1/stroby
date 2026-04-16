@@ -145,7 +145,7 @@ export default function HomePage() {
       {/* WhatsApp CTA */}
       <section className="border-t py-12">
         <div className="mx-auto flex max-w-md flex-col items-center gap-4 px-4 text-center">
-          <p className="text-lg font-semibold">Onboard on this page, or message Stroby directly on WhatsApp</p>
+          <p className="text-lg font-semibold">Onboard on this page, or message Stroby directly on WhatsApp to get started</p>
           <a
             href="https://wa.me/message/2QFL7QR7EBZTD1"
             target="_blank"
