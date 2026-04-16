@@ -91,6 +91,9 @@ export default function HomePage() {
             <span className="rounded-full bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform group-hover:scale-105">
               Message
             </span>
+            <span className="text-xs italic text-muted-foreground/60">
+              It&rsquo;s Free, and Double-Opt In Only
+            </span>
             {/* Animated arrow */}
             <svg
               viewBox="0 0 24 24"
