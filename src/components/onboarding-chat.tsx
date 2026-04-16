@@ -961,7 +961,7 @@ export default function OnboardingChat() {
                   onClick={resetToRoleSelect}
                   className="text-xs text-muted-foreground underline hover:text-foreground"
                 >
-                  Restart Onboarding
+                  Restart
                 </button>
               )}
             </div>
