@@ -31,6 +31,7 @@ export const BUDGET_RANGES = [
   "$1k-$2.5k",
   "$2.5k-$5k",
   "$5k+",
+  "Flexible / varies",
 ] as const;
 
 export const CAMPAIGN_GOALS = [
@@ -44,6 +45,7 @@ export const CAMPAIGN_OUTCOMES = [
   "Engagement — comments, shares, interaction",
   "Conversions — clicks, signups, sales",
   "Credibility — association with a trusted voice",
+  "All of the above",
 ] as const;
 
 export const CAMPAIGN_OUTCOME_MAP: Record<string, string> = {
@@ -51,6 +53,7 @@ export const CAMPAIGN_OUTCOME_MAP: Record<string, string> = {
   "Engagement — comments, shares, interaction": "engagement",
   "Conversions — clicks, signups, sales": "conversions",
   "Credibility — association with a trusted voice": "credibility",
+  "All of the above": "all",
 };
 
 export const CREATOR_SIZES = [

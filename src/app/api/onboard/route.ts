@@ -46,6 +46,7 @@ const BUDGET_MAP: Record<string, string> = {
   "$1k-$2.5k": "1000-2500",
   "$2.5k-$5k": "2500-5000",
   "$5k+": "5000+",
+  "Flexible / varies": "flexible",
 };
 
 const PARTNER_PREF_MAP: Record<string, string> = {
@@ -176,7 +177,20 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) {
-        console.error("Supabase insert error (influencer):", error);
+        console.error("Supabase insert error (influencer):", JSON.stringify({
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          data_sent: {
+            email: data.email,
+            phone: data.phone,
+            platform: platformValue,
+            audience_reach: audienceNum,
+            engagement_rate: engRateDecimal,
+            primary_niche: niche,
+          },
+        }));
         return Response.json(
           { error: "Failed to create profile" },
           { status: 500 }
@@ -225,7 +239,22 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (error) {
-        console.error("Supabase insert error (business):", error);
+        console.error("Supabase insert error (business):", JSON.stringify({
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          data_sent: {
+            company_name: data.company_name,
+            email: data.email,
+            phone: data.phone,
+            budget_range: BUDGET_MAP[data.budget_range] ?? data.budget_range,
+            campaign_outcome: OUTCOME_MAP[data.campaign_outcome] ?? data.campaign_outcome,
+            preferred_creator_size: SIZE_MAP[data.preferred_creator_size] ?? data.preferred_creator_size,
+            partner_preference: PARTNER_PREF_MAP[data.partner_preference] ?? data.partner_preference,
+            primary_niche: niche,
+          },
+        }));
         return Response.json(
           { error: "Failed to create business profile" },
           { status: 500 }

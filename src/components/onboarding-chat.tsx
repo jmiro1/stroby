@@ -279,6 +279,22 @@ export default function OnboardingChat() {
     }
   }, [isTyping, currentStep, isComplete, isSubmitting, steps, userType, isFreeChat]);
 
+  // Track drop-off when user leaves mid-survey
+  useEffect(() => {
+    const handleUnload = () => {
+      if (userType && !isComplete && currentStep > 0) {
+        const lastField = steps[currentStep - 1]?.field || "unknown";
+        navigator.sendBeacon("/api/analytics/onboarding", JSON.stringify({
+          sessionId: getSessionId(), event: "drop_off", source: "website",
+          userType, stepNumber: currentStep, stepField: lastField,
+          totalSteps: steps.length, percentComplete: Math.round((currentStep / steps.length) * 100),
+        }));
+      }
+    };
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, [userType, isComplete, currentStep, steps]);
+
   // Initialize with greeting
   const hasInitialized = useRef(false);
   useEffect(() => {
@@ -519,7 +535,8 @@ export default function OnboardingChat() {
               content: "You're all set! We'll send your matches and updates via WhatsApp. Tap below to say hi and get started.",
             },
           ]);
-        } catch {
+        } catch (err) {
+          trackEvent("save_failed", { userType, error: String(err) });
           setMessages((prev) => [
             ...prev,
             { role: "bot", content: "Something went wrong saving your info. Please try again." },
