@@ -1,4 +1,4 @@
-# Stroby.ai — MVP TODO List
+# Stroby.ai — V2 TODO List (Live)
 
 > **SCOPE — READ FIRST (for Claude / future me)**
 >
@@ -222,11 +222,68 @@ No more local Mac dependency — everything runs on Vercel.
 - [ ] Time-of-day / day-of-week optimization for match sending
 - [ ] Match explainability page — click a link in the match message to see scoring breakdown
 
-### Priority E2: Application & Scalability Level-Ups
+### ~~Priority E2: Shadow Profiles Architecture~~ DONE (2026-04-15)
 
-Infrastructure changes that unlock the next order of magnitude for creator/brand density and matching quality. Pick these up before any more feature work once the DM/Echo pacing is proven.
+Shipped in a single session. Full plan: [SHADOW_PROFILES_PLAN.md](./SHADOW_PROFILES_PLAN.md).
 
-- [ ] **Shadow profiles architecture** — let scraped creator/brand rows live in the product DB as shadows, invisible to the app but visible to the matching engine, with a claim flow that promotes them when they sign up. Solves the "no matches yet" cold-start problem by making matching work against 3-8k profiles from day 1 instead of ~10. Full plan: [SHADOW_PROFILES_PLAN.md](./SHADOW_PROFILES_PLAN.md). Pairs with the OpenClaw browser-automation scrapers in `leadgen/openclaw-todo.md` — scrapers produce shadow rows, this plan is how the app receives them safely.
+**What was built:**
+- Schema migration: `business_profiles` + `newsletter_profiles` renamed to `*_all` base tables; `*_profiles` views (real only, WITH CHECK OPTION); `*_directory` views (real + shadow, for matching); RLS + 6 policies; `shadow_source` + `claimed_at` columns; partial indexes
+- Ingestion endpoint: `POST /api/shadow/ingest` with `INGEST_SECRET` Bearer auth (constant-time compare), body cap, strict input validation
+- Claim flow: HMAC-SHA256 signed tokens, `/claim/[token]` page with abbreviated onboarding form, atomic `UPDATE ... WHERE onboarding_status='shadow'` promotion
+- Matching engine: queries `business_directory` + `newsletter_directory` (sees shadows), emits `counterparty_status` per match
+- Onboarding collision check: if a new user's website matches a shadow row, promotes it instead of creating a duplicate
+- Outreach stub: `fireShadowClaimOutreach()` signs a claim URL and logs; real cold-email (Smartlead) integration comes next
+- Privacy policy: Section 13 added for pre-launch directory + opt-out path (`privacy@stroby.ai`, 72hr removal)
+- Env vars: `INGEST_SECRET` + `CLAIM_TOKEN_SECRET` on Vercel (production + preview + development)
+- Backup: in-DB snapshot tables + local pg_dump at `~/.stroby_backups/`
+- Down-migration: `supabase/migrations_down/20260415_shadow_profiles_down.sql`
+- V1 fallback: frozen at `jmiro1/stroby-v1` tag `v1.0.0-pre-shadow`. Revert runbook: [REVERT.md](./REVERT.md)
+
+### Priority E3: Scale to 500 Creators + 500 Brands (Next — starts 2026-04-16)
+
+The shadow profiles infrastructure is live. Now fill it. The OpenClaw browser-automation scrapers produce shadow rows; the `/api/shadow/ingest` endpoint receives them.
+
+**Browser automation scrapers to build (see `leadgen/openclaw-todo.md`):**
+- [ ] **beehiiv Discover scraper** — 5,000 creator leads in one run, zero login required
+- [ ] **Meta Ad Library scraper** — 1,000+ brand leads/day, free public data
+- [ ] **YC Combinator directory** — 2,000 brand leads (4 recent batches), all public
+- [ ] **Paved marketplace scraper** — ~500 warm brand leads, one-time
+- [ ] **Substack BFS depth-3** — 10x current lead pool (was depth-2)
+
+**Account fleet for Substack DMs (bypass single-account rate limit):**
+- [ ] Create 2-3 additional Substack personas for parallel DM sending
+- [ ] Residential proxy rotation per account (Smartproxy or IPRoyal)
+- [ ] Warmup curve per account (reuse `dm.py` pattern)
+
+**Cross-channel outreach:**
+- [ ] Twitter/X DM agent via OpenClaw (different rate-limit profile than Substack)
+- [ ] LinkedIn connection requests with intro note (15-20/day/account)
+- [ ] Reddit presence in r/newsletters, r/Substack, r/marketing (5-10/day)
+
+**Claim-flow cold email integration:**
+- [ ] Smartlead setup for brand claim emails (cold-email warmup infra)
+- [ ] Hyper-personalized email per brand — uses Brand Intelligence to reference their product + show 3 pre-matched creators
+- [ ] Competitor sponsor-poaching angle — "Your competitor sponsors newsletter X; here are 5 untapped creators"
+
+**Viral loops from existing users:**
+- [ ] Ambassador code via WhatsApp — auto-send wa.me invite link to every signed-up creator
+- [ ] "Matchmaker Thursday" weekly WhatsApp blast — "3 new brands joined in your niche"
+- [ ] Post-match shareable card for social proof
+
+**Monitoring + quality:**
+- [ ] Daily ban-detection scan (OpenClaw checks if accounts can still log in)
+- [ ] Reply-rate attribution (match inbound replies to lead_id, auto-tune niche priority)
+- [ ] Sent-message auditing (re-verify DMs actually landed in Substack sent folder)
+
+### Priority E4: Matching & Growth Refinements
+
+- [ ] Admin dashboard toggle: `?include_shadows=1` to see shadow counts alongside real
+- [ ] Shadow-profile expiry job: purge shadows older than 180 days with no introductions (cron)
+- [ ] `awaiting_claim` introduction status — park matches with shadow counterparty until claimed or 7-day expiry
+- [ ] Accept decline tracking against shadow-originated matches — tune scoring separately
+- [ ] Audience geography overlap — collect region data for more precise matching
+- [ ] A/B test different claim-email subject lines to optimize claim rate
+- [ ] Collaborative filtering — "businesses like yours matched with these creators"
 
 ### Priority F: Highest Priority (Next Up)
 - [ ] #5 AI voice calls integration (Vapi/Bland.ai) — `call_permission_1` template ready

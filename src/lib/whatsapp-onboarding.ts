@@ -241,7 +241,7 @@ export async function createProfileFromOnboarding(
         .from("business_directory")
         .select("id, onboarding_status")
         .eq("onboarding_status", "shadow")
-        .ilike("description", `%${websiteUrl}%`)
+        .ilike("description", `%${websiteUrl.replace(/%/g, "\\%").replace(/_/g, "\\_")}%`)
         .limit(1)
         .maybeSingle();
       if (shadow?.id) {

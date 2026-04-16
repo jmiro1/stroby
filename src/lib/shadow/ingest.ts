@@ -21,6 +21,10 @@ import { createServiceClient } from "@/lib/supabase";
 import { analyzeBrandWebsite } from "@/lib/intelligence/brand";
 import { brandFingerprint, creatorFingerprint } from "@/lib/intelligence/embeddings";
 
+function escapeLike(s: string): string {
+  return s.replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 const PGVECTOR_DIM = 1536;
 const VOYAGE_MODEL = "voyage-3-lite";
 
@@ -85,7 +89,7 @@ export async function upsertShadowBrand(input: ShadowBrandInput): Promise<Shadow
     const { data: existing } = await supabase
       .from("business_directory")
       .select("id, onboarding_status")
-      .ilike("description", `%${website}%`) // description holds website today
+      .ilike("description", `%${escapeLike(website)}%`)
       .limit(1)
       .maybeSingle();
 
