@@ -143,7 +143,7 @@ function trackEvent(event: string, data?: Record<string, unknown>) {
 // LocalStorage helpers
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "stroby_onboarding";
+const STORAGE_KEY = "stroby_onboarding_v2";
 
 interface SavedDraft {
   userType: "business" | "influencer";
