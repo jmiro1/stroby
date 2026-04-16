@@ -967,6 +967,23 @@ export default function OnboardingChat() {
           {renderInput()}
           {!isFreeChat && !isTyping && !isSubmitting && userType && currentStep < steps.length && (
             <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (currentStep > 0) {
+                    setCurrentStep(currentStep - 1);
+                    setInputValue("");
+                    setSelectValue("");
+                    setCheckedValues([]);
+                  }
+                }}
+                disabled={currentStep === 0}
+                className="text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
+                title="Go back"
+              >
+                <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
               <div className="h-1 flex-1 rounded-full bg-muted">
                 <div
                   className="h-1 rounded-full bg-primary transition-all duration-300"
@@ -976,14 +993,12 @@ export default function OnboardingChat() {
               <span className="text-xs tabular-nums text-muted-foreground">
                 {Math.round(((currentStep + 1) / steps.length) * 100)}%
               </span>
-              {currentStep <= 2 && (
-                <button
-                  onClick={resetToRoleSelect}
-                  className="text-xs text-muted-foreground underline hover:text-foreground"
-                >
-                  Restart
-                </button>
-              )}
+              <button
+                onClick={resetToRoleSelect}
+                className="text-xs text-muted-foreground underline hover:text-foreground"
+              >
+                Restart
+              </button>
             </div>
           )}
         </div>
