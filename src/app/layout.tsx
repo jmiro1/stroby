@@ -20,7 +20,7 @@ const seoDescription =
 export const metadata: Metadata = {
   metadataBase: new URL("https://stroby.ai"),
   title: {
-    default: "Stroby - AI Superconnector for Brand Distribution",
+    default: "Stroby — AI Superconnector that Connects Brands with Newsletter Creators & Influencers through Free WhatsApp Chat",
     template: "%s | Stroby",
   },
   description: seoDescription,
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     canonical: "https://stroby.ai",
   },
   openGraph: {
-    title: "Stroby - AI Superconnector for Brand Distribution",
+    title: "Stroby — AI Superconnector that Connects Brands with Newsletter Creators & Influencers through Free WhatsApp Chat",
     description: seoDescription,
     url: "https://stroby.ai",
     siteName: "Stroby",
@@ -74,13 +74,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Stroby - AI Superconnector for Brand Distribution",
+        alt: "Stroby — AI Superconnector that Connects Brands with Newsletter Creators & Influencers through Free WhatsApp Chat",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Stroby - AI Superconnector for Brand Distribution",
+    title: "Stroby — AI Superconnector that Connects Brands with Newsletter Creators & Influencers through Free WhatsApp Chat",
     description: seoDescription,
     images: ["/og-image.png"],
   },
@@ -127,7 +127,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 url: "https://stroby.ai",
                 logo: "https://stroby.ai/logo-emoji.png",
                 description:
-                  "AI Superconnector for brand distribution. Connecting businesses, influencers and creators through real conversations and warm introductions on WhatsApp.",
+                  "AI Superconnector that connects brands with newsletter creators and influencers through free WhatsApp chat. Double opt-in matching, semantic intelligence, free for creators.",
                 sameAs: [
                   "https://www.linkedin.com/company/stroby",
                   "https://x.com/strobyai",
@@ -140,6 +140,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
                 url: "https://stroby.ai",
                 description:
                   "AI Superconnector connecting businesses, influencers and other curious humans through real conversations and warm introductions on WhatsApp. Get the right brand placements for your business, and the right products to represent for your audience.",
+              },
+              {
+                "@context": "https://schema.org",
+                "@type": "SoftwareApplication",
+                name: "Stroby",
+                url: "https://stroby.ai",
+                applicationCategory: "BusinessApplication",
+                operatingSystem: "Web, WhatsApp",
+                offers: {
+                  "@type": "Offer",
+                  price: "0",
+                  priceCurrency: "USD",
+                  description: "Free for creators and influencers. Commission-based for businesses on successful deals only.",
+                },
+                description: "AI Superconnector that matches brands with newsletter creators and influencers for sponsorship partnerships via WhatsApp.",
               },
               {
                 "@context": "https://schema.org",
