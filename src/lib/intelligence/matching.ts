@@ -170,6 +170,22 @@ function applySizePreference(
   }
 }
 
+function platformPreferencePenalty(
+  creatorPlatform: string | null,
+  brandPreference: string | null
+): number {
+  // No preference or "any" → no penalty
+  if (!brandPreference || brandPreference === "any") return 1.0;
+  if (!creatorPlatform) return 0.9; // unknown platform gets mild penalty
+  // Exact match → no penalty
+  if (creatorPlatform === brandPreference) return 1.0;
+  // Newsletter platforms are interchangeable
+  const newsletterPlatforms = new Set(["beehiiv", "substack", "convertkit", "mailchimp", "newsletter"]);
+  if (brandPreference === "newsletter" && newsletterPlatforms.has(creatorPlatform)) return 1.0;
+  // Cross-platform: mild penalty (0.85) — still shows up if audience fit is strong
+  return 0.85;
+}
+
 export interface MatchResult {
   score: number;
   value_tier: string;
@@ -216,8 +232,15 @@ export function scoreMatch(
 
   const outcome = outcomeFit(creatorSynth, creator, (brand.campaign_outcome as string) || null);
 
-  // Updated formula: outcome_fit gets 0.10 weight (taken from cosine, sizeFit, consistency)
-  const total = 0.45 * cosSim + 0.12 * sizeFit + 0.10 * afScore + 0.08 * consistency + 0.10 * income + 0.10 * outcome + 0.05 * 0;
+  // Platform preference: soft multiplier on final score (0.85x for cross-platform)
+  const platformMult = platformPreferencePenalty(
+    (creator.platform as string) || null,
+    (brand.preferred_creator_type as string) || null
+  );
+
+  // Updated formula: outcome_fit gets 0.10 weight, platform is a multiplier not a weight
+  const rawTotal = 0.45 * cosSim + 0.12 * sizeFit + 0.10 * afScore + 0.08 * consistency + 0.10 * income + 0.10 * outcome + 0.05 * 0;
+  const total = rawTotal * platformMult;
 
   const components = {
     cosine_similarity: Math.round(cosSim * 1000) / 1000,
@@ -239,6 +262,11 @@ export function scoreMatch(
   if (afScore >= 0.8) parts.push("Brand-safe content");
   if (income >= 0.8) parts.push("Audience income matches target");
   if (outcome >= 0.8 && brand.campaign_outcome) parts.push(`Strong ${brand.campaign_outcome} potential`);
+  if (platformMult < 1.0) {
+    const creatorPlat = (creator.platform as string) || "other";
+    const brandPref = (brand.preferred_creator_type as string) || "any";
+    parts.push(`Cross-platform match (you lean ${brandPref}, this creator is ${creatorPlat} — but the audience fit is strong)`);
+  }
 
   const cTopics = new Set(creatorSynth.top_topics as string[] || []);
   const bThemes = new Set(brandSynth.content_affinity as string[] || []);
@@ -268,19 +296,13 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
   if (!brand) return [];
 
   // Counterparty lookup hits the directory view — sees real + shadow creators.
-  let creatorsQuery = supabase
+  // No hard filter on platform — cross-platform matches are allowed when
+  // audience fit is strong. Platform preference is a soft scoring signal.
+  const { data: creators } = await supabase
     .from("newsletter_directory")
     .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status")
     .eq("is_active", true)
     .not("profile_embedding", "is", null);
-
-  // Hard filter: if brand prefers a specific creator type, only show that platform
-  const prefType = (brand.preferred_creator_type as string) || "any";
-  if (prefType !== "any") {
-    creatorsQuery = creatorsQuery.eq("platform", prefType);
-  }
-
-  const { data: creators } = await creatorsQuery;
 
   if (!creators?.length) return [];
 
@@ -295,6 +317,7 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
       engagement_rate: creator.engagement_rate || null,
       primary_niche: creator.primary_niche,
       counterparty_status: creator.onboarding_status as string,
+      cross_platform: platformPreferencePenalty((creator.platform as string) || null, (brand.preferred_creator_type as string) || null) < 1.0,
       ...result,
     };
   });
