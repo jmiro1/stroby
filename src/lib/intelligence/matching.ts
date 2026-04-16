@@ -121,6 +121,55 @@ function incomeMatch(creatorIncome: string, brandIncome: string): number {
   return 0.2;
 }
 
+function outcomeFit(
+  creatorSynth: Record<string, unknown>,
+  creator: Record<string, unknown>,
+  brandOutcome: string | null
+): number {
+  if (!brandOutcome) return 0.5; // neutral for brands that haven't stated a preference
+
+  const reach = (creator.audience_reach as number) || (creator.subscriber_count as number) || 0;
+  const engRate = (creator.engagement_rate as number) || 0;
+  const af = (creatorSynth.advertiser_friendliness as number) ?? 5;
+  const consistency = (creatorSynth.content_consistency as number) ?? 0.5;
+
+  switch (brandOutcome) {
+    case "reach":
+      // Bigger audience = better for reach goals
+      return Math.min(reach / 100_000, 1.0);
+    case "engagement":
+      // High engagement rate = better for engagement goals
+      if (engRate >= 0.05) return 1.0;
+      if (engRate >= 0.03) return 0.8;
+      if (engRate >= 0.01) return 0.5;
+      return 0.3;
+    case "conversions":
+      // Proxy: engagement rate (click behavior) + advertiser-friendliness (commercial content)
+      const engScore = engRate >= 0.05 ? 1.0 : engRate >= 0.03 ? 0.8 : engRate >= 0.01 ? 0.5 : 0.3;
+      return (engScore + Math.min(af / 10, 1.0)) / 2;
+    case "credibility":
+      // Trusted voice: high advertiser-friendliness + consistent content
+      return (Math.min(af / 10, 1.0) + consistency) / 2;
+    default:
+      return 0.5;
+  }
+}
+
+function applySizePreference(
+  sizeFit: number,
+  reach: number,
+  sizePreference: string | null
+): number {
+  if (!sizePreference || sizePreference === "any") return sizeFit;
+  const penalty = 0.7;
+  switch (sizePreference) {
+    case "micro": return reach > 15_000 ? sizeFit * penalty : sizeFit;
+    case "mid": return (reach < 8_000 || reach > 120_000) ? sizeFit * penalty : sizeFit;
+    case "macro": return reach < 80_000 ? sizeFit * penalty : sizeFit;
+    default: return sizeFit;
+  }
+}
+
 export interface MatchResult {
   score: number;
   value_tier: string;
@@ -153,7 +202,8 @@ export function scoreMatch(
   // audience_reach is the universal headline number (subscribers/followers/downloads).
   // Falls back to subscriber_count for rows that predate the migration.
   const reach = (creator.audience_reach as number) || (creator.subscriber_count as number) || 0;
-  const sizeFit = audienceSizeFit(reach, (brand.budget_range as string) || "", brandIntel);
+  let sizeFit = audienceSizeFit(reach, (brand.budget_range as string) || "", brandIntel);
+  sizeFit = applySizePreference(sizeFit, reach, (brand.preferred_creator_size as string) || null);
 
   const af = (creatorSynth.advertiser_friendliness as number) ?? 5;
   const afScore = Math.min(af / 10, 1.0);
@@ -164,7 +214,10 @@ export function scoreMatch(
   const bIncome = ((brandSynth.target_profile as Record<string, unknown>)?.income_bracket as string) || "unknown";
   const income = incomeMatch(cIncome, bIncome);
 
-  const total = 0.50 * cosSim + 0.15 * sizeFit + 0.10 * afScore + 0.10 * consistency + 0.10 * income + 0.05 * 0; // competitor signal omitted for perf
+  const outcome = outcomeFit(creatorSynth, creator, (brand.campaign_outcome as string) || null);
+
+  // Updated formula: outcome_fit gets 0.10 weight (taken from cosine, sizeFit, consistency)
+  const total = 0.45 * cosSim + 0.12 * sizeFit + 0.10 * afScore + 0.08 * consistency + 0.10 * income + 0.10 * outcome + 0.05 * 0;
 
   const components = {
     cosine_similarity: Math.round(cosSim * 1000) / 1000,
@@ -172,6 +225,7 @@ export function scoreMatch(
     advertiser_friendliness: Math.round(afScore * 1000) / 1000,
     content_consistency: Math.round(consistency * 1000) / 1000,
     income_match: Math.round(income * 1000) / 1000,
+    outcome_fit: Math.round(outcome * 1000) / 1000,
   };
 
   // Explanation
@@ -184,6 +238,7 @@ export function scoreMatch(
   if (sizeFit >= 0.8) parts.push("Audience size matches budget well");
   if (afScore >= 0.8) parts.push("Brand-safe content");
   if (income >= 0.8) parts.push("Audience income matches target");
+  if (outcome >= 0.8 && brand.campaign_outcome) parts.push(`Strong ${brand.campaign_outcome} potential`);
 
   const cTopics = new Set(creatorSynth.top_topics as string[] || []);
   const bThemes = new Set(brandSynth.content_affinity as string[] || []);
@@ -205,7 +260,7 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
   // Only real users ever ask for matches.
   const { data: brand } = await supabase
     .from("business_profiles")
-    .select("id, company_name, product_description, target_customer, primary_niche, budget_range, brand_intelligence, profile_embedding")
+    .select("id, company_name, product_description, target_customer, primary_niche, budget_range, campaign_outcome, preferred_creator_type, preferred_creator_size, brand_intelligence, profile_embedding")
     .eq("id", brandId)
     .eq("is_active", true)
     .single();
@@ -213,14 +268,19 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
   if (!brand) return [];
 
   // Counterparty lookup hits the directory view — sees real + shadow creators.
-  // Each returned match carries counterparty_status so the introduction-proposal
-  // code can branch: whatsapp_active → normal double-opt-in, shadow → fire
-  // claim-flow outreach and park the intro as 'awaiting_claim'.
-  const { data: creators } = await supabase
+  let creatorsQuery = supabase
     .from("newsletter_directory")
     .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status")
     .eq("is_active", true)
     .not("profile_embedding", "is", null);
+
+  // Hard filter: if brand prefers a specific creator type, only show that platform
+  const prefType = (brand.preferred_creator_type as string) || "any";
+  if (prefType !== "any") {
+    creatorsQuery = creatorsQuery.eq("platform", prefType);
+  }
+
+  const { data: creators } = await creatorsQuery;
 
   if (!creators?.length) return [];
 
@@ -256,7 +316,7 @@ export async function getMatchesForCreator(creatorId: string, limit = 20) {
 
   const { data: brands } = await supabase
     .from("business_directory")
-    .select("id, company_name, primary_niche, budget_range, brand_intelligence, profile_embedding, onboarding_status")
+    .select("id, company_name, primary_niche, budget_range, campaign_outcome, preferred_creator_type, preferred_creator_size, brand_intelligence, profile_embedding, onboarding_status")
     .eq("is_active", true)
     .not("profile_embedding", "is", null);
 

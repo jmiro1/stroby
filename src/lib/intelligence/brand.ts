@@ -215,6 +215,10 @@ function synthesizeBrandProfile(
     competitors: [...new Set(competitors)].slice(0, 10),
     newsletter_fit: newsletterFits[0] || null,
     one_line_need: oneLine,
+    // Brand preferences from onboarding (passed through for embeddings + matching)
+    campaign_outcome: onboarding.campaign_outcome || null,
+    preferred_creator_type: onboarding.preferred_creator_type || "any",
+    preferred_creator_size: onboarding.preferred_creator_size || "any",
   };
 }
 

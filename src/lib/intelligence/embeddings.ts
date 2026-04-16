@@ -53,6 +53,10 @@ export function brandFingerprint(intelligence: Record<string, unknown>): string 
   if (synth.brand_voice) parts.push(`Voice: ${synth.brand_voice}`);
   if (synth.one_line_need) parts.push(synth.one_line_need as string);
   if (synth.newsletter_fit) parts.push(`Fit: ${synth.newsletter_fit}`);
+  if (synth.campaign_outcome) parts.push(`Primary goal: ${synth.campaign_outcome}`);
+  if (synth.preferred_creator_type && synth.preferred_creator_type !== "any") {
+    parts.push(`Prefers ${synth.preferred_creator_type} creators`);
+  }
 
   return parts.join(". ");
 }

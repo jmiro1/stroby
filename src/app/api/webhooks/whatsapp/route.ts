@@ -411,7 +411,7 @@ async function handleKnownUser(
   if (shouldUpdateProfile) {
     const ALLOWED_FIELDS: Record<string, string[]> = {
       newsletter: ["subscriber_count", "audience_reach", "avg_open_rate", "avg_ctr", "engagement_rate", "price_per_placement", "primary_niche", "description", "platform"],
-      business: ["target_customer", "budget_range", "primary_niche", "campaign_goal", "description", "product_description"],
+      business: ["target_customer", "budget_range", "primary_niche", "campaign_goal", "campaign_outcome", "preferred_creator_type", "preferred_creator_size", "description", "product_description"],
       other: ["description", "niche", "objectives", "looking_for", "can_offer"],
     };
     const updateMatch = responseText.match(/\[PROFILE_UPDATE\]\s*(\{[\s\S]*?\})/);
@@ -608,11 +608,13 @@ async function handleNewUser(
         });
       }
 
-      // Send public profile link + verification link to creators
+      // Send public profile link + verification link + intelligence notice to creators
       if (profile.userType === "newsletter") {
         const { data: nlProfile } = await supabase
-          .from("newsletter_profiles").select("slug").eq("id", profile.id).single();
+          .from("newsletter_profiles").select("slug, platform").eq("id", profile.id).single();
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+        const creatorPlatform = (nlProfile?.platform as string) || "newsletter";
+        const isNewsletter = ["beehiiv", "substack", "convertkit", "mailchimp"].includes(creatorPlatform) || creatorPlatform === "newsletter";
 
         if (nlProfile?.slug) {
           const profileMsg = `Your public profile is live at ${appUrl}/creator/${nlProfile.slug} — feel free to share it in your bio! And if you ever want to update anything on your profile, just tell me right here in this chat.`;
@@ -623,21 +625,25 @@ async function handleNewUser(
           });
         }
 
-        // Verification link — gets the creator prioritized in matching.
-        const verifyMsg = `One thing that'll seriously help — verify your audience metrics here:\n\n${appUrl}/verify/${profile.id}\n\nConnect Beehiiv/ConvertKit (instant) or upload a screenshot. Verified creators get prioritized when I'm matching.`;
+        // Verification link — platform-appropriate messaging
+        const verifyMsg = isNewsletter
+          ? `One thing that'll seriously help — verify your audience metrics here:\n\n${appUrl}/verify/${profile.id}\n\nConnect Beehiiv/ConvertKit (instant) or upload a screenshot. Verified creators get prioritized when I'm matching.`
+          : `One thing that'll seriously help — verify your audience metrics here:\n\n${appUrl}/verify/${profile.id}\n\nUpload a screenshot of your analytics dashboard. Verified creators get prioritized when I'm matching.`;
         await sendWhatsAppMessage(phoneWithPlus, verifyMsg);
         await insertMessage({
           direction: "outbound", user_type: "newsletter", user_id: profile.id,
           phone: phoneWithPlus, content: verifyMsg, message_type: "verification",
         });
 
-        // Content Intelligence: the creator's newsletter content will be analyzed
-        // when issues arrive. The subscribe step is handled by the leadgen Echo
-        // pipeline (separate from this app). The intelligence analysis happens
-        // when newsletter issues are forwarded to the /api/intelligence/analyze endpoint.
-
-        // Tell the creator we'll be reading their newsletters
-        const intelligenceMsg = `I've also subscribed to your newsletter — I'll start reading your issues to deeply understand your audience. The longer you're on Stroby, the better your sponsor matches get. 📈`;
+        // Content intelligence notice — adapted per platform
+        const intelligenceMessages: Record<string, string> = {
+          newsletter: "I've also subscribed to your newsletter — I'll start reading your issues to deeply understand your audience. The longer you're on Stroby, the better your sponsor matches get.",
+          youtube: "I'll be watching your recent videos to understand your audience and content style. The longer you're on Stroby, the better your sponsor matches get.",
+          instagram: "I'll be checking out your recent posts to understand your audience and content style. The longer you're on Stroby, the better your sponsor matches get.",
+          tiktok: "I'll be checking out your recent videos to understand your audience and content style. The longer you're on Stroby, the better your sponsor matches get.",
+          podcast: "I'll be listening to your recent episodes to understand your audience and style. The longer you're on Stroby, the better your sponsor matches get.",
+        };
+        const intelligenceMsg = intelligenceMessages[creatorPlatform] || "I'll be reviewing your recent content to understand your audience. The longer you're on Stroby, the better your sponsor matches get.";
         await sendWhatsAppMessage(phoneWithPlus, intelligenceMsg);
         await insertMessage({
           direction: "outbound", user_type: "newsletter", user_id: profile.id,

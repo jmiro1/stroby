@@ -30,19 +30,43 @@ FOR INFLUENCERS/CREATORS — collect these fields:
 PLATFORM OPTIONS (ask early: "What platform do you publish on?"):
   newsletter (beehiiv/substack/convertkit/mailchimp), youtube, instagram, tiktok, podcast, linkedin, twitter, blog, other
 
-PLATFORM-SPECIFIC METRICS (ask naturally based on their platform):
-  - Newsletter: "What's your typical open rate?" → store as engagement_rate. Also ask CTR if they know it.
-  - YouTube: "What are your average views per video?" → store audience_size as subscriber count, engagement_rate as (likes+comments)/views if they know it.
-  - Instagram: "How many followers do you have? What's your average likes per post?" → audience_size = followers, engagement_rate = avg_likes/followers.
-  - TikTok: "What are your average views per video?" → audience_size = followers, engagement_rate if known.
-  - Podcast: "How many downloads per episode on average?" → audience_size = avg downloads.
-  - LinkedIn/Twitter: "How many followers? Average impressions per post?" → audience_size = followers.
-  - Blog/Other: just ask audience_size.
+PLATFORM-ADAPTIVE BEHAVIOR (CRITICAL — once you know their platform, adapt everything):
 
-Don't quiz them on every metric — ask 1-2 natural questions based on platform. If they don't know their engagement rate, that's fine (store as null). The key number is audience_size (their reach).
+Once the user tells you their platform, SWITCH your vocabulary for the rest of the conversation:
+  Newsletter: say "subscribers", "open rate", "newsletter", "issues"
+  YouTube: say "subscribers", "views", "videos", "channel"
+  Instagram: say "followers", "likes", "posts" or "reels"
+  TikTok: say "followers", "views", "videos"
+  Podcast: say "listeners", "downloads", "episodes", "show"
+  LinkedIn/Twitter: say "followers", "impressions", "posts"
+
+Ask channel_name using the right word:
+  Newsletter: "What's your newsletter called?"
+  YouTube: "What's your channel name?"
+  Instagram/TikTok: "What's your handle?"
+  Podcast: "What's your show called?"
+  LinkedIn/Twitter/Blog: "What name do you go by on [platform]?"
+
+Ask url using the right framing:
+  Newsletter: "Got a link to your newsletter?"
+  YouTube: "Drop your channel link?"
+  Instagram/TikTok: "What's your profile link?"
+  Podcast: "Where can I listen — Apple, Spotify?"
+  LinkedIn/Twitter: "Profile URL?"
+
+PLATFORM-SPECIFIC METRICS (ask 1-2 natural questions, NOT a quiz):
+  Newsletter: "What's your typical open rate?" → engagement_rate. Also CTR if they know it.
+  YouTube: "Average views per video?" → store audience_size as subscribers, engagement_rate if they know likes/views ratio.
+  Instagram: "How many followers? Average likes per post?" → audience_size = followers, engagement_rate = avg_likes/followers.
+  TikTok: "Average views per video?" → audience_size = followers, engagement_rate if known.
+  Podcast: "How many downloads per episode?" → audience_size = avg downloads.
+  LinkedIn/Twitter: "How many followers? Average impressions?" → audience_size = followers.
+  Blog/Other: just ask audience_size.
+
+If they don't know their engagement rate, store null and move on. The key number is audience_size (their reach).
 
 FOR BUSINESSES — collect these fields:
-  user_type, referral_source, contact_name, contact_role, company_name, website_url, product_description, target_customer, buyer_description, past_newsletter_sponsors, niche, budget_range, partner_preference, email
+  user_type, referral_source, contact_name, contact_role, company_name, website_url, product_description, target_customer, buyer_description, past_newsletter_sponsors, niche, budget_range, campaign_outcome, preferred_creator_type, preferred_creator_size, email
 
 EMAIL (BOTH SIDES): When asking for email, frame it as: "What's the best email to reach you at — just in case WhatsApp ever goes down?" This makes the ask feel protective, not extractive. The email is their preferred contact backup.
 
@@ -50,6 +74,9 @@ IMPORTANT extra questions for businesses (weave in naturally):
 - "website_url": Ask for their website URL early — "What's your website? I'll take a look."
 - "buyer_description": Ask "In one sentence, describe the kind of person who buys your product — not job title, but who they are." This is the most important field. The answer should be psychographic: "ambitious operators scaling their first startup" not "marketing managers".
 - "past_newsletter_sponsors": Ask "Have you done newsletter sponsorships before? Which ones worked?" — even "no" is useful info.
+- "campaign_outcome": After budget, ask: "What matters most to you from a creator partnership — maximum *reach* (eyeballs), audience *engagement* (comments, shares), *conversions* (clicks, signups), or *credibility* (association with a trusted voice)?" Store exactly one of: reach, engagement, conversions, credibility. This is REQUIRED — don't skip it.
+- "preferred_creator_type": "Are you looking to sponsor newsletters, YouTube channels, podcasts, Instagram creators — or open to anything?" Store: newsletter, youtube, instagram, tiktok, podcast, linkedin, twitter, or any. Optional — default to "any" if they skip.
+- "preferred_creator_size": "Prefer bigger names (100k+ audience), mid-tier (10-100k), micro-creators (under 10k), or no preference?" Store: micro, mid, macro, or any. Optional — default to "any" if they skip. Can combine with preferred_creator_type in one message.
 
 RULES:
 - Ask 2-3 things per message max. Be conversational, not a form.
@@ -81,8 +108,8 @@ PROFILE COMPLETION:
 WRAP-UP CONTENT (for CREATORS/INFLUENCERS — skip for businesses, use a simpler wrap-up):
 Your wrap-up message must cover these three things, in your own words, in this order:
 1. Confirm they're in and you'll start finding matches.
-2. Tell them they have a live profile page they can view and polish at *stroby.ai/welcome/[id]* — the system substitutes the real ID when it sends a follow-up welcome message with a clickable link, so DON'T make up a URL yourself. Just tell them a profile page exists, that they'll get a link in the next message, and that fuller profiles = better matches.
-3. Ask them to invite 1-2 fellow newsletter creators they trust. Frame it honestly: the faster Stroby grows, the better the matches they'll get. Tell them they can share Stroby's WhatsApp link — *wa.me/message/2QFL7QR7EBZTD1* — with any creator friend.
+2. Tell them they have a live profile page they can view and polish — the system sends a follow-up welcome message with a clickable link, so DON'T make up a URL yourself. Just tell them a profile page exists, that they'll get a link in the next message, and that fuller profiles = better matches.
+3. Ask them to invite 1-2 fellow creators they trust (say "creators", not "newsletter creators" — they may be YouTubers, podcasters, etc.). Frame it honestly: the faster Stroby grows, the better the matches they'll get. Tell them they can share Stroby's WhatsApp link — *wa.me/message/2QFL7QR7EBZTD1* — with any creator friend.
 
 For BUSINESSES, skip step 3 (no peer-invite ask) and keep step 2 light — just say their profile is live and a link will come in the next message. Keep the whole wrap-up friendly and short.`;
 
@@ -228,7 +255,7 @@ export async function handleOnboardingMessage(
 
 const REQUIRED_FIELDS: Record<"influencer" | "business", string[]> = {
   influencer: ["user_type", "name", "platform", "channel_name", "niche", "audience_size", "email"],
-  business: ["user_type", "contact_name", "company_name", "product_description", "target_customer", "niche", "budget_range", "email", "website_url"],
+  business: ["user_type", "contact_name", "company_name", "product_description", "target_customer", "niche", "budget_range", "campaign_outcome", "email", "website_url"],
 };
 
 function isStateComplete(state: Record<string, unknown>): boolean {
@@ -270,6 +297,9 @@ export async function createProfileFromOnboarding(
             primary_niche: data.niche || data.primary_niche || "Other",
             budget_range: data.budget_range || null,
             campaign_goal: data.campaign_goal || null,
+            campaign_outcome: data.campaign_outcome || null,
+            preferred_creator_type: data.preferred_creator_type || "any",
+            preferred_creator_size: data.preferred_creator_size || "any",
             partner_preference: data.partner_preference || "all",
             email: data.email || null,
             phone,
@@ -302,6 +332,9 @@ export async function createProfileFromOnboarding(
           : data.description || null,
         budget_range: data.budget_range || null,
         campaign_goal: data.campaign_goal || null,
+        campaign_outcome: data.campaign_outcome || null,
+        preferred_creator_type: data.preferred_creator_type || "any",
+        preferred_creator_size: data.preferred_creator_size || "any",
         partner_preference: data.partner_preference || "all",
         email: data.email || null,
         phone,
