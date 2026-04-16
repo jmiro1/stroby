@@ -239,6 +239,17 @@ Shipped in a single session. Full plan: [SHADOW_PROFILES_PLAN.md](./SHADOW_PROFI
 - Down-migration: `supabase/migrations_down/20260415_shadow_profiles_down.sql`
 - V1 fallback: frozen at `jmiro1/stroby-v1` tag `v1.0.0-pre-shadow`. Revert runbook: [REVERT.md](./REVERT.md)
 
+### URGENT: Make GitHub Repo Private
+
+The `jmiro1/stroby` repo is currently **public** because Vercel Hobby plan's build runner fails on private repos after our repo-rename (2026-04-15). This exposes all source code including architecture docs.
+
+**No secrets are exposed** — all credentials are in Vercel env vars, not in code. But the full application logic, shadow profiles architecture, matching algorithm, and business strategy docs are visible.
+
+**Options (pick one):**
+- [ ] **Vercel Pro ($20/mo)** — proper private repo deploys + extra cron slot (currently limited to 1 daily). Recommended.
+- [ ] **Fresh Vercel project import** — create new Vercel project from the private repo, migrate env vars (26 vars) + domain (`stroby.ai`). More work but stays on Hobby.
+- [ ] **Vercel CLI deploy workaround** — `vercel deploy --prod` from CLI after each push. Was failing with "Unexpected error" on 2026-04-15; may resolve after build cache clears.
+
 ### Priority E3: Scale to 500 Creators + 500 Brands (Next — starts 2026-04-16)
 
 The shadow profiles infrastructure is live. Now fill it. The OpenClaw browser-automation scrapers produce shadow rows; the `/api/shadow/ingest` endpoint receives them.
