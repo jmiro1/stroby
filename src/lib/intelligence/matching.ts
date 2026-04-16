@@ -202,6 +202,8 @@ export function scoreMatch(
 export async function getMatchesForBrand(brandId: string, limit = 20) {
   const supabase = createServiceClient();
 
+  // The requesting brand MUST be real (lookup in the filtered view — shadows are invisible).
+  // Only real users ever ask for matches.
   const { data: brand } = await supabase
     .from("business_profiles")
     .select("id, company_name, product_description, target_customer, primary_niche, budget_range, brand_intelligence, profile_embedding")
@@ -211,9 +213,13 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
 
   if (!brand) return [];
 
+  // Counterparty lookup hits the directory view — sees real + shadow creators.
+  // Each returned match carries counterparty_status so the introduction-proposal
+  // code can branch: whatsapp_active → normal double-opt-in, shadow → fire
+  // claim-flow outreach and park the intro as 'awaiting_claim'.
   const { data: creators } = await supabase
-    .from("newsletter_profiles")
-    .select("id, newsletter_name, primary_niche, subscriber_count, content_intelligence, profile_embedding")
+    .from("newsletter_directory")
+    .select("id, newsletter_name, primary_niche, subscriber_count, content_intelligence, profile_embedding, onboarding_status")
     .eq("is_active", true)
     .not("profile_embedding", "is", null);
 
@@ -226,6 +232,7 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
       creator_name: creator.newsletter_name,
       subscriber_count: creator.subscriber_count,
       primary_niche: creator.primary_niche,
+      counterparty_status: creator.onboarding_status as string,
       ...result,
     };
   });
@@ -246,8 +253,8 @@ export async function getMatchesForCreator(creatorId: string, limit = 20) {
   if (!creator) return [];
 
   const { data: brands } = await supabase
-    .from("business_profiles")
-    .select("id, company_name, primary_niche, budget_range, brand_intelligence, profile_embedding")
+    .from("business_directory")
+    .select("id, company_name, primary_niche, budget_range, brand_intelligence, profile_embedding, onboarding_status")
     .eq("is_active", true)
     .not("profile_embedding", "is", null);
 
@@ -260,6 +267,7 @@ export async function getMatchesForCreator(creatorId: string, limit = 20) {
       brand_name: brand.company_name,
       budget_range: brand.budget_range,
       primary_niche: brand.primary_niche,
+      counterparty_status: brand.onboarding_status as string,
       ...result,
     };
   });

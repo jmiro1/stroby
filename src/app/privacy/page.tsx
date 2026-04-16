@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated: April 2, 2026
+          Last updated: April 15, 2026
         </p>
 
         <div className="prose prose-neutral mt-10 max-w-none dark:prose-invert [&_h2]:mt-10 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-medium">
@@ -182,17 +182,28 @@ export default function PrivacyPage() {
             Your data may be transferred to and processed in countries outside your country of residence, including the United States and Canada, where our service providers operate. We ensure appropriate safeguards are in place, such as Standard Contractual Clauses (SCCs) approved by the European Commission, to protect your data during international transfers.
           </p>
 
-          <h2>13. Children&apos;s Privacy</h2>
+          <h2>13. Pre-Launch Directory (Shadow Profiles)</h2>
+          <p>
+            To give new users valuable matches from their first day on Stroby, we maintain a pre-launch directory of companies and newsletter creators that publicly identify as newsletter-marketing-relevant. Entries in this directory are compiled from publicly available sources (company websites, publicly listed newsletters, public marketplace data). These profiles are not active user accounts — they are not surfaced to the public, are not included in our public-facing metrics or analytics, and are only used internally by our matching engine to help real users discover potentially relevant partners.
+          </p>
+          <p>
+            When our matching engine surfaces a directory profile as a potential match to a real user, we will reach out to the directory entity (via publicly listed contact methods) inviting them to activate their profile. If they activate, the match proceeds via our normal double-opt-in flow. If they never activate, their directory entry expires after 180 days of non-engagement and is deleted.
+          </p>
+          <p>
+            If you are listed in our pre-launch directory and do not wish to be, email <a href="mailto:privacy@stroby.ai">privacy@stroby.ai</a> with the name of your company or newsletter and we will remove your entry within 72 hours. We will honor this request permanently — we will not re-add removed entities to future directory compilations.
+          </p>
+
+          <h2>14. Children&apos;s Privacy</h2>
           <p>
             The Service is not intended for individuals under the age of 18. We do not knowingly collect personal information from children. If you believe we have collected data from a minor, please contact us at <a href="mailto:privacy@stroby.ai">privacy@stroby.ai</a> and we will promptly delete it.
           </p>
 
-          <h2>14. Changes to This Policy</h2>
+          <h2>15. Changes to This Policy</h2>
           <p>
             We may update this Privacy Policy from time to time. If we make material changes, we will notify you via email or WhatsApp at least 30 days before the changes take effect. Your continued use of the Service after the effective date constitutes acceptance of the updated policy.
           </p>
 
-          <h2>15. Contact Us</h2>
+          <h2>16. Contact Us</h2>
           <p>If you have any questions about this Privacy Policy or your personal data, contact us:</p>
           <ul>
             <li>Email: <a href="mailto:privacy@stroby.ai">privacy@stroby.ai</a></li>

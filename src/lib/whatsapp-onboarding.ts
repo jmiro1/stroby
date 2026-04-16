@@ -232,6 +232,48 @@ export async function createProfileFromOnboarding(
   const userType = (data.user_type as string) || "influencer";
 
   if (userType === "business") {
+    // Shadow-claim path: if a scraped shadow row already exists for this
+    // brand (matched by website), promote it in-place instead of inserting
+    // a duplicate. website_url is carried in `description` as "Website: <url>".
+    const websiteUrl = (data.website_url as string | undefined) || "";
+    if (websiteUrl) {
+      const { data: shadow } = await supabase
+        .from("business_directory")
+        .select("id, onboarding_status")
+        .eq("onboarding_status", "shadow")
+        .ilike("description", `%${websiteUrl}%`)
+        .limit(1)
+        .maybeSingle();
+      if (shadow?.id) {
+        const { data: promoted, error: promoteErr } = await supabase
+          .from("business_profiles_all")
+          .update({
+            company_name: data.company_name || "Unknown",
+            contact_name: data.contact_name || data.name || "Contact",
+            contact_role: data.contact_role || data.role || null,
+            product_description: data.product_description || data.what_they_sell || null,
+            target_customer: data.target_customer || null,
+            primary_niche: data.niche || data.primary_niche || "Other",
+            budget_range: data.budget_range || null,
+            campaign_goal: data.campaign_goal || null,
+            partner_preference: data.partner_preference || "all",
+            email: data.email || null,
+            phone,
+            referral_source: data.referral_source || data.referral || null,
+            onboarding_status: "whatsapp_active",
+            claimed_at: new Date().toISOString(),
+          })
+          .eq("id", shadow.id)
+          .eq("onboarding_status", "shadow")
+          .select("id")
+          .maybeSingle();
+        if (promoted?.id && !promoteErr) {
+          return { id: promoted.id, userType: "business" };
+        }
+        // Fall through to insert if the shadow got claimed between check + update
+      }
+    }
+
     const { data: profile, error } = await supabase
       .from("business_profiles")
       .insert({
@@ -268,6 +310,46 @@ export async function createProfileFromOnboarding(
   const priceCents = data.price_per_placement
     ? Math.round(parseFloat(String(data.price_per_placement).replace(/[$,]/g, "")) * 100)
     : null;
+
+  // Shadow-claim path for creators: if a scraped shadow row matches the
+  // provided url, promote it instead of inserting a duplicate.
+  const creatorUrl = (data.url as string | undefined) || "";
+  if (creatorUrl) {
+    const { data: shadow } = await supabase
+      .from("newsletter_directory")
+      .select("id, onboarding_status")
+      .eq("onboarding_status", "shadow")
+      .eq("url", creatorUrl)
+      .limit(1)
+      .maybeSingle();
+    if (shadow?.id) {
+      const { data: promoted, error: promoteErr } = await supabase
+        .from("newsletter_profiles_all")
+        .update({
+          newsletter_name: data.channel_name || data.name || "Unknown",
+          owner_name: data.owner_name || data.name || "Creator",
+          platform: data.platform || null,
+          primary_niche: data.niche || data.primary_niche || "Other",
+          description: data.description || null,
+          subscriber_count: data.audience_size
+            ? parseInt(String(data.audience_size).replace(/[,\s]/g, ""), 10)
+            : null,
+          price_per_placement: isNaN(priceCents as number) ? null : priceCents,
+          email: data.email || null,
+          phone,
+          referral_source: data.referral_source || data.referral || null,
+          onboarding_status: "whatsapp_active",
+          claimed_at: new Date().toISOString(),
+        })
+        .eq("id", shadow.id)
+        .eq("onboarding_status", "shadow")
+        .select("id")
+        .maybeSingle();
+      if (promoted?.id && !promoteErr) {
+        return { id: promoted.id, userType: "newsletter" };
+      }
+    }
+  }
 
   const rawName = (data.channel_name || data.name || "creator") as string;
   const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);
