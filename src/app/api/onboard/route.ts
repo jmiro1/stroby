@@ -107,6 +107,21 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceClient();
 
+    // Check for duplicate email across all profile tables
+    if (data.email) {
+      const email = data.email.trim().toLowerCase();
+      const tables = ["newsletter_profiles", "business_profiles", "other_profiles"] as const;
+      for (const table of tables) {
+        const { data: existing } = await supabase.from(table).select("id").eq("email", email).maybeSingle();
+        if (existing) {
+          return Response.json(
+            { error: "duplicate_email", message: "An account with this email already exists. Message Stroby on WhatsApp to access your account." },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     // Influencer / newsletter flow
     if (userType === "influencer" || userType === "newsletter") {
       const openRate =

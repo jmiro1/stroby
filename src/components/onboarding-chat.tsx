@@ -524,7 +524,19 @@ export default function OnboardingChat() {
             body: JSON.stringify({ userType, data: enrichedData }),
           });
 
-          if (!res.ok) throw new Error("Failed to submit");
+          if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            if (errBody.error === "duplicate_email") {
+              clearDraft();
+              setIsComplete(true);
+              setMessages((prev) => [
+                ...prev,
+                { role: "bot", content: "Looks like you already have an account with this email! Message Stroby on WhatsApp to access your profile and start getting matched." },
+              ]);
+              return;
+            }
+            throw new Error("Failed to submit");
+          }
 
           clearDraft();
           setIsComplete(true);
