@@ -39,6 +39,34 @@ export const CAMPAIGN_GOALS = [
   "Lead generation",
 ] as const;
 
+export const CAMPAIGN_OUTCOMES = [
+  "Reach — maximum eyeballs",
+  "Engagement — comments, shares, interaction",
+  "Conversions — clicks, signups, sales",
+  "Credibility — association with a trusted voice",
+] as const;
+
+export const CAMPAIGN_OUTCOME_MAP: Record<string, string> = {
+  "Reach — maximum eyeballs": "reach",
+  "Engagement — comments, shares, interaction": "engagement",
+  "Conversions — clicks, signups, sales": "conversions",
+  "Credibility — association with a trusted voice": "credibility",
+};
+
+export const CREATOR_SIZES = [
+  "Micro (under 10k)",
+  "Mid-tier (10k–100k)",
+  "Macro (100k+)",
+  "No preference",
+] as const;
+
+export const CREATOR_SIZE_MAP: Record<string, string> = {
+  "Micro (under 10k)": "micro",
+  "Mid-tier (10k–100k)": "mid",
+  "Macro (100k+)": "macro",
+  "No preference": "any",
+};
+
 export const TIMELINES = ["ASAP", "This month", "Exploring"] as const;
 
 export const AD_FORMATS = [

@@ -16,6 +16,8 @@ import {
   NICHES,
   BUDGET_RANGES,
   CAMPAIGN_GOALS,
+  CAMPAIGN_OUTCOMES,
+  CREATOR_SIZES,
   TIMELINES,
   PARTNER_PREFERENCES,
 } from "@/lib/constants";
@@ -98,16 +100,17 @@ const INFLUENCER_STEPS: Step[] = [
 const BUSINESS_STEPS: Step[] = [
   { question: "Before we start — how did you hear about Stroby?", field: "referral_source", inputType: "text", placeholder: "e.g., A friend, Twitter, Google, a podcast..." },
   { question: "What's your company name?", field: "company_name", inputType: "text", placeholder: "e.g., Acme Corp" },
+  { question: "What's your website?", field: "website_url", inputType: "text", placeholder: "https://yourcompany.com" },
   { question: "What's your name?", field: "contact_name", inputType: "text", placeholder: "e.g., Jane Doe" },
   { question: "What's your role there?", field: "contact_role", inputType: "text", placeholder: "e.g., Head of Marketing" },
   { question: "In a sentence or two, what does your company sell?", field: "product_description", inputType: "textarea", placeholder: "e.g., Email automation software for e-commerce brands" },
-  { question: "Who's your ideal customer?", field: "target_customer", inputType: "textarea", placeholder: "e.g., DTC brand founders doing $1M-$10M revenue" },
+  { question: "Who's your ideal customer? Think about who they are, not just their job title.", field: "target_customer", inputType: "textarea", placeholder: "e.g., Ambitious DTC founders doing $1M-$10M who care about retention" },
   { question: "What niche are you targeting?", field: "primary_niche", inputType: "select", options: NICHES },
   { question: "What's your niche? Describe it briefly.", field: "custom_niche", inputType: "text", placeholder: "e.g., Pet care, Automotive, Gaming...", conditionField: "primary_niche", conditionValue: "Other" },
-  { question: "What kind of audience do you want to get in front of?", field: "description", inputType: "textarea", placeholder: "e.g., Marketing decision-makers at mid-market companies..." },
-  { question: "What type of partners are you looking for?", field: "partner_preference", inputType: "select", options: PARTNER_PREFERENCES },
+  { question: "What matters most to you from a creator partnership?", field: "campaign_outcome", inputType: "select", options: CAMPAIGN_OUTCOMES },
+  { question: "What type of creators are you looking for?", field: "partner_preference", inputType: "select", options: PARTNER_PREFERENCES },
+  { question: "Any preference on creator audience size?", field: "preferred_creator_size", inputType: "select", options: CREATOR_SIZES },
   { question: "What's your monthly budget for sponsorships or partnerships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
-  { question: "What's the main goal for this campaign?", field: "campaign_goal", inputType: "select", options: CAMPAIGN_GOALS },
   { question: "How soon are you looking to get started?", field: "timeline", inputType: "select", options: TIMELINES },
   { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "What's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
@@ -325,6 +328,25 @@ export default function OnboardingChat() {
       setIsTyping(false);
     }, 500);
   }, []);
+
+  // Reset to role selection (wrong path recovery)
+  function resetToRoleSelect() {
+    setUserType(null);
+    setShowRoleSelect(true);
+    setCurrentStep(0);
+    setFormData({});
+    setInputValue("");
+    setSelectValue("");
+    setCheckedValues([]);
+    setIsFreeChat(false);
+    setChatHistory([]);
+    clearDraft();
+    setMessages((prev) => [
+      ...prev,
+      { role: "bot", content: "No worries! Let's start over — which one are you?" },
+    ]);
+    trackEvent("role_reset");
+  }
 
   // Handle role selection
   function selectRole(type: "business" | "influencer" | "other") {
@@ -934,6 +956,14 @@ export default function OnboardingChat() {
               <span className="text-xs tabular-nums text-muted-foreground">
                 {currentStep + 1}/{steps.length}
               </span>
+              {currentStep <= 2 && (
+                <button
+                  onClick={resetToRoleSelect}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Wrong path?
+                </button>
+              )}
             </div>
           )}
         </div>

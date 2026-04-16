@@ -60,6 +60,32 @@ const GOAL_MAP: Record<string, string> = {
   "Lead generation": "lead_generation",
 };
 
+const OUTCOME_MAP: Record<string, string> = {
+  "Reach — maximum eyeballs": "reach",
+  "Engagement — comments, shares, interaction": "engagement",
+  "Conversions — clicks, signups, sales": "conversions",
+  "Credibility — association with a trusted voice": "credibility",
+};
+
+const SIZE_MAP: Record<string, string> = {
+  "Micro (under 10k)": "micro",
+  "Mid-tier (10k–100k)": "mid",
+  "Macro (100k+)": "macro",
+  "No preference": "any",
+};
+
+const PLATFORM_MAP: Record<string, string> = {
+  Newsletter: "newsletter",
+  YouTube: "youtube",
+  Instagram: "instagram",
+  TikTok: "tiktok",
+  Podcast: "podcast",
+  Blog: "blog",
+  LinkedIn: "linkedin",
+  "X / Twitter": "twitter",
+  Other: "other",
+};
+
 const TIMELINE_MAP: Record<string, string> = {
   ASAP: "asap",
   "This month": "this_month",
@@ -108,6 +134,21 @@ export async function POST(request: NextRequest) {
       const baseSlug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
       const slug = baseSlug + "-" + Math.random().toString(36).slice(2, 6);
 
+      const audienceNum = (data.audience_size || data.subscriber_count)
+        ? parseInt(String(data.audience_size || data.subscriber_count).replace(/[,\s]/g, ""), 10)
+        : null;
+
+      // Parse engagement_rate from free-text (e.g., "42% open rate" → 0.42, "5%" → 0.05)
+      let engRateDecimal: number | null = null;
+      if (data.engagement_rate) {
+        const match = String(data.engagement_rate).match(/(\d+\.?\d*)\s*%/);
+        if (match) {
+          engRateDecimal = parseFloat(match[1]) / 100;
+        }
+      }
+
+      const platformValue = PLATFORM_MAP[data.platform] || data.platform?.toLowerCase() || null;
+
       const { data: profile, error } = await supabase
         .from("newsletter_profiles")
         .insert({
@@ -115,11 +156,12 @@ export async function POST(request: NextRequest) {
           slug,
           owner_name: data.owner_name || data.email?.split("@")[0] || "Owner",
           url: data.url || null,
+          platform: platformValue,
           primary_niche: niche,
           description: data.description || null,
-          subscriber_count: (data.audience_size || data.subscriber_count)
-            ? parseInt(String(data.audience_size || data.subscriber_count), 10)
-            : null,
+          subscriber_count: audienceNum,
+          audience_reach: audienceNum,
+          engagement_rate: engRateDecimal,
           avg_open_rate: openRate,
           avg_ctr: ctr,
           price_per_placement: priceCents,
@@ -162,9 +204,16 @@ export async function POST(request: NextRequest) {
           product_description: data.product_description || null,
           target_customer: data.target_customer || null,
           primary_niche: niche,
-          description: data.description || null,
+          description: data.website_url
+            ? `Website: ${data.website_url}${data.description ? ` | ${data.description}` : ""}`
+            : data.description || null,
           budget_range: BUDGET_MAP[data.budget_range] ?? data.budget_range ?? null,
           campaign_goal: GOAL_MAP[data.campaign_goal] ?? data.campaign_goal ?? null,
+          campaign_outcome: OUTCOME_MAP[data.campaign_outcome] ?? data.campaign_outcome ?? null,
+          preferred_creator_type: PARTNER_PREF_MAP[data.partner_preference] === "newsletters_only" ? "newsletter"
+            : PARTNER_PREF_MAP[data.partner_preference] === "creators_only" ? "any"
+            : "any",
+          preferred_creator_size: SIZE_MAP[data.preferred_creator_size] ?? data.preferred_creator_size ?? "any",
           timeline: TIMELINE_MAP[data.timeline] ?? data.timeline ?? null,
           partner_preference: PARTNER_PREF_MAP[data.partner_preference] ?? data.partner_preference ?? "all",
           email: data.email,
