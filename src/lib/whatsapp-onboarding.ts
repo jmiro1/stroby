@@ -25,7 +25,21 @@ FIRST MESSAGE FLOW:
 3. If they're new: ask "Are you a business looking for partners, or an influencer/creator looking for brand deals?"
 
 FOR INFLUENCERS/CREATORS — collect these fields:
-  user_type, referral_source, name, platform, channel_name, url, niche, audience_size, price_per_placement, email
+  user_type, referral_source, name, platform, channel_name, url, niche, audience_size, engagement_rate, price_per_placement, email
+
+PLATFORM OPTIONS (ask early: "What platform do you publish on?"):
+  newsletter (beehiiv/substack/convertkit/mailchimp), youtube, instagram, tiktok, podcast, linkedin, twitter, blog, other
+
+PLATFORM-SPECIFIC METRICS (ask naturally based on their platform):
+  - Newsletter: "What's your typical open rate?" → store as engagement_rate. Also ask CTR if they know it.
+  - YouTube: "What are your average views per video?" → store audience_size as subscriber count, engagement_rate as (likes+comments)/views if they know it.
+  - Instagram: "How many followers do you have? What's your average likes per post?" → audience_size = followers, engagement_rate = avg_likes/followers.
+  - TikTok: "What are your average views per video?" → audience_size = followers, engagement_rate if known.
+  - Podcast: "How many downloads per episode on average?" → audience_size = avg downloads.
+  - LinkedIn/Twitter: "How many followers? Average impressions per post?" → audience_size = followers.
+  - Blog/Other: just ask audience_size.
+
+Don't quiz them on every metric — ask 1-2 natural questions based on platform. If they don't know their engagement rate, that's fine (store as null). The key number is audience_size (their reach).
 
 FOR BUSINESSES — collect these fields:
   user_type, referral_source, contact_name, contact_role, company_name, website_url, product_description, target_customer, buyer_description, past_newsletter_sponsors, niche, budget_range, partner_preference, email
@@ -49,7 +63,7 @@ RULES:
 OUTPUT FORMAT — CRITICAL:
 Every single response MUST start with a JSON state line on its own first line, then a blank line, then your natural reply. Format:
 
-[STATE] {"user_type":"influencer","referral_source":"a friend","name":"Sam","platform":null,"channel_name":null,"url":null,"niche":null,"audience_size":null,"price_per_placement":null,"email":null}
+[STATE] {"user_type":"influencer","referral_source":"a friend","name":"Sam","platform":null,"channel_name":null,"url":null,"niche":null,"audience_size":null,"engagement_rate":null,"price_per_placement":null,"email":null}
 
 Hey Sam! What platform do you publish on...
 
@@ -323,6 +337,10 @@ export async function createProfileFromOnboarding(
       .limit(1)
       .maybeSingle();
     if (shadow?.id) {
+      const audienceNum = data.audience_size ? parseInt(String(data.audience_size).replace(/[,\s]/g, ""), 10) : null;
+      const engRate = data.engagement_rate ? parseFloat(String(data.engagement_rate).replace(/%/g, "")) : null;
+      const engRateDecimal = engRate != null && !isNaN(engRate) ? (engRate > 1 ? engRate / 100 : engRate) : null;
+
       const { data: promoted, error: promoteErr } = await supabase
         .from("newsletter_profiles_all")
         .update({
@@ -331,9 +349,9 @@ export async function createProfileFromOnboarding(
           platform: data.platform || null,
           primary_niche: data.niche || data.primary_niche || "Other",
           description: data.description || null,
-          subscriber_count: data.audience_size
-            ? parseInt(String(data.audience_size).replace(/[,\s]/g, ""), 10)
-            : null,
+          subscriber_count: audienceNum,
+          audience_reach: audienceNum,
+          engagement_rate: engRateDecimal,
           price_per_placement: isNaN(priceCents as number) ? null : priceCents,
           email: data.email || null,
           phone,
@@ -354,6 +372,10 @@ export async function createProfileFromOnboarding(
   const rawName = (data.channel_name || data.name || "creator") as string;
   const slug = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);
 
+  const audienceNum = data.audience_size ? parseInt(String(data.audience_size).replace(/[,\s]/g, ""), 10) : null;
+  const engRate = data.engagement_rate ? parseFloat(String(data.engagement_rate).replace(/%/g, "")) : null;
+  const engRateDecimal = engRate != null && !isNaN(engRate) ? (engRate > 1 ? engRate / 100 : engRate) : null;
+
   const { data: profile, error } = await supabase
     .from("newsletter_profiles")
     .insert({
@@ -364,9 +386,9 @@ export async function createProfileFromOnboarding(
       platform: data.platform || null,
       primary_niche: data.niche || data.primary_niche || "Other",
       description: data.description || null,
-      subscriber_count: data.audience_size
-        ? parseInt(String(data.audience_size).replace(/[,\s]/g, ""), 10)
-        : null,
+      subscriber_count: audienceNum,
+      audience_reach: audienceNum,
+      engagement_rate: engRateDecimal,
       price_per_placement: isNaN(priceCents as number) ? null : priceCents,
       email: data.email || null,
       phone,

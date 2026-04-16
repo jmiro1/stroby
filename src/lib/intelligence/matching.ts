@@ -150,11 +150,10 @@ export function scoreMatch(
     cosSim = Math.max(cosineSimilarity(a as number[], b as number[]), 0);
   }
 
-  const sizeFit = audienceSizeFit(
-    (creator.subscriber_count as number) || 0,
-    (brand.budget_range as string) || "",
-    brandIntel
-  );
+  // audience_reach is the universal headline number (subscribers/followers/downloads).
+  // Falls back to subscriber_count for rows that predate the migration.
+  const reach = (creator.audience_reach as number) || (creator.subscriber_count as number) || 0;
+  const sizeFit = audienceSizeFit(reach, (brand.budget_range as string) || "", brandIntel);
 
   const af = (creatorSynth.advertiser_friendliness as number) ?? 5;
   const afScore = Math.min(af / 10, 1.0);
@@ -219,7 +218,7 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
   // claim-flow outreach and park the intro as 'awaiting_claim'.
   const { data: creators } = await supabase
     .from("newsletter_directory")
-    .select("id, newsletter_name, primary_niche, subscriber_count, content_intelligence, profile_embedding, onboarding_status")
+    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status")
     .eq("is_active", true)
     .not("profile_embedding", "is", null);
 
@@ -231,6 +230,9 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
       creator_id: creator.id,
       creator_name: creator.newsletter_name,
       subscriber_count: creator.subscriber_count,
+      audience_reach: (creator.audience_reach as number) || (creator.subscriber_count as number) || null,
+      platform: creator.platform || "newsletter",
+      engagement_rate: creator.engagement_rate || null,
       primary_niche: creator.primary_niche,
       counterparty_status: creator.onboarding_status as string,
       ...result,
@@ -245,7 +247,7 @@ export async function getMatchesForCreator(creatorId: string, limit = 20) {
 
   const { data: creator } = await supabase
     .from("newsletter_profiles")
-    .select("id, newsletter_name, primary_niche, subscriber_count, content_intelligence, profile_embedding")
+    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, content_intelligence, profile_embedding")
     .eq("id", creatorId)
     .eq("is_active", true)
     .single();

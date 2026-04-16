@@ -410,7 +410,7 @@ async function handleKnownUser(
   // Profile auto-update from conversation (whitelisted fields only)
   if (shouldUpdateProfile) {
     const ALLOWED_FIELDS: Record<string, string[]> = {
-      newsletter: ["subscriber_count", "avg_open_rate", "avg_ctr", "price_per_placement", "primary_niche", "description"],
+      newsletter: ["subscriber_count", "audience_reach", "avg_open_rate", "avg_ctr", "engagement_rate", "price_per_placement", "primary_niche", "description", "platform"],
       business: ["target_customer", "budget_range", "primary_niche", "campaign_goal", "description", "product_description"],
       other: ["description", "niche", "objectives", "looking_for", "can_offer"],
     };
@@ -420,7 +420,7 @@ async function handleKnownUser(
         const rawUpdates = JSON.parse(updateMatch[1]);
         const allowed = ALLOWED_FIELDS[userType] || [];
         // Numeric fields that must be coerced + validated
-        const numericFields = new Set(["subscriber_count", "avg_open_rate", "avg_ctr", "price_per_placement"]);
+        const numericFields = new Set(["subscriber_count", "audience_reach", "avg_open_rate", "avg_ctr", "engagement_rate", "price_per_placement"]);
         const safeUpdates: Record<string, string | number | null> = {};
         for (const [key, val] of Object.entries(rawUpdates)) {
           if (!allowed.includes(key)) continue;
