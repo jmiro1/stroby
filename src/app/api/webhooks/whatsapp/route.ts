@@ -651,6 +651,17 @@ async function handleNewUser(
         });
       }
 
+      // Affiliate invite — for creators only
+      if (profile.userType === "newsletter") {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
+        const affiliateMsg = `Stroby is quickly growing as the largest superconnector for brand distribution — apply to be one of our first affiliates. We share platform fees on every successful deal that goes through Stroby.\n\nApply here: ${appUrl}/affiliates/apply`;
+        await sendWhatsAppMessage(phoneWithPlus, affiliateMsg);
+        await insertMessage({
+          direction: "outbound", user_type: "newsletter", user_id: profile.id,
+          phone: phoneWithPlus, content: affiliateMsg, message_type: "onboarding",
+        });
+      }
+
       // Send welcome template with personalized link to /welcome/[id].
       // Best-effort — the post-onboarding free-form text above is the
       // primary signal. Template adds a tappable CTA that survives outside
