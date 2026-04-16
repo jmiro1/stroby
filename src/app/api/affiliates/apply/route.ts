@@ -43,7 +43,7 @@ async function sendApplicationConfirmation(args: {
     `Thanks for applying to the Stroby affiliate program — we've got your application and a real human will hand-review it in the next 24 hours.`,
     ``,
     `WHAT HAPPENS NEXT`,
-    `When your application is approved, we'll send you a WhatsApp message with your personal referral link and a sign-in link for your dashboard. The 10% commission clock starts as soon as you're active.`,
+    `When your application is approved, we'll send you a WhatsApp message with your personal referral link and a sign-in link for your dashboard. The up to 10% commission clock starts as soon as you're active.`,
     ``,
     `IMPORTANT — DON'T LOSE THIS EMAIL`,
     `If you don't see further updates from us, check your spam and promotions folders. Marking this email as "Not spam" or moving it to your primary inbox makes sure future updates land where you can see them.`,
@@ -60,7 +60,7 @@ async function sendApplicationConfirmation(args: {
       <p>Thanks for applying to the Stroby affiliate program — we&rsquo;ve got your application and a real human will hand-review it in the next 24 hours.</p>
 
       <h3 style="margin-top:24px;">What happens next</h3>
-      <p>When your application is approved, we&rsquo;ll send you a WhatsApp message with your personal referral link and a sign-in link for your dashboard. The 10% commission clock starts as soon as you&rsquo;re active.</p>
+      <p>When your application is approved, we&rsquo;ll send you a WhatsApp message with your personal referral link and a sign-in link for your dashboard. The up to 10% commission clock starts as soon as you&rsquo;re active.</p>
 
       <h3 style="margin-top:24px;">⚠️ Don&rsquo;t lose this email</h3>
       <p>If you don&rsquo;t see further updates from us, check your <strong>spam and promotions folders</strong>. Marking this email as &ldquo;Not spam&rdquo; or moving it to your primary inbox makes sure future updates land where you can see them.</p>

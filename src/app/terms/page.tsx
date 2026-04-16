@@ -17,7 +17,7 @@ export default function TermsPage() {
           Terms &amp; Conditions
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Last updated: April 2, 2026
+          Last updated: April 16, 2026
         </p>
 
         <div className="prose prose-neutral mt-10 max-w-none dark:prose-invert [&_h2]:mt-10 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-6 [&_h3]:text-lg [&_h3]:font-medium">
@@ -107,7 +107,20 @@ export default function TermsPage() {
             Detailed payment terms, including commission rates and refund policies, will be communicated before any transaction is finalized.
           </p>
 
-          <h2>8. User Conduct</h2>
+          <h2>8. Affiliate Program</h2>
+          <p>
+            Stroby offers an affiliate program that allows approved participants to earn up to 10% commission on successful deals involving brands or creators they introduce to the platform. Key terms:
+          </p>
+          <ul>
+            <li>Commission rates are up to 10% and may vary based on deal size, affiliate tier, and other factors at Stroby&rsquo;s discretion.</li>
+            <li>Commissions are earned only on completed, verified deals that go through the Stroby platform.</li>
+            <li>Commission is paid from Stroby&rsquo;s platform fee — never deducted from the creator&rsquo;s payout.</li>
+            <li>Minimum payout threshold is $50. Payouts are processed monthly via Stripe Connect.</li>
+            <li>Stroby reserves the right to modify commission rates, program terms, or terminate any affiliate account with 30 days&rsquo; notice.</li>
+            <li>Affiliates must not engage in misleading advertising, spam, or any practice that misrepresents Stroby or its services.</li>
+          </ul>
+
+          <h2>9. User Conduct</h2>
           <p>You agree not to:</p>
           <ul>
             <li>Use the Service for any unlawful purpose or in violation of any applicable laws.</li>
@@ -121,12 +134,12 @@ export default function TermsPage() {
             We reserve the right to suspend or terminate your account for violations of these Terms.
           </p>
 
-          <h2>9. Intellectual Property</h2>
+          <h2>10. Intellectual Property</h2>
           <p>
             All content, features, and functionality of the Service — including but not limited to the Stroby name, logo, AI algorithms, design, and code — are owned by Stroby and are protected by copyright, trademark, and other intellectual property laws. You may not copy, modify, distribute, or create derivative works based on any part of the Service without our prior written consent.
           </p>
 
-          <h2>10. Limitation of Liability</h2>
+          <h2>11. Limitation of Liability</h2>
           <p>
             To the maximum extent permitted by applicable law:
           </p>
@@ -137,17 +150,17 @@ export default function TermsPage() {
             <li>Our total liability for any claims arising from these Terms or the Service shall not exceed the amount you have paid to Stroby in the 12 months preceding the claim.</li>
           </ul>
 
-          <h2>11. Indemnification</h2>
+          <h2>12. Indemnification</h2>
           <p>
             You agree to indemnify and hold harmless Stroby, its officers, directors, employees, and agents from any claims, losses, damages, liabilities, and expenses (including reasonable legal fees) arising from your use of the Service, your violation of these Terms, or your violation of any rights of a third party.
           </p>
 
-          <h2>12. Termination</h2>
+          <h2>13. Termination</h2>
           <p>
             You may stop using the Service at any time. You may request deletion of your account and associated data by contacting us at privacy@stroby.ai. We may suspend or terminate your access to the Service at any time, with or without cause, and with or without notice.
           </p>
 
-          <h2>13. GDPR &amp; Data Protection Rights</h2>
+          <h2>14. GDPR &amp; Data Protection Rights</h2>
           <p>
             If you are located in the European Economic Area (EEA), United Kingdom, or other jurisdiction with applicable data protection laws, you have the following rights:
           </p>
@@ -163,12 +176,12 @@ export default function TermsPage() {
             To exercise any of these rights, contact us at privacy@stroby.ai. We will respond within 30 days.
           </p>
 
-          <h2>14. Changes to These Terms</h2>
+          <h2>15. Changes to These Terms</h2>
           <p>
             We may update these Terms from time to time. If we make material changes, we will notify you via email or WhatsApp at least 30 days before the changes take effect. Your continued use of the Service after the effective date constitutes acceptance of the updated Terms.
           </p>
 
-          <h2>15. Governing Law</h2>
+          <h2>16. Governing Law</h2>
           <p>
             These Terms shall be governed by and construed in accordance with the laws of Canada, without regard to conflict of law principles. Where applicable, GDPR and other local data protection regulations shall take precedence over conflicting provisions.
           </p>

@@ -80,9 +80,10 @@ const PARTNERSHIP_TYPES = [
 
 const INFLUENCER_STEPS: Step[] = [
   { question: "Before we start — how did you hear about Stroby?", field: "referral_source", inputType: "text", placeholder: "e.g., A friend, Twitter, Google, a podcast..." },
+  { question: "What's your name?", field: "owner_name", inputType: "text", placeholder: "e.g., Jane Doe" },
+  { question: "What's your preferred email? I'll save your progress so you can pick up where you left off.", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "What platform is your audience on?", field: "platform", inputType: "select", options: PLATFORMS },
   { question: "What's your channel or account name?", field: "channel_name", inputType: "text", placeholder: "e.g., The Marketing Brief" },
-  { question: "What's your name?", field: "owner_name", inputType: "text", placeholder: "e.g., Jane Doe" },
   { question: "Drop a link to your content so we can check it out.", field: "url", inputType: "text", placeholder: "https://..." },
   { question: "What niche best describes your content?", field: "primary_niche", inputType: "select", options: NICHES },
   { question: "What's your niche? Describe it briefly.", field: "custom_niche", inputType: "text", placeholder: "e.g., Pet care, Automotive, Gaming...", conditionField: "primary_niche", conditionValue: "Other" },
@@ -92,16 +93,16 @@ const INFLUENCER_STEPS: Step[] = [
   { question: "What types of brand partnerships interest you? (pick as many as you want)", field: "partnership_types", inputType: "multi-checkbox", options: PARTNERSHIP_TYPES },
   { question: "What other type of partnership are you interested in?", field: "custom_partnership", inputType: "text", placeholder: "e.g., Webinar co-hosting, Event sponsorship...", conditionField: "partnership_types", conditionValue: "Other" },
   { question: "What do you typically charge per partnership? (or type 'not sure yet')", field: "price_per_placement", inputType: "text", placeholder: "e.g., $500 or not sure yet" },
-  { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "What's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
   { question: "Last step — do you agree to our Terms & Conditions?", field: "terms_accepted", inputType: "consent" },
 ];
 
 const BUSINESS_STEPS: Step[] = [
   { question: "Before we start — how did you hear about Stroby?", field: "referral_source", inputType: "text", placeholder: "e.g., A friend, Twitter, Google, a podcast..." },
+  { question: "What's your name?", field: "contact_name", inputType: "text", placeholder: "e.g., Jane Doe" },
+  { question: "What's your preferred email? I'll save your progress so you can pick up where you left off.", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "What's your company name?", field: "company_name", inputType: "text", placeholder: "e.g., Acme Corp" },
   { question: "What's your website?", field: "website_url", inputType: "text", placeholder: "https://yourcompany.com" },
-  { question: "What's your name?", field: "contact_name", inputType: "text", placeholder: "e.g., Jane Doe" },
   { question: "What's your role there?", field: "contact_role", inputType: "text", placeholder: "e.g., Head of Marketing" },
   { question: "In a sentence or two, what does your company sell?", field: "product_description", inputType: "textarea", placeholder: "e.g., Email automation software for e-commerce brands" },
   { question: "Who's your ideal customer? Think about who they are, not just their job title.", field: "target_customer", inputType: "textarea", placeholder: "e.g., Ambitious DTC founders doing $1M-$10M who care about retention" },
@@ -112,7 +113,6 @@ const BUSINESS_STEPS: Step[] = [
   { question: "Any preference on creator audience size?", field: "preferred_creator_size", inputType: "select", options: CREATOR_SIZES },
   { question: "What's your monthly budget for sponsorships or partnerships?", field: "budget_range", inputType: "select", options: BUDGET_RANGES },
   { question: "How soon are you looking to get started?", field: "timeline", inputType: "select", options: TIMELINES },
-  { question: "What's your email?", field: "email", inputType: "text", placeholder: "you@example.com" },
   { question: "What's your WhatsApp number? (with country code)", field: "phone", inputType: "text", placeholder: "+1 555 123 4567" },
   { question: "Last step — do you agree to our Terms & Conditions?", field: "terms_accepted", inputType: "consent" },
 ];

@@ -42,7 +42,7 @@ export async function notifyApplicationApproved(affiliate: Affiliate): Promise<v
     `Your personal referral link:\n${link}\n\n` +
     `Your code: ${affiliate.referral_code}\n\n` +
     `Sign in to your dashboard:\n${dashboard}\n\n` +
-    `You earn 10% of every deal involving creators or brands you introduce. ` +
+    `You earn up to 10% of every deal involving creators or brands you introduce. ` +
     `Reply to this message anytime if you have questions.`;
   await safeSend(affiliate.phone, body, "approved");
 }

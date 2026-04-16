@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 
 export const metadata = {
-  title: "Affiliate Program — Earn 10% on every intro",
+  title: "Affiliate Program — Earn up to 10% on every intro",
   description:
-    "Join the Stroby affiliate program. Introduce brands or creators and earn 10% commission on every successful deal. Built for media buyers, growth consultants, and newsletter sponsorship operators.",
+    "Join the Stroby affiliate program. Introduce brands or creators and earn up to 10% commission on every successful deal. Built for media buyers, growth consultants, and newsletter sponsorship operators.",
 };
 
 export default function AffiliatesLandingPage() {
@@ -52,7 +52,7 @@ export default function AffiliatesLandingPage() {
           New: Stroby Affiliate Program
         </div>
         <h1 className="font-heading text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-          Earn 10% on every intro you make.
+          Earn up to 10% on every intro you make.
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
           Built for media buyers, growth consultants, and newsletter sponsorship
@@ -102,7 +102,7 @@ export default function AffiliatesLandingPage() {
             </div>
           </div>
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Your 10% comes from Stroby&apos;s platform fee — never from the
+            Your up to 10% comes from Stroby&apos;s platform fee — never from the
             creator&apos;s payout. Brands and creators see no difference.
           </p>
         </div>
