@@ -974,7 +974,7 @@ export default function OnboardingChat() {
                 />
               </div>
               <span className="text-xs tabular-nums text-muted-foreground">
-                {currentStep + 1}/{steps.length}
+                {Math.round(((currentStep + 1) / steps.length) * 100)}%
               </span>
               {currentStep <= 2 && (
                 <button
