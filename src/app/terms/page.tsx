@@ -109,14 +109,27 @@ export default function TermsPage() {
 
           <h2>8. Affiliate Program</h2>
           <p>
-            Stroby offers an affiliate program that allows approved participants to earn up to 10% commission on successful deals involving brands or creators they introduce to the platform. Key terms:
+            Stroby offers an affiliate program that allows approved participants to earn a share of Stroby&rsquo;s platform fees on successful deals involving brands or creators they introduce to the platform.
+          </p>
+          <h3>8.1 Launch Campaign Rates</h3>
+          <p>
+            During our launch campaign, affiliates earn up to 50% of Stroby&rsquo;s platform fees per deal:
           </p>
           <ul>
-            <li>Commission rates are up to 10% and may vary based on deal size, affiliate tier, and other factors at Stroby&rsquo;s discretion.</li>
+            <li><strong>25%</strong> of Stroby&rsquo;s fee if you referred one side of the deal (either the brand or the creator).</li>
+            <li><strong>50%</strong> of Stroby&rsquo;s fee if you referred both sides of the deal (the brand and the creator).</li>
+          </ul>
+          <h3>8.2 Rate Lock Guarantee</h3>
+          <p>
+            Affiliates who are approved during the launch campaign period lock in their commission rate for a minimum of 12 months from their approval date, regardless of any subsequent changes to the program&rsquo;s standard rates.
+          </p>
+          <h3>8.3 General Terms</h3>
+          <ul>
+            <li>Launch campaign rates are subject to change or discontinuation at any time for new applicants. Existing affiliates retain their locked rate per Section 8.2.</li>
             <li>Commissions are earned only on completed, verified deals that go through the Stroby platform.</li>
             <li>Commission is paid from Stroby&rsquo;s platform fee — never deducted from the creator&rsquo;s payout.</li>
             <li>Minimum payout threshold is $50. Payouts are processed monthly via Stripe Connect.</li>
-            <li>Stroby reserves the right to modify commission rates, program terms, or terminate any affiliate account with 30 days&rsquo; notice.</li>
+            <li>Stroby reserves the right to modify program terms or terminate any affiliate account with 30 days&rsquo; notice, subject to the rate lock guarantee above.</li>
             <li>Affiliates must not engage in misleading advertising, spam, or any practice that misrepresents Stroby or its services.</li>
           </ul>
 

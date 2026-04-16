@@ -654,7 +654,7 @@ async function handleNewUser(
       // Affiliate invite — for creators only
       if (profile.userType === "newsletter") {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
-        const affiliateMsg = `Stroby is quickly growing as the largest superconnector for brand distribution — apply to be one of our first affiliates. We share platform fees on every successful deal that goes through Stroby.\n\nApply here: ${appUrl}/affiliates/apply`;
+        const affiliateMsg = `Stroby is quickly growing as the largest superconnector for brand distribution — apply to be one of our first affiliates. During our launch campaign, we're sharing up to 50% of Stroby's platform fees on every deal you refer (25% per side, 50% if you bring both).* Rate locked for 12 months if you join now.\n\nApply here: ${appUrl}/affiliates/apply`;
         await sendWhatsAppMessage(phoneWithPlus, affiliateMsg);
         await insertMessage({
           direction: "outbound", user_type: "newsletter", user_id: profile.id,

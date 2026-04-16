@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 
 export const metadata = {
-  title: "Affiliate Program — Earn up to 10% on every intro",
+  title: "Affiliate Program — Earn up to 50% of Stroby fees",
   description:
-    "Join the Stroby affiliate program. Introduce brands or creators and earn up to 10% commission on every successful deal. Built for media buyers, growth consultants, and newsletter sponsorship operators.",
+    "Join the Stroby affiliate program. Introduce brands or creators and earn up to 50% of Stroby's platform fees on every successful deal. Limited launch offer. Built for media buyers, growth consultants, and newsletter sponsorship operators.",
 };
 
 export default function AffiliatesLandingPage() {
@@ -49,15 +49,18 @@ export default function AffiliatesLandingPage() {
       <section className="mx-auto max-w-4xl px-4 py-16 text-center sm:py-24">
         <div className="mb-4 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="size-3" />
-          New: Stroby Affiliate Program
+          Launch Campaign — Limited Time
         </div>
         <h1 className="font-heading text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-          Earn up to 10% on every intro you make.
+          Earn up to 50% of Stroby fees on every deal.
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-lg text-muted-foreground">
           Built for media buyers, growth consultants, and newsletter sponsorship
           operators who already broker deals between brands and creators today.
           Bring them to Stroby. Get paid every time a deal closes.
+        </p>
+        <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground/70 italic">
+          * Launch campaign rates. Subject to change — but if you join now, your rate is locked for at least 12 months.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
           <Link href="/affiliates/apply">
@@ -82,28 +85,27 @@ export default function AffiliatesLandingPage() {
               The math
             </p>
             <p className="mt-3 font-heading text-3xl font-semibold sm:text-4xl">
-              On a $1,000 deal, you earn $100.
+              On a $1,000 deal, you earn up to $100.*
             </p>
           </div>
-          <div className="mx-auto mt-8 grid max-w-2xl grid-cols-3 gap-4 text-center">
-            <div className="rounded-xl bg-background p-4">
-              <p className="text-xs text-muted-foreground">Brand pays</p>
-              <p className="mt-1 font-heading text-2xl font-semibold">$1,000</p>
-            </div>
-            <div className="rounded-xl bg-background p-4">
-              <p className="text-xs text-muted-foreground">Creator gets</p>
-              <p className="mt-1 font-heading text-2xl font-semibold">$800</p>
+          <div className="mx-auto mt-8 grid max-w-2xl gap-4 text-center md:grid-cols-2">
+            <div className="rounded-xl bg-background p-4 ring-1 ring-foreground/5">
+              <p className="text-xs text-muted-foreground">You referred one side</p>
+              <p className="mt-1 font-heading text-2xl font-semibold text-primary">25% of Stroby fee</p>
+              <p className="mt-1 text-xs text-muted-foreground">~$50 on a $1,000 deal</p>
             </div>
             <div className="rounded-xl bg-primary/10 p-4 ring-1 ring-primary/30">
-              <p className="text-xs font-medium text-primary">You earn</p>
-              <p className="mt-1 font-heading text-2xl font-semibold text-primary">
-                $100
-              </p>
+              <p className="text-xs font-medium text-primary">You referred both sides</p>
+              <p className="mt-1 font-heading text-2xl font-semibold text-primary">50% of Stroby fee</p>
+              <p className="mt-1 text-xs text-muted-foreground">~$100 on a $1,000 deal</p>
             </div>
           </div>
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            Your up to 10% comes from Stroby&apos;s platform fee — never from the
+            Your commission comes from Stroby&apos;s platform fee — never from the
             creator&apos;s payout. Brands and creators see no difference.
+          </p>
+          <p className="mt-2 text-center text-xs text-muted-foreground/60 italic">
+            * Launch campaign rates. Subject to change at any time, but affiliates who join during the launch period lock in these rates for at least 12 months from signup.
           </p>
         </div>
       </section>
@@ -184,8 +186,8 @@ export default function AffiliatesLandingPage() {
             <CardContent>
               <p className="text-sm text-muted-foreground">
                 Most affiliate programs only pay for one side of the
-                marketplace. We pay you whether you brought the brand, the
-                creator, or — if you brought both — the full commission.
+                marketplace. We pay 25% of fees per side you referred. Brought
+                both the brand and the creator? That&apos;s the full 50%.
               </p>
             </CardContent>
           </Card>

@@ -42,7 +42,7 @@ export async function notifyApplicationApproved(affiliate: Affiliate): Promise<v
     `Your personal referral link:\n${link}\n\n` +
     `Your code: ${affiliate.referral_code}\n\n` +
     `Sign in to your dashboard:\n${dashboard}\n\n` +
-    `You earn up to 10% of every deal involving creators or brands you introduce. ` +
+    `You earn up to 50% of Stroby's platform fees on every deal involving creators or brands you introduce (25% per side, 50% if you referred both).* Launch campaign rate — locked for 12 months from your signup. ` +
     `Reply to this message anytime if you have questions.`;
   await safeSend(affiliate.phone, body, "approved");
 }
