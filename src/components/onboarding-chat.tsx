@@ -991,6 +991,7 @@ export default function OnboardingChat() {
                     setInputValue("");
                     setSelectValue("");
                     setCheckedValues([]);
+                    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 50);
                   }
                 }}
                 disabled={currentStep === 0}
