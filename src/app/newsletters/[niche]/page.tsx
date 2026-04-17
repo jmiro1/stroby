@@ -165,7 +165,7 @@ export default async function NicheDirectoryPage({
                 )}
 
                 <div className="flex items-center gap-4 text-sm">
-                  {(creator.audience_reach || creator.subscriber_count) && (
+                  {creator.onboarding_status !== "shadow" && (creator.audience_reach || creator.subscriber_count) ? (
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <Users className="size-3.5" />
                       <span>
@@ -174,15 +174,15 @@ export default async function NicheDirectoryPage({
                         )}
                       </span>
                     </div>
-                  )}
-                  {creator.engagement_rate && (
+                  ) : null}
+                  {creator.onboarding_status !== "shadow" && creator.engagement_rate ? (
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <TrendingUp className="size-3.5" />
                       <span>
                         {(Number(creator.engagement_rate) * 100).toFixed(1)}%
                       </span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               </div>
             ))}
