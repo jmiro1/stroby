@@ -8,15 +8,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { Users, TrendingUp, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-// Revalidate every hour — pages are cached but refresh with fresh DB data
-export const revalidate = 3600;
-
-// Generate static params for all niches
-export function generateStaticParams() {
-  return NICHES.filter((n) => n !== "Other").map((niche) => ({
-    niche: nicheToSlug(niche),
-  }));
-}
+// Always render fresh from DB — shadow profiles change frequently
+export const dynamic = "force-dynamic";
 
 function nicheToSlug(niche: string): string {
   return niche.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
