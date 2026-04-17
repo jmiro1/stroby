@@ -296,6 +296,28 @@ export default function AdminPage() {
         {/* All Profiles */}
         {stats.all_profiles && (
           <Section title="All Profiles">
+            <button
+              onClick={() => {
+                const rows: string[][] = [["Type","Name","Contact","Niche","Platform","Audience","Email","Phone","Status","Date"]];
+                for (const c of stats.all_profiles?.creators || []) {
+                  rows.push(["creator", c.newsletter_name, c.owner_name, c.primary_niche, c.platform || "", String(c.audience_reach || c.subscriber_count || ""), c.email, c.phone, c.onboarding_status, c.created_at]);
+                }
+                for (const b of stats.all_profiles?.brands || []) {
+                  rows.push(["brand", b.company_name, b.contact_name, b.primary_niche, "", "", b.email, b.phone, b.onboarding_status, b.created_at]);
+                }
+                const csv = rows.map(r => r.map(v => `"${(v||"").replace(/"/g, '""')}"`).join(",")).join("\n");
+                const blob = new Blob([csv], { type: "text/csv" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `stroby-profiles-${new Date().toISOString().slice(0,10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="mb-4 flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted"
+            >
+              Download CSV
+            </button>
             <div className="space-y-4">
               {stats.all_profiles.creators.length > 0 && (
                 <div>
