@@ -7,6 +7,8 @@ import { SiteFooter } from "@/components/site-footer";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "Newsletter Directory — Find Creators for Sponsorships | Stroby",
   description:

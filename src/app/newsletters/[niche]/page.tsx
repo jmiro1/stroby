@@ -8,6 +8,9 @@ import { SiteFooter } from "@/components/site-footer";
 import { Users, TrendingUp, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// Revalidate every hour — pages are cached but refresh with fresh DB data
+export const revalidate = 3600;
+
 // Generate static params for all niches
 export function generateStaticParams() {
   return NICHES.filter((n) => n !== "Other").map((niche) => ({
