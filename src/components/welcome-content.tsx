@@ -44,8 +44,8 @@ export default function WelcomeContent({
       ? profile.niches?.[0] ?? "your niche"
       : profile.primary_niche ?? "your niche";
 
-  const shareTextNewsletter = `I just joined @strobyai — an AI-powered marketplace that matches newsletters with vetted sponsors. Free to join, escrow-protected payments. Check it out: ${referralLink}`;
-  const shareTextBusiness = `Found a great tool for newsletter sponsorships — @strobyai uses AI to match you with verified newsletters. Escrow payments and placement guarantees. ${referralLink}`;
+  const shareTextNewsletter = `I just joined @strobyai — an AI superconnector that matches newsletters with vetted sponsors. Free to join, Stroby Pay protected. Check it out: ${referralLink}`;
+  const shareTextBusiness = `Found a great tool for newsletter sponsorships — @strobyai uses AI to match you with verified newsletters. Stroby Pay escrow and placement guarantees. ${referralLink}`;
   const shareText =
     userType === "newsletter" ? shareTextNewsletter : shareTextBusiness;
 
@@ -198,8 +198,8 @@ export default function WelcomeContent({
               <div className="mt-6 space-y-4">
                 <ProtectionItem
                   icon={Lock}
-                  title="Escrow payments"
-                  description="Your money is held until the placement runs."
+                  title="Stroby Pay"
+                  description="Escrow-protected payments — your money is held until the placement runs."
                 />
                 <ProtectionItem
                   icon={Shield}

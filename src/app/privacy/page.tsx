@@ -71,7 +71,7 @@ export default function PrivacyPage() {
           <ul>
             <li><strong>Matching:</strong> To power our AI matching engine and connect you with relevant businesses, influencers, or other professionals.</li>
             <li><strong>Communication:</strong> To send match suggestions, platform updates, and service-related messages via WhatsApp and email.</li>
-            <li><strong>Payments:</strong> To process transactions, manage escrow, and handle payouts through Stripe.</li>
+            <li><strong>Payments:</strong> To process transactions via Stroby Pay (our escrow payment system, powered and secured by Stripe Connect) and handle payouts.</li>
             <li><strong>Service Improvement:</strong> To analyze usage patterns and improve the platform experience.</li>
             <li><strong>AI Training:</strong> To train and improve our AI matching algorithms using anonymized and aggregated data that has been stripped of personally identifiable information.</li>
             <li><strong>Legal Compliance:</strong> To comply with applicable laws, regulations, and legal processes.</li>
@@ -97,7 +97,7 @@ export default function PrivacyPage() {
           <ul>
             <li><strong>Meta / WhatsApp Business Platform</strong> (messaging) &mdash; delivers WhatsApp messages via the Cloud API.</li>
             <li><strong>Supabase</strong> (database hosting) &mdash; stores your Profile and platform data.</li>
-            <li><strong>Stripe</strong> (payments) &mdash; processes payments and manages escrow.</li>
+            <li><strong>Stroby Pay</strong> (payments) &mdash; our escrow payment system, powered by Stripe Connect, that processes payments and manages fund release.</li>
             <li><strong>Anthropic</strong> (AI) &mdash; powers our AI matching and conversational features.</li>
             <li><strong>Vercel</strong> (hosting) &mdash; hosts the Stroby website and API.</li>
           </ul>

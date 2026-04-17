@@ -234,7 +234,7 @@ export default function AboutPage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <div className="grid gap-8 sm:grid-cols-3">
               {[
-                { icon: Lock, label: "Payments held in escrow" },
+                { icon: Lock, label: "Stroby Pay — payments held in escrow" },
                 { icon: BarChart3, label: "Verified audience metrics" },
                 { icon: Shield, label: "Placement guarantee" },
               ].map((item) => (
@@ -272,8 +272,8 @@ export default function AboutPage() {
                       Stroby uses AI to match businesses with the most relevant
                       influencers and creators based on niche, audience demographics, and
                       budget. Both sides opt in before a deal is made. Payments
-                      are held in escrow until the placement runs and proof of
-                      performance is submitted.
+                      are held in escrow via Stroby Pay until the placement runs
+                      and proof of performance is submitted.
                     </p>
                   </AccordionContent>
                 </AccordionItem>
@@ -314,12 +314,13 @@ export default function AboutPage() {
                 </AccordionItem>
                 <AccordionItem>
                   <AccordionTrigger>
-                    How does the escrow system work?
+                    How does Stroby Pay work?
                   </AccordionTrigger>
                   <AccordionContent>
                     <p>
+                      Stroby Pay is our escrow payment system, powered and secured by Stripe Connect.
                       When a partnership is booked, the business pays into
-                      Stroby&apos;s escrow. The funds are held securely while the
+                      Stroby Pay. The funds are held securely while the
                       placement runs. Once proof of placement is submitted and metrics are verified, the funds are released
                       to the influencer.
                     </p>

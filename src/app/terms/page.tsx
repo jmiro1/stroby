@@ -94,14 +94,14 @@ export default function TermsPage() {
             Your data may be processed by these third parties in accordance with their respective privacy policies.
           </p>
 
-          <h2>7. Payments &amp; Escrow</h2>
+          <h2>7. Stroby Pay</h2>
           <p>
-            Stroby is free to join for influencers and creators. For businesses, we charge a commission on successful partnerships. When a partnership is booked:
+            Stroby Pay is our escrow payment system, powered and secured by Stripe Connect. Stroby is free to join for influencers and creators. For businesses, we charge a commission on successful partnerships. When a partnership is booked:
           </p>
           <ul>
-            <li>Payment is held in escrow via Stripe until the placement is completed and verified.</li>
+            <li>Payment is held in escrow via Stroby Pay until the placement is completed and verified.</li>
             <li>Funds are released to the influencer or creator after proof of placement is submitted and verified.</li>
-            <li>If performance metrics fall significantly short of what was agreed, a partial or full refund may be issued from escrowed funds.</li>
+            <li>If performance metrics fall significantly short of what was agreed, a partial or full refund may be issued from the escrowed funds.</li>
           </ul>
           <p>
             Detailed payment terms, including commission rates and refund policies, will be communicated before any transaction is finalized.
@@ -128,7 +128,7 @@ export default function TermsPage() {
             <li>Launch campaign rates are subject to change or discontinuation at any time for new applicants. Existing affiliates retain their locked rate per Section 8.2.</li>
             <li>Commissions are earned only on completed, verified deals that go through the Stroby platform.</li>
             <li>Commission is paid from Stroby&rsquo;s platform fee — never deducted from the creator&rsquo;s payout.</li>
-            <li>Minimum payout threshold is $50. Payouts are processed monthly via Stripe Connect.</li>
+            <li>Minimum payout threshold is $50. Payouts are processed monthly via Stroby Pay.</li>
             <li>Stroby reserves the right to modify program terms or terminate any affiliate account with 30 days&rsquo; notice, subject to the rate lock guarantee above.</li>
             <li>Affiliates must not engage in misleading advertising, spam, or any practice that misrepresents Stroby or its services.</li>
           </ul>
