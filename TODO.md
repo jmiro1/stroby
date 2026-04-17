@@ -250,16 +250,29 @@ The `jmiro1/stroby` repo is currently **public** because Vercel Hobby plan's bui
 - [ ] **Fresh Vercel project import** — create new Vercel project from the private repo, migrate env vars (26 vars) + domain (`stroby.ai`). More work but stays on Hobby.
 - [ ] **Vercel CLI deploy workaround** — `vercel deploy --prod` from CLI after each push. Was failing with "Unexpected error" on 2026-04-15; may resolve after build cache clears.
 
-### Priority E3: Scale to 500 Creators + 500 Brands (Next — starts 2026-04-16)
+### Priority E3: Scale to 500 Creators + 500 Brands (In Progress)
 
-The shadow profiles infrastructure is live. Now fill it. The OpenClaw browser-automation scrapers produce shadow rows; the `/api/shadow/ingest` endpoint receives them.
+Shadow profiles infrastructure is live. Ingestion endpoint working. First batch done.
 
-**Browser automation scrapers to build (see `leadgen/openclaw-todo.md`):**
-- [ ] **beehiiv Discover scraper** — 5,000 creator leads in one run, zero login required
-- [ ] **Meta Ad Library scraper** — 1,000+ brand leads/day, free public data
-- [ ] **YC Combinator directory** — 2,000 brand leads (4 recent batches), all public
-- [ ] **Paved marketplace scraper** — ~500 warm brand leads, one-time
-- [ ] **Substack BFS depth-3** — 10x current lead pool (was depth-2)
+**DONE (2026-04-16-17):**
+- [x] YC Combinator W25 batch — 20 brand shadows with Brand Intelligence
+- [x] Substack leads batch — 203 creator shadows from existing SQLite
+- [x] Niche mapping (Substack categories → Stroby NICHES)
+- [x] Views recreated to include new columns
+- [x] Programmatic SEO pages live at `/newsletters` and `/newsletters/[niche]`
+
+**Data quality (P0 — do before claim emails):**
+- [ ] **Real subscriber counts** — Substack hides exact numbers. Options: Clay+SparkLoop, creator self-reports on claim, platform API verification
+- [ ] **Run all YC batches** — S24/W24/S23 + all-time (~5,850 brands): `ssh VPS && python scrape_yc.py`
+- [ ] **Run remaining creator leads** — 203 of 7,500 done: `python ingest_existing_leads.py --max 5000`
+- [ ] **Founder/contact enrichment** — Clay or detail page scraping for LinkedIn/email
+- [ ] **Install Scrapling on VPS** — for beehiiv + Paved scraping (Cloudflare bypass)
+
+**Scrapers still to build:**
+- [ ] **beehiiv Discover scraper** — needs Scrapling StealthyFetcher (Cloudflare). 5,000+ creators.
+- [ ] **Meta Ad Library scraper** — Python script, public API. 1,000+ brands/day.
+- [ ] **Paved marketplace scraper** — needs Scrapling or OpenClaw (JS rendering). ~500 warm brands.
+- [ ] **Substack BFS depth-3** — re-run existing Scrapy spider with deeper depth. 10,000+ pubs.
 
 **Account fleet for Substack DMs (bypass single-account rate limit):**
 - [ ] Create 2-3 additional Substack personas for parallel DM sending
