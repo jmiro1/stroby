@@ -129,6 +129,7 @@ export async function upsertShadowBrand(input: ShadowBrandInput): Promise<Shadow
       contact_name: input.contact_name || "",
       contact_role: input.contact_role || null,
       email: input.email || `shadow-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@shadow.stroby.ai`,
+      phone: `shadow-${Date.now()}`,
       primary_niche: input.primary_niche || "Other",
       description: descCombined,
       onboarding_status: "shadow",
