@@ -296,6 +296,16 @@ The shadow profiles infrastructure is live. Now fill it. The OpenClaw browser-au
 - [ ] A/B test different claim-email subject lines to optimize claim rate
 - [ ] Collaborative filtering — "businesses like yours matched with these creators"
 
+### Priority E5: Viral Loops (HIGH — wait for quality match density)
+
+Do NOT launch until there are enough quality matches that blasts are worth it. Premature blasts will churn subscribers.
+
+- [ ] **"Matchmaker Thursday"** — weekly WhatsApp blast to all subscribers: "3 new [brands/creators] joined in [your niche] this week." Only send when there are genuinely new matches to show — never filler.
+- [ ] **Post-match celebration card** — auto-generated shareable image when a match happens. Nudge both sides to share on social (X, LinkedIn).
+- [ ] **Ambassador leaderboard** — show affiliates how many signups their referrals generated. Gamification drives sharing.
+- [ ] **Creator-to-creator referral bonus** — "Refer 3 creators → get priority matching for 30 days" (beyond the affiliate commission)
+- [ ] **Trigger condition:** activate viral loops ONLY when shadow DB has 500+ brands AND 200+ creators with Brand/Content Intelligence profiles (enough for quality matches in most niches)
+
 ### Priority F: Highest Priority (Next Up)
 - [ ] #5 AI voice calls integration (Vapi/Bland.ai) — `call_permission_1` template ready
 - [ ] #9 Real-time activity feed on public stats page ("Maria just joined", etc.)
