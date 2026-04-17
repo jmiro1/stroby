@@ -25,6 +25,9 @@ export function SiteFooter() {
             <Link href="/terms" className="transition-colors hover:text-foreground">
               Terms
             </Link>
+            <Link href="/blog" className="transition-colors hover:text-foreground">
+              Blog
+            </Link>
             <Link href="/affiliates" className="transition-colors hover:text-foreground">
               Affiliates
             </Link>

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { getAllPosts } from "@/lib/blog";
 
 const NICHE_SLUGS = [
   "saas-software", "marketing-growth", "sales-revenue", "startups-vc",
@@ -30,5 +31,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticPages, ...nichePages];
+  const blogPosts: MetadataRoute.Sitemap = getAllPosts().map((post) => ({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: post.date ? new Date(post.date) : now,
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }));
+
+  const blogIndex: MetadataRoute.Sitemap = [
+    { url: `${baseUrl}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
+  ];
+
+  return [...staticPages, ...nichePages, ...blogIndex, ...blogPosts];
 }
