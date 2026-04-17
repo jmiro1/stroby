@@ -15,6 +15,10 @@ interface Stats {
     businesses: { company_name: string; primary_niche: string; budget_range: string; created_at: string }[];
   };
   niches: Record<string, number>;
+  all_profiles?: {
+    creators: { id: string; newsletter_name: string; owner_name: string; primary_niche: string; subscriber_count: number | null; audience_reach: number | null; platform: string | null; email: string; phone: string; onboarding_status: string; verification_status: string; created_at: string }[];
+    brands: { id: string; company_name: string; contact_name: string; primary_niche: string; budget_range: string | null; email: string; phone: string; onboarding_status: string; created_at: string }[];
+  };
   whatsapp_token?: { expiresAt: number | null; daysRemaining: number | null; error?: string };
   generated_at: string;
 }
@@ -288,6 +292,75 @@ export default function AdminPage() {
             )}
           </div>
         </Section>
+
+        {/* All Profiles */}
+        {stats.all_profiles && (
+          <Section title="All Profiles">
+            <div className="space-y-4">
+              {stats.all_profiles.creators.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                    Creators ({stats.all_profiles.creators.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {stats.all_profiles.creators.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div>
+                          <p className="text-sm font-medium">{c.newsletter_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {c.owner_name !== "Creator" ? `${c.owner_name} · ` : ""}{c.primary_niche}
+                            {c.platform && c.platform !== "other" ? ` · ${c.platform}` : ""}
+                            {c.audience_reach ? ` · ${c.audience_reach.toLocaleString()}` : ""}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${
+                            c.onboarding_status === "whatsapp_active"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {c.onboarding_status}
+                          </span>
+                          <p className="mt-1 text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {stats.all_profiles.brands.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                    Brands ({stats.all_profiles.brands.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {stats.all_profiles.brands.map((b) => (
+                      <div key={b.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div>
+                          <p className="text-sm font-medium">{b.company_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {b.contact_name} · {b.primary_niche}
+                            {b.budget_range ? ` · ${b.budget_range}` : ""}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${
+                            b.onboarding_status === "whatsapp_active"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                              : "bg-muted text-muted-foreground"
+                          }`}>
+                            {b.onboarding_status}
+                          </span>
+                          <p className="mt-1 text-xs text-muted-foreground">{new Date(b.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Section>
+        )}
 
         {/* Conversations */}
         <Section title="Conversations">

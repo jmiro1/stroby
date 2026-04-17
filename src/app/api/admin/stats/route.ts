@@ -129,6 +129,8 @@ export async function GET(request: NextRequest) {
     { data: recentNewsletters },
     { data: recentBusinesses },
     { data: bizNiches },
+    { data: allCreators },
+    { data: allBrands },
   ] = await Promise.all([
     supabase.from("newsletter_profiles").select("verification_status"),
     supabase.from("introductions").select("status"),
@@ -139,6 +141,8 @@ export async function GET(request: NextRequest) {
     supabase.from("newsletter_profiles").select("newsletter_name, primary_niche, subscriber_count, created_at, verification_status").gte("created_at", weekAgo.toISOString()).order("created_at", { ascending: false }),
     supabase.from("business_profiles").select("company_name, primary_niche, budget_range, created_at").gte("created_at", weekAgo.toISOString()).order("created_at", { ascending: false }),
     supabase.from("business_profiles").select("primary_niche"),
+    supabase.from("newsletter_profiles").select("id, newsletter_name, owner_name, primary_niche, subscriber_count, audience_reach, platform, email, phone, onboarding_status, verification_status, created_at").order("created_at", { ascending: false }),
+    supabase.from("business_profiles").select("id, company_name, contact_name, primary_niche, budget_range, email, phone, onboarding_status, created_at").order("created_at", { ascending: false }),
   ]);
 
   const verification: Record<string, number> = {};
@@ -181,6 +185,10 @@ export async function GET(request: NextRequest) {
       businesses: recentBusinesses || [],
     },
     niches: nicheCount,
+    all_profiles: {
+      creators: allCreators || [],
+      brands: allBrands || [],
+    },
     whatsapp_token: await checkWhatsAppTokenExpiry(),
     generated_at: new Date().toISOString(),
   });
