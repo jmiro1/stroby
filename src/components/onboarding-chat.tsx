@@ -473,7 +473,7 @@ export default function OnboardingChat() {
               ...prev,
               {
                 role: "bot",
-                content: "You're all set! We'll send your connections and updates via WhatsApp. Tap below to say hi.",
+                content: "You're all set! Send Stroby a message on WhatsApp to start getting matched right now.",
               },
             ]);
           } catch {
@@ -544,7 +544,7 @@ export default function OnboardingChat() {
             ...prev,
             {
               role: "bot",
-              content: "You're all set! We'll send your matches and updates via WhatsApp. Tap below to say hi and get started.",
+              content: "You're all set! Send Stroby a message on WhatsApp to start getting matched right now.",
             },
           ]);
         } catch (err) {
