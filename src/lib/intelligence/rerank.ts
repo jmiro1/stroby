@@ -24,9 +24,12 @@ function getAnthropic(): Anthropic {
   return _anthropic;
 }
 
-const RERANK_MODEL = "claude-sonnet-4-6";
+// Match the project's existing model pattern. Haiku handles ranking
+// well at 1/3 the cost and ~5× the speed of Sonnet — re-ranking is a
+// structured-output task, not a generation task.
+const RERANK_MODEL = "claude-haiku-4-5-20251001";
 const RERANK_TOP_N = 50;       // numerical → top 50 → re-rank → top N (caller decides)
-const RERANK_MAX_TOKENS = 1500;
+const RERANK_MAX_TOKENS = 2000;
 
 export interface RerankCandidate {
   creator_id: string;
