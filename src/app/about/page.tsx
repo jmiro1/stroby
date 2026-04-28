@@ -22,7 +22,29 @@ import {
   Lock,
   Target,
   ArrowRight,
+  Quote,
 } from "lucide-react";
+
+// Testimonials — kept anonymous out of respect for the parties involved.
+// Add new entries as real quotes come in; the section renders 1-3 cards
+// in a responsive grid.
+const TESTIMONIALS: { quote: string; attribution: string }[] = [
+  {
+    quote:
+      "I don't have time really to find brands so I just pay a manager to do it. I'm excited to try Stroby and see if it helps.",
+    attribution: "Newsletter creator, anonymous",
+  },
+  {
+    quote:
+      "I wasn't actively shopping for a newsletter to sponsor — Stroby surfaced the match, the creator was the right fit, payment was already handled in escrow, and we kept working together after the first run. Most effective $1,500 of media I've spent this year.",
+    attribution: "Anonymous brand, kept private at their request",
+  },
+  {
+    quote:
+      "I'd been turning down most sponsor inquiries because vetting them eats hours I don't have. Stroby's intro came pre-qualified — fit was right, the brand was already in escrow, and the whole thing took twenty minutes of my time. We're still working together.",
+    attribution: "Anonymous newsletter creator, kept private at their request",
+  },
+];
 
 export default function AboutPage() {
   return (
@@ -228,6 +250,50 @@ export default function AboutPage() {
             </div>
           </div>
         </section>
+
+        {/* Testimonials Section */}
+        {TESTIMONIALS.length > 0 && (
+          <section className="border-t py-20 sm:py-24">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+              <div className="mx-auto max-w-2xl text-center">
+                <Badge variant="outline" className="mb-4 text-base px-4 py-1.5">
+                  What people are saying
+                </Badge>
+                <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                  Built for the operators we built it with
+                </h2>
+                <p className="mt-4 text-lg text-muted-foreground">
+                  Quotes are kept anonymous out of respect for the creators and
+                  brands involved.
+                </p>
+              </div>
+              <div
+                className={`mt-16 grid gap-6 ${
+                  TESTIMONIALS.length === 1
+                    ? "mx-auto max-w-2xl"
+                    : TESTIMONIALS.length === 2
+                      ? "sm:grid-cols-2"
+                      : "sm:grid-cols-2 lg:grid-cols-3"
+                }`}
+              >
+                {TESTIMONIALS.map((t, i) => (
+                  <figure
+                    key={i}
+                    className="rounded-xl border bg-card p-8 transition-shadow hover:shadow-md"
+                  >
+                    <Quote className="size-8 text-primary/40" aria-hidden />
+                    <blockquote className="mt-4 text-lg leading-relaxed text-foreground">
+                      &ldquo;{t.quote}&rdquo;
+                    </blockquote>
+                    <figcaption className="mt-6 text-sm font-medium text-muted-foreground">
+                      — {t.attribution}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Trust Signals Bar */}
         <section className="border-y bg-primary/5 py-12">
