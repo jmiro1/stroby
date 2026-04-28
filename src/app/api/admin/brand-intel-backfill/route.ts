@@ -94,15 +94,19 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
+  const includeReal = url.searchParams.get("include_real") === "1";
+  const brandIdFilter = url.searchParams.get("brand_id");
+
   let q = supabase
     .from("business_profiles_all")
-    .select("id, company_name, primary_niche, description, shadow_source")
-    .eq("onboarding_status", "shadow")
-    .is("brand_intelligence", null)
-    .not("description", "is", null);
-  if (sourceFilter) {
-    q = q.eq("shadow_source", sourceFilter);
-  }
+    .select("id, company_name, primary_niche, description, shadow_source, onboarding_status, email")
+    .is("brand_intelligence", null);
+  if (!includeReal) q = q.eq("onboarding_status", "shadow");
+  if (sourceFilter) q = q.eq("shadow_source", sourceFilter);
+  if (brandIdFilter) q = q.eq("id", brandIdFilter);
+  // Description filter is too strict for real brands — relax when including real
+  if (!includeReal) q = q.not("description", "is", null);
+
   const { data: rows, error: selErr } = await q.limit(limit);
 
   if (selErr) {
@@ -112,16 +116,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, processed: 0, message: "no rows need brand intel" });
   }
 
-  // Filter to rows where we can extract a usable URL
+  // Filter to rows where we can extract a usable URL.
+  // For real brands the URL might come from email domain or company_name.
   const candidates: { id: string; name: string; website: string; source: string | null }[] = [];
   for (const r of rows) {
-    const website = urlFromDescription(r.description as string | null);
+    let website = urlFromDescription(r.description as string | null);
+    if (!website && r.email && typeof r.email === "string") {
+      // Real brands: derive from email domain (e.g. founder@gatewayz.ai → gatewayz.ai)
+      const m = (r.email as string).match(/@([^@\s]+\.[a-z]{2,})$/i);
+      if (m && !m[1].endsWith("@shadow.stroby.ai") && !m[1].includes("gmail") && !m[1].includes("yahoo") && !m[1].includes("outlook")) {
+        website = `https://${m[1].toLowerCase()}`;
+      }
+    }
+    if (!website && r.company_name && typeof r.company_name === "string") {
+      // Last resort: try company_name as domain (gatewayz → gatewayz.ai/.com)
+      const slug = (r.company_name as string).trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (slug.length >= 3 && slug.length <= 30) {
+        website = `https://${slug}.com`;
+      }
+    }
     if (website) {
       candidates.push({
         id: r.id,
         name: (r.company_name as string) || "",
         website,
-        source: (r.shadow_source as string) || null,
+        source: (r.shadow_source as string) || (r.onboarding_status as string) || null,
       });
     }
   }
