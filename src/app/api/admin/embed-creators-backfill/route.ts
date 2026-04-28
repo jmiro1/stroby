@@ -31,10 +31,14 @@ export const maxDuration = 300; // 5 min — Voyage batches of 128 take 5-15s ea
 
 const PGVECTOR_DIM = 1536;
 const VOYAGE_MODEL = "voyage-3-lite";
-const VOYAGE_BATCH_SIZE = 128;
-const VOYAGE_MAX_RETRIES = 3;
+// Smaller batches + inter-batch sleep — Voyage rate-limits aggressively
+// on burst calls. 32 inputs ≈ 5K tokens; spaced 800ms apart we stay well
+// under 300 RPM and 1M TPM tiered limits.
+const VOYAGE_BATCH_SIZE = 32;
+const VOYAGE_INTER_BATCH_MS = 800;
+const VOYAGE_MAX_RETRIES = 5;
 const HARD_LIMIT_DEFAULT = 200;
-const HARD_LIMIT_MAX = 1000;
+const HARD_LIMIT_MAX = 500;
 
 function authOk(req: NextRequest): boolean {
   const header = req.headers.get("authorization") || "";
@@ -68,11 +72,11 @@ function fallbackFingerprint(row: {
   return parts.join(". ");
 }
 
-async function embedBatchWithRetry(texts: string[]): Promise<number[][]> {
+async function embedBatchWithRetry(texts: string[]): Promise<{ embeddings: number[][]; status: string }> {
   const apiKey = process.env.VOYAGEAI_API_KEY;
   if (!apiKey) throw new Error("VOYAGEAI_API_KEY not set");
 
-  let lastErr: unknown = null;
+  let lastStatus = "no_attempt";
   for (let attempt = 0; attempt < VOYAGE_MAX_RETRIES; attempt++) {
     try {
       const resp = await fetch("https://api.voyageai.com/v1/embeddings", {
@@ -82,30 +86,32 @@ async function embedBatchWithRetry(texts: string[]): Promise<number[][]> {
         signal: AbortSignal.timeout(60_000),
       });
       if (resp.status === 429 || resp.status >= 500) {
-        // Backoff and retry
-        const wait = 500 * Math.pow(2, attempt);
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+        const wait = 1000 * Math.pow(2, attempt);
+        lastStatus = `${resp.status}_retry${attempt}`;
         await new Promise(r => setTimeout(r, wait));
         continue;
       }
       if (!resp.ok) {
         const detail = await resp.text();
-        throw new Error(`Voyage API ${resp.status}: ${detail.slice(0, 300)}`);
+        throw new Error(`voyage_${resp.status}: ${detail.slice(0, 200)}`);
       }
       const data = await resp.json();
-      return (data.data as Array<{ embedding: number[]; index?: number }>)
+      const embeddings = (data.data as Array<{ embedding: number[]; index?: number }>)
         .sort((a, b) => (a.index || 0) - (b.index || 0))
         .map(d => {
           const emb = d.embedding.slice();
           while (emb.length < PGVECTOR_DIM) emb.push(0);
           return emb;
         });
+      return { embeddings, status: "ok" };
     } catch (e) {
-      lastErr = e;
-      const wait = 500 * Math.pow(2, attempt);
+      lastStatus = e instanceof Error ? e.message.slice(0, 100) : "unknown_error";
+      const wait = 1000 * Math.pow(2, attempt);
       await new Promise(r => setTimeout(r, wait));
     }
   }
-  throw lastErr instanceof Error ? lastErr : new Error("voyage_failed");
+  throw new Error(`voyage_exhausted: ${lastStatus}`);
 }
 
 export async function POST(req: NextRequest) {
@@ -169,32 +175,35 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Embed in batches
+  // Embed in small batches with inter-batch sleep so we stay under
+  // Voyage rate limits. The previous attempt hammered the API with
+  // 128-input batches and got rate-limited starting on iter 2.
   let embedded = 0;
   let failed = 0;
   const errors: string[] = [];
 
   for (let i = 0; i < candidates.length; i += VOYAGE_BATCH_SIZE) {
     const batch = candidates.slice(i, i + VOYAGE_BATCH_SIZE);
-    let embeddings: number[][];
+    let result: { embeddings: number[][]; status: string };
     try {
-      embeddings = await embedBatchWithRetry(batch.map(c => c.fp));
+      result = await embedBatchWithRetry(batch.map(c => c.fp));
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       errors.push(`batch_${i}: ${msg.slice(0, 200)}`);
       failed += batch.length;
+      // Inter-batch sleep applies even on failure — gives the rate
+      // limiter time to recover before the next attempt.
+      await new Promise(r => setTimeout(r, VOYAGE_INTER_BATCH_MS));
       continue;
     }
 
-    // Update each row. We do these sequentially so a single bad row
-    // doesn't poison the batch — Supabase JS client doesn't have a clean
-    // batch-update across heterogeneous values in one call.
+    // Update each row sequentially (heterogeneous values per row).
     for (let j = 0; j < batch.length; j++) {
       const { error: updErr } = await supabase
         .from("newsletter_profiles_all")
-        .update({ profile_embedding: vecToString(embeddings[j]) })
+        .update({ profile_embedding: vecToString(result.embeddings[j]) })
         .eq("id", batch[j].id)
-        .eq("onboarding_status", "shadow"); // race-safe — never overwrite a claimed creator
+        .eq("onboarding_status", "shadow");
       if (updErr) {
         errors.push(`update_${batch[j].id}: ${updErr.message.slice(0, 120)}`);
         failed++;
@@ -202,6 +211,7 @@ export async function POST(req: NextRequest) {
         embedded++;
       }
     }
+    await new Promise(r => setTimeout(r, VOYAGE_INTER_BATCH_MS));
   }
 
   return NextResponse.json({
