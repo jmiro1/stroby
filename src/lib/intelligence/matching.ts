@@ -186,6 +186,82 @@ function platformPreferencePenalty(
   return 0.85;
 }
 
+// ── Brand-safety filtering ──
+// Echo's audience profiler emits per-dimension 1-10 charge scores on
+// content_intelligence.synthesized.{political,controversy,nsfw,...}_charge.
+// (See leadgen/workers/echo/profile_sync.py.) The matcher uses them in
+// two ways:
+//  - HARD filter: nsfw_charge≥7 always; political_charge≥7 unless brand
+//    intel signals politics-tolerance; conspiracy_charge≥7 always.
+//  - SOFT penalty: multiplicative on the final score for medium charge
+//    levels. Lets borderline content surface only when other signals
+//    (audience, embedding, income) are very strong.
+//
+// Real (non-shadow) creators have no charge fields → defaults to 1 →
+// never filtered. Safe-by-default.
+
+const POLITICS_TOLERANT_KEYWORDS = /\b(political|politics|news|policy|government|election|civic|advocacy|public.affairs|journalism|opinion)\b/i;
+
+function brandToleratesPolitics(brandSynth: Record<string, unknown>): boolean {
+  const aff = (brandSynth.content_affinity as string[] || []).join(" ");
+  const pitch = (brandSynth.one_line_need as string) || "";
+  const themes = (brandSynth.brand_voice as string) || "";
+  const haystack = `${aff} ${pitch} ${themes}`;
+  return POLITICS_TOLERANT_KEYWORDS.test(haystack);
+}
+
+function chargeNum(creatorSynth: Record<string, unknown>, key: string): number {
+  const v = creatorSynth[key];
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  return 1; // safe default — no data → treat as clean
+}
+
+interface SafetyVerdict {
+  hardFilter: boolean;
+  reason?: string;
+  softMultiplier: number;
+  notes: string[];
+}
+
+function evaluateSafety(
+  creatorSynth: Record<string, unknown>,
+  brandSynth: Record<string, unknown>
+): SafetyVerdict {
+  const pol = chargeNum(creatorSynth, "political_charge");
+  const con = chargeNum(creatorSynth, "controversy_charge");
+  const nsfw = chargeNum(creatorSynth, "nsfw_charge");
+  const conspiracy = chargeNum(creatorSynth, "conspiracy_charge");
+  const violence = chargeNum(creatorSynth, "violence_charge");
+
+  // Hard filters — applied to ALL brands regardless of preference.
+  if (nsfw >= 7) return { hardFilter: true, reason: "creator nsfw_charge≥7", softMultiplier: 0, notes: [] };
+  if (conspiracy >= 7) return { hardFilter: true, reason: "creator conspiracy_charge≥7", softMultiplier: 0, notes: [] };
+  if (violence >= 7) return { hardFilter: true, reason: "creator violence_charge≥7", softMultiplier: 0, notes: [] };
+
+  const tolerantOfPolitics = brandToleratesPolitics(brandSynth);
+  if (pol >= 7 && !tolerantOfPolitics) {
+    return { hardFilter: true, reason: "creator political_charge≥7, brand not politics-tolerant", softMultiplier: 0, notes: [] };
+  }
+
+  // Soft penalties stack multiplicatively
+  let mult = 1.0;
+  const notes: string[] = [];
+  if (pol >= 4 && !tolerantOfPolitics) {
+    mult *= 0.6;
+    notes.push(`politics dampener (charge=${pol})`);
+  }
+  if (con >= 7) {
+    mult *= 0.7;
+    notes.push(`controversy dampener (charge=${con})`);
+  }
+  if (con >= 4 && con < 7) {
+    mult *= 0.85;
+    notes.push(`mild controversy (charge=${con})`);
+  }
+
+  return { hardFilter: false, softMultiplier: mult, notes };
+}
+
 export interface MatchResult {
   score: number;
   value_tier: string;
@@ -204,6 +280,22 @@ export function scoreMatch(
 
   const creatorSynth = (creatorIntel.synthesized || {}) as Record<string, unknown>;
   const brandSynth = (brandIntel.synthesized || {}) as Record<string, unknown>;
+
+  // Safety filter — applied BEFORE expensive cosine work. Hard filters
+  // short-circuit to score=0 with an explanation; soft penalties apply
+  // as a multiplier on the final raw score.
+  const safety = evaluateSafety(creatorSynth, brandSynth);
+  if (safety.hardFilter) {
+    return {
+      score: 0,
+      value_tier: classifyValueTier(brandIntel),
+      components: {
+        cosine_similarity: 0, audience_size_fit: 0, advertiser_friendliness: 0,
+        content_consistency: 0, income_match: 0, outcome_fit: 0,
+      },
+      explanation: `0% match — hard-filtered: ${safety.reason}`,
+    };
+  }
 
   // Cosine similarity
   let cosSim = 0;
@@ -240,7 +332,8 @@ export function scoreMatch(
 
   // Updated formula: outcome_fit gets 0.10 weight, platform is a multiplier not a weight
   const rawTotal = 0.45 * cosSim + 0.12 * sizeFit + 0.10 * afScore + 0.08 * consistency + 0.10 * income + 0.10 * outcome + 0.05 * 0;
-  const total = rawTotal * platformMult;
+  // Apply safety soft multiplier (1.0 = clean; 0.6-0.85 for borderline content)
+  const total = rawTotal * platformMult * safety.softMultiplier;
 
   const components = {
     cosine_similarity: Math.round(cosSim * 1000) / 1000,
@@ -272,6 +365,7 @@ export function scoreMatch(
   const bThemes = new Set(brandSynth.content_affinity as string[] || []);
   const shared = [...cTopics].filter(t => bThemes.has(t)).slice(0, 3);
   if (shared.length) parts.push(`Shared themes: ${shared.join(", ")}`);
+  if (safety.notes.length) parts.push(`Safety: ${safety.notes.join("; ")}`);
 
   return {
     score: Math.round(total * 1000) / 1000,

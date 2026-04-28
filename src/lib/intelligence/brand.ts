@@ -43,7 +43,76 @@ Return STRICT JSON:
 
 Return ONLY the JSON. No markdown, no explanation.`;
 
+// Pull SEO/social metadata from raw HTML BEFORE we strip scripts and tags.
+// Modern brand sites (Vite/Next.js/React SPAs) ship near-empty bodies — the
+// real product description lives in og:description, twitter:description,
+// schema.org JSON-LD, and <meta name="description">. Without this, ~all
+// YC-W26-style sites scrape to empty.
+function extractMetadataText(html: string): string {
+  const out: string[] = [];
+
+  // <title>
+  const title = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (title?.[1]) out.push(`TITLE: ${decodeEntities(title[1].trim())}`);
+
+  // <meta name="description"|og:description|twitter:description|og:title|...>
+  const metaRe = /<meta\s+([^>]+?)\s*\/?>/gi;
+  let m: RegExpExecArray | null;
+  const wantedKeys = new Set([
+    "description", "og:description", "twitter:description",
+    "og:title", "twitter:title", "og:site_name",
+    "keywords", "author",
+  ]);
+  while ((m = metaRe.exec(html)) !== null) {
+    const attrs = m[1];
+    const nameMatch = attrs.match(/(?:name|property)\s*=\s*["']([^"']+)["']/i);
+    const contentMatch = attrs.match(/content\s*=\s*["']([^"']*)["']/i);
+    if (!nameMatch || !contentMatch) continue;
+    const key = nameMatch[1].toLowerCase();
+    if (!wantedKeys.has(key)) continue;
+    const val = decodeEntities(contentMatch[1].trim());
+    if (val) out.push(`${key.toUpperCase()}: ${val}`);
+  }
+
+  // schema.org JSON-LD blocks
+  const ldRe = /<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  while ((m = ldRe.exec(html)) !== null) {
+    const raw = m[1].trim();
+    if (!raw) continue;
+    try {
+      const obj = JSON.parse(raw);
+      const candidates = Array.isArray(obj) ? obj : [obj];
+      for (const o of candidates) {
+        if (!o || typeof o !== "object") continue;
+        const type = String(o["@type"] || "").trim();
+        const name = typeof o.name === "string" ? o.name.trim() : "";
+        const desc = typeof o.description === "string" ? o.description.trim() : "";
+        if (type) out.push(`JSONLD ${type}${name ? ` ${name}` : ""}${desc ? `: ${desc}` : ""}`);
+        else if (name || desc) out.push(`JSONLD ${name}${desc ? `: ${desc}` : ""}`);
+      }
+    } catch {
+      /* ignore non-JSON */
+    }
+  }
+
+  return out.filter(Boolean).join("\n");
+}
+
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#?\w+;/g, " ");
+}
+
 function htmlToText(html: string): string {
+  // Step 1: pull SEO metadata + JSON-LD before destroying scripts.
+  const meta = extractMetadataText(html);
+
   let text = html.slice(0, 200_000);
   // Remove script/style blocks
   for (const tag of ["script", "style", "noscript"]) {
@@ -56,9 +125,14 @@ function htmlToText(html: string): string {
     text = cleaned.join("");
   }
   text = text.replace(/<[^>]+>/g, " ");
-  text = text.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&nbsp;/g, " ");
-  text = text.replace(/&#?\w+;/g, " ");
-  return text.replace(/\s+/g, " ").trim();
+  text = decodeEntities(text);
+  const bodyText = text.replace(/\s+/g, " ").trim();
+
+  // Combine: metadata first (clean signal), then body text (long-form
+  // signal). For SPAs, metadata IS the content. For traditional sites,
+  // metadata reinforces the body.
+  if (meta && bodyText) return `${meta}\n\n--- BODY ---\n${bodyText}`;
+  return meta || bodyText;
 }
 
 async function scrapeWebsite(url: string, maxPages = 3): Promise<string> {
