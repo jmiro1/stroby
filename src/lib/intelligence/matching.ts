@@ -60,7 +60,7 @@ const INCOME_MAP: Record<string, number> = {
 };
 
 function classifyValueTier(brandIntel: Record<string, unknown>): string {
-  const synth = (brandIntel.synthesized || {}) as Record<string, unknown>;
+  const synth = normalizeBrandSynth(brandIntel);
   if (!Object.keys(synth).length) return "mid_ticket";
 
   const signals = [
@@ -186,6 +186,49 @@ function platformPreferencePenalty(
   return 0.85;
 }
 
+// ── Brand intelligence shape normalizer ──
+// Historical and current brand_intelligence rows are stored as the raw
+// Haiku extraction output: flat keys product_category, target_customer,
+// audience_they_want, content_themes_they_align_with, budget_signals,
+// newsletter_fit_notes. The matching engine was written against the
+// SYNTHESIZED shape used by lib/intelligence/embeddings.ts:brandFingerprint
+// (ideal_audience, target_profile.{profession,income_bracket,...},
+// content_affinity, budget_signal, one_line_need). Until now scoreMatch
+// silently degraded to {} on brand_intelligence reads, so brand-side
+// signals (income_match, outcome_fit, value_tier classification) had
+// no data — only creator-side signals + cosine similarity were doing
+// real work.
+function normalizeBrandSynth(brandIntel: Record<string, unknown>): Record<string, unknown> {
+  // If already wrapped, just return the inner synth
+  if (brandIntel.synthesized && typeof brandIntel.synthesized === "object") {
+    return brandIntel.synthesized as Record<string, unknown>;
+  }
+  // Empty intel → empty synth
+  if (!brandIntel || Object.keys(brandIntel).length === 0) return {};
+
+  // Translate flat raw-Haiku keys to the synth shape the matcher expects.
+  const tc = (brandIntel.target_customer as Record<string, unknown>) || {};
+  return {
+    product_category: brandIntel.product_category,
+    ideal_audience: brandIntel.audience_they_want,
+    one_line_need: brandIntel.newsletter_fit_notes,
+    brand_voice: brandIntel.brand_voice,
+    budget_signal: brandIntel.budget_signals,
+    content_affinity: brandIntel.content_themes_they_align_with,
+    target_profile: {
+      profession: tc.profession,
+      seniority: tc.seniority,
+      company_size: tc.company_size,
+      income_bracket: tc.income_bracket,
+      psychographic: tc.psychographic,
+      pain_points: tc.pain_points,
+    },
+    competitors: brandIntel.competitors,
+    // Keep raw too in case downstream reads it
+    _raw: brandIntel,
+  };
+}
+
 // ── Brand-safety filtering ──
 // Echo's audience profiler emits per-dimension 1-10 charge scores on
 // content_intelligence.synthesized.{political,controversy,nsfw,...}_charge.
@@ -279,7 +322,7 @@ export function scoreMatch(
   if (typeof brandIntel === "string") brandIntel = JSON.parse(brandIntel);
 
   const creatorSynth = (creatorIntel.synthesized || {}) as Record<string, unknown>;
-  const brandSynth = (brandIntel.synthesized || {}) as Record<string, unknown>;
+  const brandSynth = normalizeBrandSynth(brandIntel);
 
   // Safety filter — applied BEFORE expensive cosine work. Hard filters
   // short-circuit to score=0 with an explanation; soft penalties apply
