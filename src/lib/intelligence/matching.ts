@@ -558,7 +558,11 @@ export function scoreMatch(
   };
 }
 
-export async function getMatchesForBrand(brandId: string, limit = 20, opts?: { numericOnly?: boolean }) {
+export async function getMatchesForBrand(
+  brandId: string,
+  limit = 20,
+  opts?: { numericOnly?: boolean; explain?: boolean }
+) {
   const supabase = createServiceClient();
 
   // The requesting brand MUST be real (lookup in the filtered view — shadows are invisible).
@@ -604,6 +608,12 @@ export async function getMatchesForBrand(brandId: string, limit = 20, opts?: { n
 
   // ── LLM re-rank on top 50 (fires unless ?numeric_only=1) ──
   if (opts?.numericOnly) {
+    if (opts.explain) {
+      // Attach diagnostic info even on numeric path
+      return Object.assign(numericRanked.slice(0, limit), {
+        _diag: { mode: "numeric_only", total_candidates: numericRanked.length },
+      });
+    }
     return numericRanked.slice(0, limit);
   }
   const top50 = numericRanked.slice(0, 50);
@@ -654,7 +664,19 @@ export async function getMatchesForBrand(brandId: string, limit = 20, opts?: { n
     })
     .filter(Boolean);
 
-  return reranked.slice(0, limit);
+  const out = reranked.slice(0, limit);
+  if (opts?.explain) {
+    return Object.assign(out, {
+      _diag: {
+        mode: "reranked",
+        used_llm: rerankResult.used_llm,
+        rerank_error: rerankResult.error,
+        numerical_top50: top50.slice(0, 5).map(m => ({ id: m.creator_id, name: m.creator_name, score: m.score })),
+        rerank_returned: rerankResult.ranked.length,
+      },
+    });
+  }
+  return out;
 }
 
 export async function getMatchesForCreator(creatorId: string, limit = 20) {
