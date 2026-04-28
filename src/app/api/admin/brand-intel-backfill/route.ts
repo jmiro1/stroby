@@ -193,19 +193,21 @@ export async function POST(req: NextRequest) {
     // Race-safe filter: only on shadow rows when we're not explicitly
     // operating on real brands. With include_real=1, drop the guard so
     // gatewayz/gda cap/etc actually get their intel persisted.
+    // (Earlier attempt used head:true count mode which Supabase appears
+    // to short-circuit before commit — switched to .select() returning
+    // data so we can verify the row was actually written.)
     let upd = supabase
       .from("business_profiles_all")
       .update(updates)
       .eq("id", c.id);
     if (!includeReal) upd = upd.eq("onboarding_status", "shadow");
 
-    const { error: updErr, count } = await upd.select("id", { count: "exact", head: true });
+    const { data: updRows, error: updErr } = await upd.select("id");
     if (updErr) {
       errors.push(`update_${c.id}: ${updErr.message.slice(0, 120)}`);
       failed++;
-    } else if (count === 0) {
-      // Row didn't match (probably onboarding_status filter excluded it)
-      errors.push(`update_${c.id}: no rows matched`);
+    } else if (!updRows || updRows.length === 0) {
+      errors.push(`update_${c.id}: no rows matched (onboarding_status filter?)`);
       failed++;
     } else {
       updated++;
