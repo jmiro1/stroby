@@ -170,6 +170,86 @@ function applySizePreference(
   }
 }
 
+// ── Engagement-rate scoring (now a top-level factor) ──
+// Open rate / CTR is the single best proxy for "is this audience actually
+// reading?" A 100K-sub newsletter with 1% open rate is worse than a
+// 30K-sub at 50%. Previously this only fed outcomeFit when the brand's
+// goal was "engagement"; promoting it surfaces it for every match.
+function engagementScore(creator: Record<string, unknown>): number | null {
+  const er = (creator.engagement_rate as number) || 0;
+  if (er <= 0) return null; // unknown — caller will skip this factor
+  if (er >= 0.30) return 1.0;       // exceptional (>30% open)
+  if (er >= 0.15) return 0.85;      // strong
+  if (er >= 0.05) return 0.65;      // healthy
+  if (er >= 0.02) return 0.4;       // mediocre
+  if (er >= 0.005) return 0.15;     // weak
+  return 0.0;                        // dead audience
+}
+
+// ── Price fit ──
+// Newsletter creators expose price_per_placement (USD). Brand exposes
+// budget_range (e.g., "1000-2500"). Hard-filter when price >2× max budget.
+// Otherwise score ratio with a sweet-spot at 0.5×–1.0× of max.
+function priceFit(creatorPrice: number | null, budgetRange: string | null): { score: number | null; hardFail: boolean } {
+  if (!creatorPrice || !budgetRange) return { score: null, hardFail: false };
+
+  // Parse budget range (e.g. "1000-2500" → [1000, 2500]; "5000+" → [5000, 5000])
+  const m = budgetRange.match(/^(\d+)(?:-(\d+))?(\+)?$/);
+  if (!m) return { score: null, hardFail: false };
+  const min = parseInt(m[1], 10);
+  const max = m[2] ? parseInt(m[2], 10) : (m[3] ? min : min);
+
+  if (creatorPrice > max * 2) return { score: 0, hardFail: true };
+  if (creatorPrice >= min * 0.5 && creatorPrice <= max) return { score: 1.0, hardFail: false };
+  if (creatorPrice <= max * 1.5) return { score: 0.7, hardFail: false };
+  if (creatorPrice <= max * 2) return { score: 0.4, hardFail: false };
+  return { score: 0.1, hardFail: false };
+}
+
+// ── Competitor overlap penalty ──
+// If creator's known past sponsors include any of brand's listed
+// competitors, dampen score 0.4× — strong negative signal that this
+// creator's audience is already saturated with the competitor's pitch
+// (or that the creator has loyalty conflicts).
+function competitorOverlapMultiplier(
+  brandSynth: Record<string, unknown>,
+  creatorSynth: Record<string, unknown>
+): { mult: number; matched: string[] } {
+  const competitors = ((brandSynth.competitors as string[]) || []).map(c => c.toLowerCase().trim()).filter(Boolean);
+  if (!competitors.length) return { mult: 1.0, matched: [] };
+  const raw = (creatorSynth as Record<string, unknown>)._raw as Record<string, unknown> | undefined;
+  const rawProfile = (creatorSynth as Record<string, unknown>).raw_profile as Record<string, unknown> | undefined;
+  const commercial = (rawProfile?.commercial_signals as Record<string, unknown>) || (raw?.commercial_signals as Record<string, unknown>) || {};
+  const pastSponsors = ((commercial.mentioned_past_sponsors as string[]) || []).map(s => s.toLowerCase().trim());
+  if (!pastSponsors.length) return { mult: 1.0, matched: [] };
+  const matched = competitors.filter(c => pastSponsors.some(p => p.includes(c) || c.includes(p)));
+  if (matched.length === 0) return { mult: 1.0, matched: [] };
+  return { mult: 0.4, matched };
+}
+
+// ── Vibe / tonal mismatch ──
+// Brand voice and creator vibe should align. Compatibility matrix
+// surfaces the strong dampeners; everything else is 1.0 (neutral).
+const VIBE_BRAND_INCOMPATIBILITY: Record<string, Record<string, number>> = {
+  premium:    { opinion_takes: 0.7, personal_essays_reflection: 0.85, community_building: 0.85 },
+  professional: { opinion_takes: 0.8, narrative_storytelling: 0.85 },
+  technical:  { narrative_storytelling: 0.8, personal_essays_reflection: 0.85 },
+  minimalist: { opinion_takes: 0.85, narrative_storytelling: 0.9 },
+  // playful / edgy brands tolerate most vibes; no entries means neutral
+};
+
+function vibeMismatchMultiplier(
+  brandSynth: Record<string, unknown>,
+  creatorSynth: Record<string, unknown>
+): { mult: number; note?: string } {
+  const brandVoice = ((brandSynth.brand_voice as string) || "").toLowerCase().trim();
+  const creatorVibe = ((creatorSynth.content_category as string) || (creatorSynth.vibe as string) || "").toLowerCase().trim();
+  if (!brandVoice || !creatorVibe) return { mult: 1.0 };
+  const lookup = VIBE_BRAND_INCOMPATIBILITY[brandVoice]?.[creatorVibe];
+  if (!lookup) return { mult: 1.0 };
+  return { mult: lookup, note: `vibe clash (brand=${brandVoice} × creator=${creatorVibe})` };
+}
+
 function platformPreferencePenalty(
   creatorPlatform: string | null,
   brandPreference: string | null
@@ -353,38 +433,92 @@ export function scoreMatch(
   // audience_reach is the universal headline number (subscribers/followers/downloads).
   // Falls back to subscriber_count for rows that predate the migration.
   const reach = (creator.audience_reach as number) || (creator.subscriber_count as number) || 0;
-  let sizeFit = audienceSizeFit(reach, (brand.budget_range as string) || "", brandIntel);
-  sizeFit = applySizePreference(sizeFit, reach, (brand.preferred_creator_size as string) || null);
+  let sizeFit: number | null = null;
+  if (reach && brand.budget_range) {
+    let s = audienceSizeFit(reach, (brand.budget_range as string), brandIntel);
+    s = applySizePreference(s, reach, (brand.preferred_creator_size as string) || null);
+    sizeFit = s;
+  }
 
-  const af = (creatorSynth.advertiser_friendliness as number) ?? 5;
-  const afScore = Math.min(af / 10, 1.0);
+  // Advertiser-friendliness only counts if the creator was actually profiled
+  // (otherwise default-5 polluted the score for every un-profiled creator).
+  const afRaw = (creatorSynth.advertiser_friendliness as number);
+  const afScore: number | null = (typeof afRaw === "number" && Number.isFinite(afRaw)) ? Math.min(afRaw / 10, 1.0) : null;
 
-  const consistency = (creatorSynth.content_consistency as number) ?? 0.5;
+  const consRaw = (creatorSynth.content_consistency as number);
+  const consistency: number | null = (typeof consRaw === "number" && Number.isFinite(consRaw)) ? consRaw : null;
 
-  const cIncome = ((creatorSynth.audience_profile as Record<string, unknown>)?.likely_income_bracket as string) || "unknown";
-  const bIncome = ((brandSynth.target_profile as Record<string, unknown>)?.income_bracket as string) || "unknown";
-  const income = incomeMatch(cIncome, bIncome);
+  const cIncome = ((creatorSynth.audience_profile as Record<string, unknown>)?.likely_income_bracket as string) || "";
+  const bIncome = ((brandSynth.target_profile as Record<string, unknown>)?.income_bracket as string) || "";
+  const cIncomeKnown = !!cIncome && cIncome !== "unknown" && cIncome in INCOME_MAP;
+  const bIncomeKnown = !!bIncome && bIncome !== "unknown" && bIncome in INCOME_MAP;
+  const income: number | null = (cIncomeKnown && bIncomeKnown) ? incomeMatch(cIncome, bIncome) : null;
 
-  const outcome = outcomeFit(creatorSynth, creator, (brand.campaign_outcome as string) || null);
+  const outcome: number | null = brand.campaign_outcome ? outcomeFit(creatorSynth, creator, (brand.campaign_outcome as string)) : null;
 
-  // Platform preference: soft multiplier on final score (0.85x for cross-platform)
+  // NEW: engagement rate as a top-level factor
+  const engagement = engagementScore(creator);
+
+  // NEW: price fit (hard-filters when creator is grossly out of budget)
+  const creatorPrice = (creator.price_per_placement as number) || null;
+  const { score: price, hardFail: priceHardFail } = priceFit(creatorPrice, (brand.budget_range as string) || null);
+  if (priceHardFail) {
+    return {
+      score: 0,
+      value_tier: classifyValueTier(brandIntel),
+      components: {
+        cosine_similarity: 0, audience_size_fit: 0, advertiser_friendliness: 0,
+        content_consistency: 0, income_match: 0, outcome_fit: 0,
+        engagement_rate: 0, price_fit: 0,
+      },
+      explanation: `0% match — hard-filtered: creator price ($${creatorPrice}) >2× brand budget`,
+    };
+  }
+
+  // ── Active-component normalization ──
+  // Components with no data (null) are excluded from BOTH the numerator
+  // and the denominator. Score = sum(weight*value) / sum(weight). A row
+  // with rich data isn't penalized vs a row with sparse data.
+  const componentInputs: Array<{ key: string; value: number | null; weight: number }> = [
+    { key: "cosine_similarity",       value: cosSim || null,    weight: 0.35 },
+    { key: "audience_size_fit",       value: sizeFit,           weight: 0.10 },
+    { key: "engagement_rate",         value: engagement,        weight: 0.10 },
+    { key: "price_fit",               value: price,             weight: 0.10 },
+    { key: "outcome_fit",             value: outcome,           weight: 0.10 },
+    { key: "advertiser_friendliness", value: afScore,           weight: 0.08 },
+    { key: "income_match",            value: income,            weight: 0.07 },
+    { key: "content_consistency",     value: consistency,       weight: 0.05 },
+    // Remaining 5% capacity is the LLM re-rank shift in lib/intelligence/rerank.ts
+  ];
+  let activeNum = 0;
+  let activeDen = 0;
+  for (const c of componentInputs) {
+    if (c.value !== null && Number.isFinite(c.value)) {
+      activeNum += c.weight * c.value;
+      activeDen += c.weight;
+    }
+  }
+  const rawTotal = activeDen > 0 ? activeNum / activeDen : 0;
+
+  // Multipliers
   const platformMult = platformPreferencePenalty(
     (creator.platform as string) || null,
     (brand.preferred_creator_type as string) || null
   );
+  const competitor = competitorOverlapMultiplier(brandSynth, creatorSynth);
+  const vibe = vibeMismatchMultiplier(brandSynth, creatorSynth);
 
-  // Updated formula: outcome_fit gets 0.10 weight, platform is a multiplier not a weight
-  const rawTotal = 0.45 * cosSim + 0.12 * sizeFit + 0.10 * afScore + 0.08 * consistency + 0.10 * income + 0.10 * outcome + 0.05 * 0;
-  // Apply safety soft multiplier (1.0 = clean; 0.6-0.85 for borderline content)
-  const total = rawTotal * platformMult * safety.softMultiplier;
+  const total = rawTotal * platformMult * safety.softMultiplier * competitor.mult * vibe.mult;
 
-  const components = {
-    cosine_similarity: Math.round(cosSim * 1000) / 1000,
-    audience_size_fit: Math.round(sizeFit * 1000) / 1000,
-    advertiser_friendliness: Math.round(afScore * 1000) / 1000,
-    content_consistency: Math.round(consistency * 1000) / 1000,
-    income_match: Math.round(income * 1000) / 1000,
-    outcome_fit: Math.round(outcome * 1000) / 1000,
+  const components: Record<string, number> = {
+    cosine_similarity: Math.round((cosSim || 0) * 1000) / 1000,
+    audience_size_fit: Math.round((sizeFit ?? 0) * 1000) / 1000,
+    engagement_rate: Math.round((engagement ?? 0) * 1000) / 1000,
+    price_fit: Math.round((price ?? 0) * 1000) / 1000,
+    outcome_fit: Math.round((outcome ?? 0) * 1000) / 1000,
+    advertiser_friendliness: Math.round((afScore ?? 0) * 1000) / 1000,
+    income_match: Math.round((income ?? 0) * 1000) / 1000,
+    content_consistency: Math.round((consistency ?? 0) * 1000) / 1000,
   };
 
   // Explanation
@@ -394,15 +528,21 @@ export function scoreMatch(
   if (cAudience && bAudience) {
     parts.push(`${creator.newsletter_name || "Creator"}'s audience (${cAudience}) aligns with ${brand.company_name || "brand"}'s target (${bAudience})`);
   }
-  if (sizeFit >= 0.8) parts.push("Audience size matches budget well");
-  if (afScore >= 0.8) parts.push("Brand-safe content");
-  if (income >= 0.8) parts.push("Audience income matches target");
-  if (outcome >= 0.8 && brand.campaign_outcome) parts.push(`Strong ${brand.campaign_outcome} potential`);
+  if (sizeFit !== null && sizeFit >= 0.8) parts.push("Audience size matches budget well");
+  if (engagement !== null && engagement >= 0.8) parts.push("Strong engagement rate");
+  if (engagement !== null && engagement <= 0.2) parts.push("⚠ Low engagement rate");
+  if (price !== null && price >= 0.8) parts.push("Price fits budget");
+  if (price !== null && price <= 0.4) parts.push("⚠ Price tight against budget");
+  if (afScore !== null && afScore >= 0.8) parts.push("Brand-safe content");
+  if (income !== null && income >= 0.8) parts.push("Audience income matches target");
+  if (outcome !== null && outcome >= 0.8 && brand.campaign_outcome) parts.push(`Strong ${brand.campaign_outcome} potential`);
   if (platformMult < 1.0) {
     const creatorPlat = (creator.platform as string) || "other";
     const brandPref = (brand.preferred_creator_type as string) || "any";
     parts.push(`Cross-platform match (you lean ${brandPref}, this creator is ${creatorPlat} — but the audience fit is strong)`);
   }
+  if (competitor.matched.length) parts.push(`⚠ Competitor overlap: creator previously sponsored ${competitor.matched.join(", ")}`);
+  if (vibe.note) parts.push(`⚠ ${vibe.note}`);
 
   const cTopics = new Set(creatorSynth.top_topics as string[] || []);
   const bThemes = new Set(brandSynth.content_affinity as string[] || []);
@@ -418,7 +558,7 @@ export function scoreMatch(
   };
 }
 
-export async function getMatchesForBrand(brandId: string, limit = 20) {
+export async function getMatchesForBrand(brandId: string, limit = 20, opts?: { numericOnly?: boolean }) {
   const supabase = createServiceClient();
 
   // The requesting brand MUST be real (lookup in the filtered view — shadows are invisible).
@@ -437,7 +577,7 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
   // audience fit is strong. Platform preference is a soft scoring signal.
   const { data: creators } = await supabase
     .from("newsletter_directory")
-    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status")
+    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status, price_per_placement")
     .eq("is_active", true)
     .not("profile_embedding", "is", null);
 
@@ -454,12 +594,67 @@ export async function getMatchesForBrand(brandId: string, limit = 20) {
       engagement_rate: creator.engagement_rate || null,
       primary_niche: creator.primary_niche,
       counterparty_status: creator.onboarding_status as string,
+      price_per_placement: (creator.price_per_placement as number) || null,
       cross_platform: platformPreferencePenalty((creator.platform as string) || null, (brand.preferred_creator_type as string) || null) < 1.0,
       ...result,
     };
   });
 
-  return matches.sort((a, b) => b.score - a.score).slice(0, limit);
+  const numericRanked = matches.sort((a, b) => b.score - a.score);
+
+  // ── LLM re-rank on top 50 (fires unless ?numeric_only=1) ──
+  if (opts?.numericOnly) {
+    return numericRanked.slice(0, limit);
+  }
+  const top50 = numericRanked.slice(0, 50);
+  if (top50.length <= 1) return top50.slice(0, limit);
+
+  const { rerankCandidates } = await import("./rerank");
+  const brandIntel = (brand.brand_intelligence as Record<string, unknown>) || {};
+  const rerankResult = await rerankCandidates(
+    brand as unknown as Record<string, unknown>,
+    brandIntel,
+    top50.map(m => {
+      const creatorRow = creators.find(c => c.id === m.creator_id);
+      const ci = (creatorRow?.content_intelligence as Record<string, unknown>) || {};
+      const synth = (ci.synthesized as Record<string, unknown>) || {};
+      const pieces: string[] = [];
+      if (m.primary_niche) pieces.push(`Niche: ${m.primary_niche}`);
+      if (synth.one_line_profile) pieces.push(`Audience: ${synth.one_line_profile}`);
+      if (synth.content_category) pieces.push(`Vibe: ${synth.content_category}`);
+      if (m.audience_reach) pieces.push(`Reach: ${m.audience_reach.toLocaleString()}`);
+      if (m.engagement_rate) pieces.push(`Engagement: ${(m.engagement_rate * 100).toFixed(1)}%`);
+      if (m.price_per_placement) pieces.push(`Price: $${m.price_per_placement}`);
+      return {
+        creator_id: m.creator_id,
+        creator_name: m.creator_name as string,
+        numerical_score: m.score,
+        components: m.components,
+        creator_summary: pieces.join(" | "),
+      };
+    }),
+    Math.min(limit, 50)
+  );
+
+  // Merge rerank back onto match objects
+  const byId = new Map(top50.map(m => [m.creator_id, m]));
+  const reranked = rerankResult.ranked
+    .map(r => {
+      const base = byId.get(r.creator_id);
+      if (!base) return null;
+      return {
+        ...base,
+        score: Math.round(r.final_score * 1000) / 1000,
+        llm_reasoning: r.llm_reasoning,
+        llm_position: r.llm_position,
+        explanation: r.llm_reasoning && rerankResult.used_llm
+          ? `${Math.round(r.final_score * 100)}% — ${r.llm_reasoning} | ${base.explanation}`
+          : base.explanation,
+      };
+    })
+    .filter(Boolean);
+
+  return reranked.slice(0, limit);
 }
 
 export async function getMatchesForCreator(creatorId: string, limit = 20) {

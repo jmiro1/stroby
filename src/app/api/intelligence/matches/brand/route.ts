@@ -10,14 +10,15 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const brandId = url.searchParams.get("id");
   const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 1), 100);
+  const numericOnly = url.searchParams.get("numeric_only") === "1";
 
   if (!brandId || !/^[0-9a-f-]{36}$/.test(brandId)) {
     return Response.json({ error: "Invalid brand id" }, { status: 400 });
   }
 
   try {
-    const matches = await getMatchesForBrand(brandId, limit);
-    return Response.json({ brand_id: brandId, matches, count: matches.length });
+    const matches = await getMatchesForBrand(brandId, limit, { numericOnly });
+    return Response.json({ brand_id: brandId, matches, count: matches.length, reranked: !numericOnly });
   } catch (e) {
     console.error("matches/brand failed:", e);
     return Response.json({ error: "Match query failed" }, { status: 500 });
