@@ -190,14 +190,22 @@ export async function POST(req: NextRequest) {
     const updates: Record<string, unknown> = { brand_intelligence: intel };
     if (embedding) updates.profile_embedding = vecToString(embedding);
 
-    const { error: updErr } = await supabase
+    // Race-safe filter: only on shadow rows when we're not explicitly
+    // operating on real brands. With include_real=1, drop the guard so
+    // gatewayz/gda cap/etc actually get their intel persisted.
+    let upd = supabase
       .from("business_profiles_all")
       .update(updates)
-      .eq("id", c.id)
-      .eq("onboarding_status", "shadow");
+      .eq("id", c.id);
+    if (!includeReal) upd = upd.eq("onboarding_status", "shadow");
 
+    const { error: updErr, count } = await upd.select("id", { count: "exact", head: true });
     if (updErr) {
       errors.push(`update_${c.id}: ${updErr.message.slice(0, 120)}`);
+      failed++;
+    } else if (count === 0) {
+      // Row didn't match (probably onboarding_status filter excluded it)
+      errors.push(`update_${c.id}: no rows matched`);
       failed++;
     } else {
       updated++;
