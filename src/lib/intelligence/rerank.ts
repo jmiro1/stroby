@@ -29,7 +29,10 @@ function getAnthropic(): Anthropic {
 // structured-output task, not a generation task.
 const RERANK_MODEL = "claude-haiku-4-5-20251001";
 const RERANK_TOP_N = 50;       // numerical → top 50 → re-rank → top N (caller decides)
-const RERANK_MAX_TOKENS = 2000;
+// Each candidate emits ~80 chars reasoning + ~50 chars JSON wrapper
+// = ~130 chars. 50 × 130 = 6500 chars ≈ 1700 tokens. Add envelope + safety
+// headroom and we land at 4000.
+const RERANK_MAX_TOKENS = 4000;
 
 export interface RerankCandidate {
   creator_id: string;
@@ -64,7 +67,7 @@ Return STRICT JSON with this shape:
 Rules:
 - Order by likelihood-of-paid-deal, best first.
 - Include EVERY candidate exactly once.
-- Reasoning under 120 chars per creator. Reference specifics — the creator's niche, audience, content style, or a tonal note about brand fit. NEVER write "good fit" or "great match" — those are useless.
+- Reasoning under 80 chars per creator. Reference specifics — the creator's niche, audience, content style, or a tonal note about brand fit. NEVER write "good fit" or "great match" — those are useless.
 - If a candidate is a poor fit despite high numerical score, demote and explain why concretely.
 - Output the JSON object only. No prose before or after.`;
 
