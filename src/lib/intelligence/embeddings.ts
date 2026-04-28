@@ -35,8 +35,37 @@ export function creatorFingerprint(intelligence: Record<string, unknown>): strin
   return parts.join(". ");
 }
 
+// Normalize brand_intelligence shape — handles both legacy (synthesized
+// wrapper) and current (raw Haiku flat keys) layouts. Keep in sync with
+// normalizeBrandSynth in matching.ts. The matcher and the embedder must
+// agree on the shape, otherwise embeddings are computed from wrong fields.
+export function normalizeBrandSynth(intelligence: Record<string, unknown>): Record<string, unknown> {
+  if (intelligence?.synthesized && typeof intelligence.synthesized === "object") {
+    return intelligence.synthesized as Record<string, unknown>;
+  }
+  if (!intelligence || Object.keys(intelligence).length === 0) return {};
+  const tc = (intelligence.target_customer as Record<string, unknown>) || {};
+  return {
+    product_category: intelligence.product_category,
+    ideal_audience: intelligence.audience_they_want,
+    one_line_need: intelligence.newsletter_fit_notes,
+    brand_voice: intelligence.brand_voice,
+    budget_signal: intelligence.budget_signals,
+    content_affinity: intelligence.content_themes_they_align_with,
+    target_profile: {
+      profession: tc.profession,
+      seniority: tc.seniority,
+      company_size: tc.company_size,
+      income_bracket: tc.income_bracket,
+      psychographic: tc.psychographic,
+      pain_points: tc.pain_points,
+    },
+    competitors: intelligence.competitors,
+  };
+}
+
 export function brandFingerprint(intelligence: Record<string, unknown>): string {
-  const synth = (intelligence.synthesized || {}) as Record<string, unknown>;
+  const synth = normalizeBrandSynth(intelligence);
   if (!Object.keys(synth).length) return "";
 
   const parts: string[] = [];
