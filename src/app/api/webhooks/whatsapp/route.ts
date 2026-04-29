@@ -18,14 +18,22 @@ import { signInternalBody, INTERNAL_SIG_HEADER } from "@/lib/internal-sig";
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const mode = url.searchParams.get("hub.mode");
-  const token = url.searchParams.get("hub.verify_token");
+  const token = url.searchParams.get("hub.verify_token") || "";
   const challenge = url.searchParams.get("hub.challenge");
 
   const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
   if (!verifyToken) {
     return new Response("Server configuration error", { status: 500 });
   }
-  if (mode === "subscribe" && token === verifyToken) {
+  // Constant-time compare — Meta only hits this once at registration so
+  // impact is limited, but matches the pattern used elsewhere in the code.
+  const crypto = await import("crypto");
+  const tokenBuf = Buffer.from(token);
+  const expectedBuf = Buffer.from(verifyToken);
+  const tokenOk =
+    tokenBuf.length === expectedBuf.length &&
+    crypto.timingSafeEqual(tokenBuf, expectedBuf);
+  if (mode === "subscribe" && tokenOk) {
     return new Response(challenge, { status: 200 });
   }
   return new Response("Forbidden", { status: 403 });

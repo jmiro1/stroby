@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { cleanPhoneStrict, phoneOrFilter } from "@/lib/phone";
 
 export async function POST(request: NextRequest) {
   const { slug, phone } = await request.json();
@@ -7,25 +8,28 @@ export async function POST(request: NextRequest) {
     return Response.json({ verified: false, error: "Missing slug or phone" }, { status: 400 });
   }
 
-  const supabase = createServiceClient();
-  const cleanPhone = phone.replace(/[\s\-()]/g, "");
+  // Strict digit-only phone — prevents PostgREST .or() filter injection.
+  const cleanPhone = cleanPhoneStrict(phone);
+  if (!cleanPhone) {
+    return Response.json({ verified: false, error: "Invalid phone" }, { status: 400 });
+  }
 
-  // Check newsletter_profiles
+  const supabase = createServiceClient();
+
   const { data: nl } = await supabase
     .from("newsletter_profiles")
     .select("id")
     .eq("slug", slug)
-    .or(`phone.eq.${cleanPhone},phone.eq.+${cleanPhone}`)
+    .or(phoneOrFilter(cleanPhone))
     .maybeSingle();
 
   if (nl) return Response.json({ verified: true });
 
-  // Check other_profiles
   const { data: other } = await supabase
     .from("other_profiles")
     .select("id")
     .eq("slug", slug)
-    .or(`phone.eq.${cleanPhone},phone.eq.+${cleanPhone}`)
+    .or(phoneOrFilter(cleanPhone))
     .maybeSingle();
 
   if (other) return Response.json({ verified: true });

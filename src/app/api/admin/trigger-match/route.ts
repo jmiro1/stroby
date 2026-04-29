@@ -3,19 +3,18 @@ import { createServiceClient } from "@/lib/supabase";
 import { findMatchesForBusiness } from "@/lib/matching";
 import { sendWhatsAppSmart } from "@/lib/whatsapp";
 import { updateUserInsights } from "@/lib/user-insights";
+import { isAdminAuthed } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+  if (!isAdminAuthed(request)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await request.json();
-  const { key, userId, userType } = body as {
-    key?: string;
+  const { userId, userType } = body as {
     userId?: string;
     userType?: string;
   };
-
-  const adminPassword = process.env.ADMIN_PASSWORD;
-  if (!adminPassword || key !== adminPassword) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
 
   if (!userId) {
     return Response.json({ error: "userId is required" }, { status: 400 });
@@ -38,10 +37,8 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (bizError || !business) {
-    return Response.json(
-      { error: "Business not found", details: bizError?.message },
-      { status: 404 }
-    );
+    if (bizError) console.error("trigger-match: business lookup failed:", bizError);
+    return Response.json({ error: "Business not found" }, { status: 404 });
   }
 
   const matches = await findMatchesForBusiness(userId);

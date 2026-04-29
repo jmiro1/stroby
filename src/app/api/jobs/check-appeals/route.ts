@@ -4,16 +4,11 @@ import { getStripe } from "@/lib/stripe";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { sendPlacementReminders } from "@/app/api/placements/remind/route";
 import { recordCommissionForTransaction } from "@/lib/affiliates/commissions";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 export async function POST(request: NextRequest) {
-  // Verify cron secret to prevent unauthorized access
-  const authHeader = request.headers.get("authorization");
-  if (
-    process.env.CRON_SECRET &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(request.headers.get("authorization"));
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
 
   const supabase = createServiceClient();
 
@@ -66,14 +61,20 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Create Stripe transfer to newsletter owner's connected account
+      // Create Stripe transfer to newsletter owner's connected account.
+      // Idempotency key prevents double-payouts if the cron retries or
+      // overlaps with the manual /api/stripe/payout endpoint — Stripe
+      // returns the existing transfer instead of creating a new one.
       try {
-        const transfer = await getStripe().transfers.create({
-          amount: transaction.payout_amount,
-          currency: "usd",
-          destination: newsletter.stripe_account_id,
-          metadata: { transaction_id: transaction.id },
-        });
+        const transfer = await getStripe().transfers.create(
+          {
+            amount: transaction.payout_amount,
+            currency: "usd",
+            destination: newsletter.stripe_account_id,
+            metadata: { transaction_id: transaction.id },
+          },
+          { idempotencyKey: `payout:${transaction.id}` }
+        );
 
         // Update transaction as released
         const { error: updateError } = await supabase

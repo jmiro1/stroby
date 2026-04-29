@@ -57,8 +57,11 @@ export default function MatchesPage() {
     try {
       const res = await fetch("/api/admin/trigger-match", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: password, userId: bizId, userType: "business" }),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${password}`,
+        },
+        body: JSON.stringify({ userId: bizId, userType: "business" }),
       });
       const data = await res.json();
       setResults((prev) => ({ ...prev, [bizId]: data }));

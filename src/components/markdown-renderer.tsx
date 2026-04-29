@@ -156,7 +156,19 @@ function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Defense in depth — even though blog posts are admin-authored markdown
+// from the filesystem, validate href schemes so a malicious or pasted
+// link can't ship javascript:/data: URIs through to the rendered DOM.
+const SAFE_HREF_RE = /^(https?:|mailto:|\/|#|tel:)/i;
+function safeHref(raw: string): string {
+  const trimmed = raw.trim();
+  if (!SAFE_HREF_RE.test(trimmed)) return "#";
+  return trimmed.replace(/"/g, "&quot;");
 }
 
 function inlineMarkdown(text: string): string {
@@ -169,10 +181,10 @@ function inlineMarkdown(text: string): string {
   result = result.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   // Italic
   result = result.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  // Links
+  // Links — validate href scheme to block javascript:/data: XSS vectors
   result = result.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2">$1</a>'
+    (_m, label: string, href: string) => `<a href="${safeHref(href)}">${label}</a>`,
   );
   return result;
 }

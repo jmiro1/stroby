@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { cleanPhoneStrict, phoneOrFilter } from "@/lib/phone";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -7,6 +10,20 @@ export async function POST(request: NextRequest) {
 
   if (!id && !phone) {
     return Response.json({ error: "Missing id or phone" }, { status: 400 });
+  }
+
+  // Validate id format if present (must be a UUID — prevents .eq() injection)
+  if (id && (typeof id !== "string" || !UUID_RE.test(id))) {
+    return Response.json({ error: "Invalid id" }, { status: 400 });
+  }
+
+  // Strict digit-only phone if present — prevents PostgREST .or() filter injection.
+  let cleanPhone: string | null = null;
+  if (phone) {
+    cleanPhone = cleanPhoneStrict(phone);
+    if (!cleanPhone) {
+      return Response.json({ error: "Invalid phone" }, { status: 400 });
+    }
   }
 
   const supabase = createServiceClient();
@@ -23,9 +40,8 @@ export async function POST(request: NextRequest) {
 
     if (id) {
       query = query.eq("id", id);
-    } else if (phone) {
-      const cleanPhone = phone.replace(/[\s\-()]/g, "");
-      query = query.or(`phone.eq.${cleanPhone},phone.eq.+${cleanPhone}`);
+    } else if (cleanPhone) {
+      query = query.or(phoneOrFilter(cleanPhone));
     }
 
     const { data } = await query.maybeSingle();

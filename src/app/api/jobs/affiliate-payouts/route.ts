@@ -25,6 +25,7 @@ import { getStripe } from "@/lib/stripe";
 import { AFFILIATE_CONFIG } from "@/lib/affiliates/config";
 import { notifyPayoutSent, notifyPayoutRolledForward } from "@/lib/affiliates/notify";
 import type { Affiliate, AffiliateCommission } from "@/lib/affiliates/types";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 interface PayoutResult {
   affiliate_id: string;
@@ -39,13 +40,8 @@ interface PayoutResult {
 }
 
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (
-    process.env.CRON_SECRET &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(request.headers.get("authorization"));
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
 
   const supabase = createServiceClient();
   const stripe = getStripe();

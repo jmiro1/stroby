@@ -16,6 +16,7 @@
  */
 import { NextRequest } from "next/server";
 import nodemailer from "nodemailer";
+import { checkRateLimit } from "@/lib/rate-limiter";
 
 const TO_ADDRESS = "contact@stroby.ai";
 const SMTP_HOST = "smtp.gmail.com";
@@ -39,6 +40,18 @@ function escapeHtml(s: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Per-IP rate limit. Honeypot stops dumb bots; this caps determined ones.
+  // 30/hour per IP — same default the WhatsApp webhook + widget use.
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown";
+  const rate = checkRateLimit(`contact:${ip}`);
+  if (!rate.allowed) {
+    // Pretend success so an attacker can't trivially detect the limit
+    return Response.json({ success: true });
+  }
+
   let body: ContactBody;
   try {
     body = await request.json();

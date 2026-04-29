@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
+import { cleanPhoneStrict, phoneOrFilter } from "@/lib/phone";
 import crypto from "crypto";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -9,9 +10,9 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   const slug = formData.get("slug") as string | null;
-  const phone = formData.get("phone") as string | null;
+  const phoneRaw = formData.get("phone") as string | null;
 
-  if (!file || !slug || !phone) {
+  if (!file || !slug || !phoneRaw) {
     return Response.json({ error: "Missing file, slug, or phone" }, { status: 400 });
   }
 
@@ -23,20 +24,27 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Image too large — max 5MB." }, { status: 400 });
   }
 
+  // Strict digit-only phone, length-validated. Prevents PostgREST .or()
+  // filter injection (a comma in the phone would let the attacker append
+  // arbitrary OR clauses and match any profile).
+  const cleanPhone = cleanPhoneStrict(phoneRaw);
+  if (!cleanPhone) {
+    return Response.json({ error: "Invalid phone number." }, { status: 400 });
+  }
+
   const supabase = createServiceClient();
-  const cleanPhone = phone.replace(/[\s\-()]/g, "");
 
   // Verify ownership
   const { data: nl } = await supabase
     .from("newsletter_profiles")
     .select("id")
     .eq("slug", slug)
-    .or(`phone.eq.${cleanPhone},phone.eq.+${cleanPhone}`)
+    .or(phoneOrFilter(cleanPhone))
     .maybeSingle();
 
   const { data: other } = !nl
     ? await supabase.from("other_profiles").select("id").eq("slug", slug)
-        .or(`phone.eq.${cleanPhone},phone.eq.+${cleanPhone}`).maybeSingle()
+        .or(phoneOrFilter(cleanPhone)).maybeSingle()
     : { data: null };
 
   const profileId = nl?.id || other?.id;

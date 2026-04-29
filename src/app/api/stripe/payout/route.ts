@@ -1,8 +1,17 @@
 import { NextRequest } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
+import { isAdminAuthed } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
+  // No internal callers — this endpoint exists for manual ops use.
+  // Without admin auth, an anonymous caller could trigger early payouts
+  // (status guards limit but don't eliminate impact). The safer path is
+  // the check-appeals cron; this is a manual override.
+  if (!isAdminAuthed(request)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { transactionId } = await request.json();
 
@@ -37,26 +46,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (transaction.status !== "appeal_window") {
-      return Response.json(
-        { error: "Transaction is not in appeal window" },
-        { status: 400 }
-      );
-    }
-
     const now = new Date();
     const appealDeadline = new Date(transaction.appeal_deadline);
 
     if (appealDeadline > now) {
       return Response.json(
         { error: "Appeal window has not yet expired" },
-        { status: 400 }
-      );
-    }
-
-    if (transaction.appeal_filed) {
-      return Response.json(
-        { error: "An appeal has been filed for this transaction" },
         { status: 400 }
       );
     }
@@ -72,15 +67,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create transfer to connected account
-    const transfer = await stripe.transfers.create({
-      amount: transaction.payout_amount,
-      currency: "usd",
-      destination: stripeAccountId,
-      metadata: { transaction_id: transactionId },
-    });
+    // Atomic claim — flips status to 'paying' only if we're still in
+    // appeal_window AND no appeal was filed. Two concurrent calls race
+    // here; only one matches the WHERE clause. Without this, the prior
+    // read-then-write pattern could let two callers each create a Stripe
+    // transfer before the first one updated status, double-paying out.
+    const { data: claimed, error: claimError } = await supabase
+      .from("transactions")
+      .update({ status: "paying" })
+      .eq("id", transactionId)
+      .eq("status", "appeal_window")
+      .eq("appeal_filed", false)
+      .select("id")
+      .maybeSingle();
 
-    // Update transaction status to released
+    if (claimError) {
+      console.error("Payout claim failed:", claimError);
+      return Response.json({ error: "Failed to claim transaction for payout" }, { status: 500 });
+    }
+    if (!claimed) {
+      return Response.json(
+        { error: "Transaction not eligible for payout (not in appeal_window, or appeal_filed)" },
+        { status: 400 }
+      );
+    }
+
+    // Stripe idempotency key — duplicate transfer requests for the same
+    // transaction return the original transfer instead of creating a new
+    // one. Belt-and-braces with the atomic claim above.
+    const transfer = await stripe.transfers.create(
+      {
+        amount: transaction.payout_amount,
+        currency: "usd",
+        destination: stripeAccountId,
+        metadata: { transaction_id: transactionId },
+      },
+      { idempotencyKey: `payout:${transactionId}` }
+    );
+
+    // Promote claimed → released
     const { error: updateError } = await supabase
       .from("transactions")
       .update({

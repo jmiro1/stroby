@@ -115,29 +115,35 @@ export async function POST(request: NextRequest) {
 
   const email = (body.email ?? "").trim().toLowerCase();
   const full_name = (body.full_name ?? "").trim();
-  const phone = (body.phone ?? "").trim().replace(/\s+/g, "");
+  const phoneRaw = (body.phone ?? "").trim();
   const network_description = (body.network_description ?? "").trim();
   const bio = (body.bio ?? "").trim();
   const display_name = (body.display_name ?? "").trim() || null;
 
-  // Validation
-  if (!email || !email.includes("@")) {
+  // Validation. Email/phone are interpolated into a PostgREST .or() filter
+  // below — strict format checks here also serve as injection prevention
+  // (a comma in either value would let an attacker append OR clauses).
+  if (!email || !/^[^\s,@]+@[^\s,@]+\.[^\s,@]+$/.test(email) || email.length > 320) {
     return Response.json({ error: "Valid email required" }, { status: 400 });
   }
-  if (!full_name || full_name.length < 2) {
+  if (!full_name || full_name.length < 2 || full_name.length > 200) {
     return Response.json({ error: "Full name required" }, { status: 400 });
   }
-  if (!phone || phone.length < 7) {
+  const phone = phoneRaw.replace(/\D/g, "");
+  if (phone.length < 7 || phone.length > 15) {
     return Response.json({ error: "Phone number required (with country code)" }, { status: 400 });
   }
 
   const supabase = createServiceClient();
 
-  // Duplicate check by email or phone
+  // Duplicate check by email or phone. email/phone are validated above;
+  // phone is digit-only and email contains no commas — both safe to
+  // interpolate into the PostgREST filter. Match both '15551234567' and
+  // '+15551234567' since the codebase stores phones in either format.
   const { data: existing } = await supabase
     .from("affiliates")
     .select("id, status")
-    .or(`email.eq.${email},phone.eq.${phone}`)
+    .or(`email.eq.${email},phone.eq.${phone},phone.eq.+${phone}`)
     .maybeSingle();
   if (existing) {
     return Response.json(
@@ -162,7 +168,7 @@ export async function POST(request: NextRequest) {
     .insert({
       email,
       full_name,
-      phone,
+      phone: `+${phone}`,
       bio: bio || null,
       network_description: network_description || null,
       display_name,

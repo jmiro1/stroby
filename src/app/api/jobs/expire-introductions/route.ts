@@ -1,16 +1,11 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
+import { verifyCronAuth } from "@/lib/cron-auth";
 
 export async function POST(request: NextRequest) {
-  // Verify cron secret to prevent unauthorized access
-  const authHeader = request.headers.get("authorization");
-  if (
-    process.env.CRON_SECRET &&
-    authHeader !== `Bearer ${process.env.CRON_SECRET}`
-  ) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = verifyCronAuth(request.headers.get("authorization"));
+  if (!auth.ok) return Response.json({ error: auth.error }, { status: auth.status });
 
   const supabase = createServiceClient();
 

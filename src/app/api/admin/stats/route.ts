@@ -2,16 +2,14 @@ import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { decrypt } from "@/lib/encryption";
 import { checkWhatsAppTokenExpiry } from "@/lib/whatsapp-token-check";
+import { isAdminAuthed } from "@/lib/admin-auth";
 
 export async function GET(request: NextRequest) {
-  const url = new URL(request.url);
-  const key = url.searchParams.get("key");
-  const view = url.searchParams.get("view");
-  const adminPassword = process.env.ADMIN_PASSWORD;
-
-  if (!adminPassword || key !== adminPassword) {
+  if (!isAdminAuthed(request)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const url = new URL(request.url);
+  const view = url.searchParams.get("view");
 
   const supabase = createServiceClient();
 

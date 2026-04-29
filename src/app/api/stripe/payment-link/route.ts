@@ -1,10 +1,19 @@
 import { NextRequest } from "next/server";
 import { getStripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase";
+import { isAdminAuthed } from "@/lib/admin-auth";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
 
 export async function POST(request: NextRequest) {
+  // No internal callers — this endpoint exists for manual ops use.
+  // Without admin auth, any anonymous caller with a transaction UUID
+  // could create Stripe Checkout sessions for any transaction in the
+  // DB (Stripe-dashboard pollution + indirect data leak).
+  if (!isAdminAuthed(request)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { transactionId } = await request.json();
 
