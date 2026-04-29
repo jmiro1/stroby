@@ -43,8 +43,19 @@ export async function POST(request: NextRequest) {
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-  for (const business of businesses) {
-    // Rate limit: max 3 suggestions per business per week
+  // Phase 3: weekly proactive push gate.
+  // Match-suggestion runs ONLY on Wednesdays. The rest of this cron
+  // (engagement drips, post-intro followups, admin digest) keeps running
+  // daily — those don't have the same noise concerns. UTC Wednesday hits
+  // 11am Buenos Aires / 10am ET / 7am PT / 3pm London at the standard
+  // 14:00 fire time — comfortable working hours for most user bases.
+  const today = new Date();
+  const isWednesday = today.getUTCDay() === 3;
+
+  if (isWednesday) for (const business of businesses) {
+    // Rate limit: 1 suggestion per business per week (Boardy-level
+    // single-suggestion UX). Lifted from "max 3/week" so users get a
+    // single high-quality push instead of three lower-quality ones.
     const { count } = await supabase
       .from("introductions")
       .select("id", { count: "exact", head: true })
@@ -52,11 +63,15 @@ export async function POST(request: NextRequest) {
       .eq("status", "suggested")
       .gte("created_at", oneWeekAgo.toISOString());
 
-    if ((count ?? 0) >= 3) {
+    if ((count ?? 0) >= 1) {
       continue;
     }
 
-    const matches = await findMatchesForBusiness(business.id);
+    const allMatches = await findMatchesForBusiness(business.id);
+    // Phase 3: send only the TOP match this Wednesday. The next match
+    // (if any) waits until next Wednesday's fire. Keeps the UX as one
+    // proposal at a time — easier to evaluate, higher accept rate.
+    const matches = allMatches.slice(0, 1);
     businessesProcessed++;
 
     for (const match of matches) {

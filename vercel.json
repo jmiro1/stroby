@@ -1,5 +1,5 @@
 {
   "crons": [
-    { "path": "/api/jobs/run-matching", "schedule": "0 8 * * *" }
+    { "path": "/api/jobs/run-matching", "schedule": "0 14 * * *" }
   ]
 }
