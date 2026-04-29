@@ -388,6 +388,7 @@ Do NOT launch until there are enough quality matches that blasts are worth it. P
 - [ ] **Tune per-platform engagement thresholds from real data.** Same approach — current thresholds are educated guesses; refine after observing actual successful matches on each platform.
 
 ## Security & Compliance
+- [x] **Full multi-angle security audit** — done 2026-04-29 (commits 1eeeebd, f7cebcb, 46e9c62). Closed: anon-exposed views, PostgREST `.or()` injection in 4 routes, unauthenticated widget webhook, cron auth fail-open + non-constant-time, admin auth via query param + non-constant-time, WhatsApp GET verify_token compare, markdown XSS, error-message leak, contact form rate limit, Stripe payout double-pay race, orphan Stripe ops endpoints, Next.js DoS CVE, Anthropic SDK Memory Tool CVE, postcss build-time XSS via override. `npm audit` = 0 vulnerabilities at time of audit.
 - [ ] **Weekly full security audit** — every Monday, run a security sweep to catch regressions
   - Check all API routes for auth
   - Verify no hardcoded secrets or passwords
@@ -395,6 +396,11 @@ Do NOT launch until there are enough quality matches that blasts are worth it. P
   - Verify encryption hasn't regressed
   - Check rate limiting is still in place
   - Audit new endpoints added that week
+  - Run `npm audit` and triage anything new
+  - Spot-check: any new `.or()` calls with template literals? (use `cleanPhoneStrict` helper from `lib/phone.ts`)
+  - Spot-check: any new admin/cron routes use the shared `isAdminAuthed` / `verifyCronAuth` helpers, not inline `===` compares
+- [ ] **Decide fate of orphan Stripe routes** — `/api/stripe/payment-link` and `/api/stripe/payout` had no callers in src as of 2026-04-29. Now locked behind `isAdminAuthed` so they're safe, but if they're truly dead code they can be deleted. The `check-appeals` cron already does the same payout work autonomously.
+- [ ] **Avatar feature bug** — `proof-screenshots` Storage bucket is private (no anon RLS policy = good for security), but `upload-avatar/route.ts` uses `getPublicUrl()` which produces URLs that won't load in browsers. Either: (a) make a public-readable subpath via RLS policy, (b) switch to signed URLs, or (c) confirm avatars aren't currently displayed and feature is dormant.
 
 ## Infrastructure
 - [x] CRON_SECRET on Vercel
