@@ -72,6 +72,30 @@ function fallbackFingerprint(row: {
   return parts.join(". ");
 }
 
+function otherFallbackFingerprint(row: {
+  name?: string | null;
+  platform?: string | null;
+  niche?: string | null;
+  description?: string | null;
+  role?: string | null;
+  organization?: string | null;
+  can_offer?: string | null;
+}): string {
+  // other_profiles has no content_intelligence in v1 (per-platform
+  // profilers aren't built yet — see TODO Maybe/Explore Later). Build
+  // the fingerprint from raw identity fields. Platform is included so
+  // a "YouTuber covering AI" doesn't collide with "newsletter on AI".
+  const parts: string[] = [];
+  if (row.name) parts.push(row.name);
+  if (row.platform) parts.push(`Platform: ${row.platform}`);
+  if (row.niche) parts.push(`Niche: ${row.niche}`);
+  if (row.role && row.organization) parts.push(`${row.role} at ${row.organization}`);
+  else if (row.role) parts.push(`Role: ${row.role}`);
+  if (row.description) parts.push(row.description.slice(0, 800));
+  if (row.can_offer) parts.push(`Offers: ${row.can_offer.slice(0, 400)}`);
+  return parts.join(". ");
+}
+
 async function embedBatchWithRetry(texts: string[]): Promise<{ embeddings: number[][]; status: string }> {
   const apiKey = process.env.VOYAGEAI_API_KEY;
   if (!apiKey) throw new Error("VOYAGEAI_API_KEY not set");
@@ -121,39 +145,40 @@ export async function POST(req: NextRequest) {
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dry_run") === "1";
+  // include_other=1 → also fingerprint+embed other_profiles (non-newsletter
+  // creators: YouTubers, podcasters, IG/TikTok/etc). Off by default for
+  // backward compat with the existing drain. The matching engine reads
+  // creator_directory_unified which UNIONs both sources.
+  const includeOther = url.searchParams.get("include_other") === "1";
   let limit = parseInt(url.searchParams.get("limit") || `${HARD_LIMIT_DEFAULT}`, 10);
   if (!Number.isFinite(limit) || limit <= 0) limit = HARD_LIMIT_DEFAULT;
   if (limit > HARD_LIMIT_MAX) limit = HARD_LIMIT_MAX;
 
   const supabase = createServiceClient();
 
-  // Pull rows that need embeddings. Prefer rows that already have
-  // content_intelligence (better fingerprint) — they're the ones the
-  // matching engine cares about most.
-  const { data: rows, error: selErr } = await supabase
+  type Source = "newsletter" | "other";
+  type Candidate = { id: string; fp: string; via: "content_intel" | "fallback"; source: Source };
+  const candidates: Candidate[] = [];
+
+  // Newsletter pass — prefer rows that already have content_intelligence
+  // (better fingerprint), they're the ones the matching engine cares
+  // about most.
+  const { data: nlRows, error: nlErr } = await supabase
     .from("newsletter_profiles_all")
     .select("id, newsletter_name, primary_niche, description, url, content_intelligence")
     .is("profile_embedding", null)
     .order("content_intelligence", { ascending: false, nullsFirst: false })
     .limit(limit);
-
-  if (selErr) {
-    return NextResponse.json({ ok: false, error: `select_failed: ${selErr.message}` }, { status: 500 });
+  if (nlErr) {
+    return NextResponse.json({ ok: false, error: `select_newsletter_failed: ${nlErr.message}` }, { status: 500 });
   }
-  if (!rows || rows.length === 0) {
-    return NextResponse.json({ ok: true, processed: 0, message: "no rows need embedding" });
-  }
-
-  // Build fingerprint per row
-  const candidates: { id: string; fp: string; via: "content_intel" | "fallback" }[] = [];
-  for (const r of rows) {
+  for (const r of nlRows || []) {
     let fp = "";
     let via: "content_intel" | "fallback" = "fallback";
     if (r.content_intelligence) {
       const intel = typeof r.content_intelligence === "string"
         ? JSON.parse(r.content_intelligence)
         : (r.content_intelligence as Record<string, unknown>);
-      // creatorFingerprint expects { synthesized: {...} } shape
       fp = creatorFingerprint(intel);
       if (fp) via = "content_intel";
     }
@@ -161,7 +186,43 @@ export async function POST(req: NextRequest) {
       fp = fallbackFingerprint(r);
       via = "fallback";
     }
-    if (fp.trim()) candidates.push({ id: r.id, fp, via });
+    if (fp.trim()) candidates.push({ id: r.id, fp, via, source: "newsletter" });
+  }
+
+  // Other pass — non-newsletter creators. No content_intelligence yet
+  // (per-platform profilers are parked in TODO Maybe/Explore Later), so
+  // every row uses the otherFallbackFingerprint path.
+  if (includeOther) {
+    const { data: otherRows, error: otherErr } = await supabase
+      .from("other_profiles")
+      .select("id, name, platform, niche, description, role, organization, can_offer, content_intelligence")
+      .is("profile_embedding", null)
+      .order("content_intelligence", { ascending: false, nullsFirst: false })
+      .limit(limit);
+    if (otherErr) {
+      return NextResponse.json({ ok: false, error: `select_other_failed: ${otherErr.message}` }, { status: 500 });
+    }
+    for (const r of otherRows || []) {
+      let fp = "";
+      let via: "content_intel" | "fallback" = "fallback";
+      if (r.content_intelligence) {
+        const intel = typeof r.content_intelligence === "string"
+          ? JSON.parse(r.content_intelligence)
+          : (r.content_intelligence as Record<string, unknown>);
+        fp = creatorFingerprint(intel);
+        if (fp) via = "content_intel";
+      }
+      if (!fp) {
+        fp = otherFallbackFingerprint(r);
+        via = "fallback";
+      }
+      if (fp.trim()) candidates.push({ id: r.id, fp, via, source: "other" });
+    }
+  }
+
+  const selected = (nlRows?.length || 0) + (includeOther ? candidates.filter(c => c.source === "other").length : 0);
+  if (candidates.length === 0) {
+    return NextResponse.json({ ok: true, processed: 0, message: "no rows need embedding" });
   }
 
   if (dryRun) {
@@ -169,9 +230,11 @@ export async function POST(req: NextRequest) {
       ok: true,
       dry_run: true,
       candidates: candidates.length,
+      newsletter: candidates.filter(c => c.source === "newsletter").length,
+      other: candidates.filter(c => c.source === "other").length,
       via_content_intel: candidates.filter(c => c.via === "content_intel").length,
       via_fallback: candidates.filter(c => c.via === "fallback").length,
-      sample: candidates.slice(0, 3).map(c => ({ id: c.id, via: c.via, fp_preview: c.fp.slice(0, 120) })),
+      sample: candidates.slice(0, 3).map(c => ({ id: c.id, source: c.source, via: c.via, fp_preview: c.fp.slice(0, 120) })),
     });
   }
 
@@ -199,13 +262,16 @@ export async function POST(req: NextRequest) {
 
     // Update each row sequentially (heterogeneous values per row).
     for (let j = 0; j < batch.length; j++) {
-      const { error: updErr } = await supabase
-        .from("newsletter_profiles_all")
-        .update({ profile_embedding: vecToString(result.embeddings[j]) })
-        .eq("id", batch[j].id)
-        .eq("onboarding_status", "shadow");
+      const c = batch[j];
+      const table = c.source === "newsletter" ? "newsletter_profiles_all" : "other_profiles";
+      // newsletter shadow filter preserved for backward compat (live
+      // rows are embedded inline at signup via the regular embed-all
+      // path); other_profiles has no shadow concept so update freely.
+      let q = supabase.from(table).update({ profile_embedding: vecToString(result.embeddings[j]) }).eq("id", c.id);
+      if (c.source === "newsletter") q = q.eq("onboarding_status", "shadow");
+      const { error: updErr } = await q;
       if (updErr) {
-        errors.push(`update_${batch[j].id}: ${updErr.message.slice(0, 120)}`);
+        errors.push(`update_${c.source}_${c.id}: ${updErr.message.slice(0, 120)}`);
         failed++;
       } else {
         embedded++;
@@ -216,10 +282,12 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
-    selected: rows.length,
+    selected,
     processed: candidates.length,
     embedded,
     failed,
+    newsletter: candidates.filter(c => c.source === "newsletter").length,
+    other: candidates.filter(c => c.source === "other").length,
     via_content_intel: candidates.filter(c => c.via === "content_intel").length,
     via_fallback: candidates.filter(c => c.via === "fallback").length,
     errors: errors.slice(0, 10),

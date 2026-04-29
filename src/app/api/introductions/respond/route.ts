@@ -8,9 +8,12 @@ import { verifyInternalBody, INTERNAL_SIG_HEADER } from "@/lib/internal-sig";
 // Phase 2/4: log every state transition into match_decisions so the
 // memory layer (Phase 4 — last-N-decisions injected into rerank prompt)
 // has data to read. Failure here is intentionally non-blocking — we
-// never want logging to take down the actual state transition. Only
-// log for newsletter introductions (other_profiles isn't tracked in
-// match_decisions yet).
+// never want logging to take down the actual state transition.
+//
+// 2026-04-29: extended to log other_profiles decisions too. The FK on
+// match_decisions.creator_id has been dropped (multi-source support);
+// we persist creator_type alongside so the rerank join can find the
+// correct row in either source.
 async function logMatchDecision(
   supabase: ReturnType<typeof createServiceClient>,
   args: {
@@ -24,10 +27,11 @@ async function logMatchDecision(
     reason?: string | null;
   }
 ): Promise<void> {
-  if (args.creatorType !== "newsletter") return;
+  const creatorType = args.creatorType === "other" ? "other" : "newsletter";
   try {
     await supabase.from("match_decisions").insert({
       creator_id: args.creatorId,
+      creator_type: creatorType,
       brand_id: args.brandId,
       decision: args.decision,
       decided_by: args.decidedBy,

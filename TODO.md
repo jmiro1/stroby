@@ -374,6 +374,19 @@ Do NOT launch until there are enough quality matches that blasts are worth it. P
 - [ ] Pause/unpause matching per user
 - [ ] Group chat creation on WhatsApp for introductions
 
+### Multi-platform matching v2 (parked from 2026-04-28 other_profiles incorporation plan)
+- [ ] **Per-platform content_intelligence profilers.** v1 ships with thin/empty content_intelligence for non-newsletter creators (we don't read their content). Build platform-specific profilers later:
+  - YouTube: pull captions via the YouTube Data API v3, run through Claude for audience profile + safety charges
+  - Podcast: integrate Listen Notes API or transcribe via Whisper for top episodes
+  - Instagram: scrape recent post captions + bios (TOS-grey; or use Instagram Graph API for owned channels)
+  - TikTok: scrape video descriptions; transcript via Whisper if budget allows
+  - LinkedIn: scrape recent posts (TOS-grey)
+  - Twitter/X: pull recent tweets via X API v2 (need higher tier)
+  Each profiler outputs the same content_intelligence shape Echo profiler produces today (audience_personas, topic_density, brand_safety_flags, vibe, one_line_pitch, charge scores).
+- [ ] **Platform-specific pricing capture in onboarding.** v1 lets non-newsletter creators clear the eligibility gate via `open_to_inquiries=true` without naming a price. Add explicit per-platform price prompts later (CPM-based for podcast, flat per post for IG/TikTok, etc.) once we have brand-side signal on what works.
+- [ ] **Tune effective-monthly-impressions multipliers from real data.** v1 uses industry-rough multipliers (newsletter × open_rate × 4 sends, IG × 0.1 × 30 posts, etc). Once 50+ deals close across multiple platforms, replace gut estimates with measured CPM-equivalent values.
+- [ ] **Tune per-platform engagement thresholds from real data.** Same approach — current thresholds are educated guesses; refine after observing actual successful matches on each platform.
+
 ## Security & Compliance
 - [ ] **Weekly full security audit** — every Monday, run a security sweep to catch regressions
   - Check all API routes for auth

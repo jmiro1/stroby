@@ -107,25 +107,24 @@ export async function POST(request: NextRequest) {
       // memory layer (Phase 4) can read prior decisions back into the rerank
       // prompt. Failure here is non-blocking — we never want this to take
       // down the cron.
-      if (match.creatorType === "newsletter") {
-        try {
-          await supabase.from("match_decisions").insert({
-            creator_id: match.creatorId,
-            brand_id: business.id,
-            decision: "proposed",
-            decided_by: "system",
-            source: "cron",
-            match_score: match.score,
-            metadata: {
-              reasoning: match.reasoning,
-              concerns: match.concerns ?? null,
-              niche_distance: match.nicheDistance ?? null,
-              introduction_id: intro.id,
-            },
-          });
-        } catch (e) {
-          console.error("match_decisions log (proposed) failed:", e);
-        }
+      try {
+        await supabase.from("match_decisions").insert({
+          creator_id: match.creatorId,
+          creator_type: match.creatorType,
+          brand_id: business.id,
+          decision: "proposed",
+          decided_by: "system",
+          source: "cron",
+          match_score: match.score,
+          metadata: {
+            reasoning: match.reasoning,
+            concerns: match.concerns ?? null,
+            niche_distance: match.nicheDistance ?? null,
+            introduction_id: intro.id,
+          },
+        });
+      } catch (e) {
+        console.error("match_decisions log (proposed) failed:", e);
       }
 
       matchesSuggested++;

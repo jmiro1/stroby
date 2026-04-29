@@ -16,10 +16,11 @@
  * now (with embedding-based cosine similarity, safety-charge filters,
  * the LLM rerank, and the match-eligibility gate).
  *
- * NOTE — `other_profiles` (non-newsletter creators) is temporarily out
- * of scope. The intelligence engine reads only newsletter_directory
- * today. Restoring the other_profiles path requires extending that
- * engine; tracked in PLANS.md.
+ * 2026-04-29: other_profiles support restored. The intelligence engine
+ * now reads creator_directory_unified (newsletter + other UNION'd) and
+ * surfaces match.creator_type='newsletter'|'other'. This wrapper
+ * branches on creator_type to populate either `newsletter` or
+ * `otherProfile` on Match for downstream WhatsApp templating.
  */
 import { createServiceClient } from "./supabase";
 
@@ -167,8 +168,19 @@ export async function findMatchesForBusiness(businessId: string): Promise<Match[
     return [];
   }
 
-  // Apply production guards on top of the intelligence ranking.
-  const matches: Match[] = [];
+  // First pass: filter by production guards. We collect candidates BEFORE
+  // doing the otherProfile fetch so we only pay for rows that survive.
+  type Candidate = {
+    creatorId: string;
+    creatorType: CreatorType;
+    score: number;
+    niche: string | null;
+    creatorName: string;
+    audienceReach: number | null;
+    pricePerPlacement: number | null;
+    reasoning: string;
+  };
+  const surviving: Candidate[] = [];
   for (const m of result) {
     const mr = m as Record<string, unknown>;
     const creatorId = mr.creator_id as string;
@@ -178,38 +190,102 @@ export async function findMatchesForBusiness(businessId: string): Promise<Match[
     if (typeof score !== "number" || score < MIN_SCORE_THRESHOLD) continue;
     if (excludedIds.has(creatorId)) continue;
     if ((introCounts.get(creatorId) || 0) >= RATE_LIMIT_PER_CREATOR_PER_WEEK) continue;
-    const niche = mr.primary_niche as string | undefined;
+    const niche = (mr.primary_niche as string) || null;
     if (niche && avoidNiches.has(niche)) continue;
 
-    matches.push({
+    const creatorType = ((mr.creator_type as string) === "other" ? "other" : "newsletter") as CreatorType;
+    surviving.push({
       creatorId,
-      creatorType: "newsletter",
+      creatorType,
+      score,
+      niche,
       creatorName: (mr.creator_name as string) || "Creator",
-      newsletter: {
-        id: creatorId,
-        slug: null,
-        newsletter_name: (mr.creator_name as string) || "",
-        primary_niche: niche || null,
-        description: null,
-        subscriber_count: (mr.subscriber_count as number) || null,
-        avg_open_rate: null,
-        avg_ctr: null,
-        price_per_placement: (mr.price_per_placement as number) || null,
-        api_verified: null,
-        screenshot_verified: null,
-        avg_match_rating: null,
-      },
-      // Prefer the LLM-rerank one-liner (specific, falsifiable). Fall
-      // back to the components-based explanation, then to a generic note.
+      audienceReach: (mr.audience_reach as number) || null,
+      pricePerPlacement: (mr.price_per_placement as number) || null,
       reasoning:
         (mr.llm_reasoning as string)
         || (mr.explanation as string)
         || `${Math.round(score * 100)}% match`,
-      score,
     });
 
-    if (matches.length >= MAX_RESULTS) break;
+    if (surviving.length >= MAX_RESULTS) break;
   }
 
-  return matches;
+  if (surviving.length === 0) return [];
+
+  // For any "other" creators in the survivor list, fetch the rich
+  // OtherProfile fields (role, organization, can_offer, ...) so the
+  // WhatsApp introduction template has what it needs. Newsletter rows
+  // can be populated from the unified-view fields we already have.
+  const otherIds = surviving.filter(c => c.creatorType === "other").map(c => c.creatorId);
+  const otherById = new Map<string, OtherProfile>();
+  if (otherIds.length > 0) {
+    const { data: rows } = await supabase
+      .from("other_profiles")
+      .select("id, name, role, organization, description, objectives, looking_for, can_offer, niche, website, linkedin")
+      .in("id", otherIds);
+    for (const r of rows || []) {
+      otherById.set(r.id as string, {
+        id: r.id as string,
+        name: (r.name as string) || "",
+        role: (r.role as string) || null,
+        organization: (r.organization as string) || null,
+        description: (r.description as string) || null,
+        objectives: (r.objectives as string) || null,
+        looking_for: (r.looking_for as string) || null,
+        can_offer: (r.can_offer as string) || null,
+        niche: (r.niche as string) || null,
+        website: (r.website as string) || null,
+        linkedin: (r.linkedin as string) || null,
+        avg_match_rating: null,
+      });
+    }
+  }
+
+  return surviving.map<Match>(c => {
+    if (c.creatorType === "other") {
+      return {
+        creatorId: c.creatorId,
+        creatorType: "other",
+        creatorName: c.creatorName,
+        otherProfile: otherById.get(c.creatorId) || {
+          id: c.creatorId,
+          name: c.creatorName,
+          role: null,
+          organization: null,
+          description: null,
+          objectives: null,
+          looking_for: null,
+          can_offer: null,
+          niche: c.niche,
+          website: null,
+          linkedin: null,
+          avg_match_rating: null,
+        },
+        reasoning: c.reasoning,
+        score: c.score,
+      };
+    }
+    return {
+      creatorId: c.creatorId,
+      creatorType: "newsletter",
+      creatorName: c.creatorName,
+      newsletter: {
+        id: c.creatorId,
+        slug: null,
+        newsletter_name: c.creatorName,
+        primary_niche: c.niche,
+        description: null,
+        subscriber_count: c.audienceReach,
+        avg_open_rate: null,
+        avg_ctr: null,
+        price_per_placement: c.pricePerPlacement,
+        api_verified: null,
+        screenshot_verified: null,
+        avg_match_rating: null,
+      },
+      reasoning: c.reasoning,
+      score: c.score,
+    };
+  });
 }

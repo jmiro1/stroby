@@ -74,10 +74,13 @@ export async function POST(request: NextRequest) {
     // Phase 2/4 prep: log expiry as a match_decision so the memory layer
     // can learn from no-response patterns ("brand X tends to ignore
     // suggestions; lower their proposal frequency").
-    if (intro.creator_type === "newsletter" || intro.newsletter_id) {
+    const creatorIdForLog = (intro.creator_id || intro.newsletter_id) as string | null;
+    if (creatorIdForLog) {
+      const creatorTypeForLog = (intro.creator_type as string) === "other" ? "other" : "newsletter";
       try {
         await supabase.from("match_decisions").insert({
-          creator_id: (intro.creator_id || intro.newsletter_id) as string,
+          creator_id: creatorIdForLog,
+          creator_type: creatorTypeForLog,
           brand_id: intro.business_id as string,
           decision: "no_response_3d",
           decided_by: "system",

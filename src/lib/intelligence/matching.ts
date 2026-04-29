@@ -89,6 +89,39 @@ function classifyValueTier(brandIntel: Record<string, unknown>): string {
   return bestTier;
 }
 
+// ── Per-platform reach normalization ──
+// Different platforms expose different "audience" units. A YouTube
+// "subscriber" sees ~10% of videos; an IG follower ~10% of posts; a
+// newsletter subscriber gets every email but might not open. To compare
+// budgets against reach fairly, normalize to "effective monthly
+// impressions" — the number of humans plausibly seeing a single piece
+// of content per month. Multipliers are coarse v1 estimates (parked in
+// TODO for tuning from real campaign data).
+const PLATFORM_REACH_MULT: Record<string, number> = {
+  newsletter: 1.0,   // open_rate is already applied below; default to raw reach if no open_rate
+  podcast:    1.0,   // monthly downloads ≈ listens
+  blog:       1.0,   // monthly visitors are direct
+  youtube:    0.10,  // ~10% view rate per upload
+  tiktok:     0.30,  // algorithmic push reaches well beyond followers
+  instagram:  0.10,  // organic reach has collapsed
+  linkedin:   0.05,
+  twitter:    0.10,
+  other:      0.50,
+};
+
+function effectiveMonthlyImpressions(creator: Record<string, unknown>): number {
+  const reach = (creator.audience_reach as number) || 0;
+  if (!reach) return 0;
+  const platform = ((creator.platform as string) || "newsletter").toLowerCase();
+  if (platform === "newsletter") {
+    // Newsletters: best signal is open_rate. Without it, use raw reach
+    // (matches v1 behavior — every subscriber receives the email).
+    const openRate = (creator.avg_open_rate as number) || (creator.engagement_rate as number) || 0;
+    return openRate > 0 ? Math.round(reach * openRate) : reach;
+  }
+  return Math.round(reach * (PLATFORM_REACH_MULT[platform] ?? PLATFORM_REACH_MULT.other));
+}
+
 function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0, normA = 0, normB = 0;
   for (let i = 0; i < a.length; i++) {
@@ -171,19 +204,35 @@ function applySizePreference(
 }
 
 // ── Engagement-rate scoring (now a top-level factor) ──
-// Open rate / CTR is the single best proxy for "is this audience actually
-// reading?" A 100K-sub newsletter with 1% open rate is worse than a
-// 30K-sub at 50%. Previously this only fed outcomeFit when the brand's
-// goal was "engagement"; promoting it surfaces it for every match.
+// Open rate / CTR / view rate / completion rate is the best proxy for
+// "is this audience actually consuming?" A 100K-sub newsletter with 1%
+// open rate is worse than a 30K-sub at 50%. The "exceptional/strong/
+// healthy/weak" bands differ wildly by platform — 30% would be elite
+// for YouTube but mediocre for newsletters — so thresholds are
+// per-platform. Blog and "other" return null (no clean engagement
+// metric, so we exclude this component rather than guess).
+const ENGAGEMENT_TIERS: Record<string, { exc: number; strong: number; healthy: number; med: number; weak: number }> = {
+  newsletter: { exc: 0.30, strong: 0.15, healthy: 0.05,  med: 0.02,  weak: 0.005 },
+  podcast:    { exc: 0.70, strong: 0.55, healthy: 0.40,  med: 0.25,  weak: 0.10  },  // completion rate
+  youtube:    { exc: 0.10, strong: 0.05, healthy: 0.02,  med: 0.01,  weak: 0.005 },  // view rate per upload
+  instagram:  { exc: 0.06, strong: 0.04, healthy: 0.02,  med: 0.01,  weak: 0.005 },
+  tiktok:     { exc: 0.10, strong: 0.06, healthy: 0.03,  med: 0.01,  weak: 0.005 },
+  linkedin:   { exc: 0.05, strong: 0.03, healthy: 0.015, med: 0.008, weak: 0.003 },
+  twitter:    { exc: 0.05, strong: 0.02, healthy: 0.01,  med: 0.005, weak: 0.001 },
+};
+
 function engagementScore(creator: Record<string, unknown>): number | null {
-  const er = (creator.engagement_rate as number) || 0;
-  if (er <= 0) return null; // unknown — caller will skip this factor
-  if (er >= 0.30) return 1.0;       // exceptional (>30% open)
-  if (er >= 0.15) return 0.85;      // strong
-  if (er >= 0.05) return 0.65;      // healthy
-  if (er >= 0.02) return 0.4;       // mediocre
-  if (er >= 0.005) return 0.15;     // weak
-  return 0.0;                        // dead audience
+  const er = (creator.engagement_rate as number) || (creator.avg_open_rate as number) || 0;
+  if (er <= 0) return null;
+  const platform = ((creator.platform as string) || "newsletter").toLowerCase();
+  if (platform === "blog" || platform === "other") return null; // excluded
+  const t = ENGAGEMENT_TIERS[platform] || ENGAGEMENT_TIERS.newsletter;
+  if (er >= t.exc)     return 1.0;
+  if (er >= t.strong)  return 0.85;
+  if (er >= t.healthy) return 0.65;
+  if (er >= t.med)     return 0.4;
+  if (er >= t.weak)    return 0.15;
+  return 0.0;
 }
 
 // ── Price fit ──
@@ -431,11 +480,16 @@ export function scoreMatch(
   }
 
   // audience_reach is the universal headline number (subscribers/followers/downloads).
-  // Falls back to subscriber_count for rows that predate the migration.
-  const reach = (creator.audience_reach as number) || (creator.subscriber_count as number) || 0;
+  // For non-newsletter platforms, normalize to effective monthly impressions
+  // before comparing to budget tiers — a YouTuber's "1M subs" is not 1M
+  // views/month. Newsletters keep raw reach (the budget tiers were
+  // calibrated against newsletter subscriber counts).
+  const platform = ((creator.platform as string) || "newsletter").toLowerCase();
+  const reach = (creator.audience_reach as number) || 0;
+  const effReach = platform === "newsletter" ? reach : effectiveMonthlyImpressions(creator);
   let sizeFit: number | null = null;
-  if (reach && brand.budget_range) {
-    let s = audienceSizeFit(reach, (brand.budget_range as string), brandIntel);
+  if (effReach && brand.budget_range) {
+    let s = audienceSizeFit(effReach, (brand.budget_range as string), brandIntel);
     s = applySizePreference(s, reach, (brand.preferred_creator_size as string) || null);
     sizeFit = s;
   }
@@ -610,13 +664,15 @@ export async function getMatchesForBrand(
     };
   }
 
-  // Counterparty lookup — only match-eligible creators. The new
-  // match_eligible filter on the directory view is what enforces the
-  // quality bar. Pre-eligible creators stay in the DB for claim/onboarding
-  // but never surface as match candidates.
+  // Counterparty lookup — only match-eligible creators across BOTH
+  // newsletter and non-newsletter sources, via creator_directory_unified.
+  // The view UNIONs newsletter_profiles_all + other_profiles into one
+  // shape with creator_type and platform discriminators. Pre-eligible
+  // creators stay in their source tables for claim/onboarding but never
+  // surface as match candidates.
   const { data: creators } = await supabase
-    .from("newsletter_directory")
-    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status, price_per_placement, match_eligibility_score")
+    .from("creator_directory_unified")
+    .select("id, creator_type, platform, creator_name, primary_niche, audience_reach, engagement_rate, avg_open_rate, price_per_placement, content_intelligence, profile_embedding, onboarding_status, match_eligibility_score, platform_metrics")
     .eq("is_active", true)
     .eq("match_eligible", true)
     .not("profile_embedding", "is", null);
@@ -624,14 +680,19 @@ export async function getMatchesForBrand(
   if (!creators?.length) return [];
 
   const matches = creators.map(creator => {
-    const result = scoreMatch(creator, brand);
+    // scoreMatch currently reads creator.newsletter_name for the
+    // explanation; the unified view exposes creator_name. Mirror it
+    // onto newsletter_name so the existing scoring path is unchanged
+    // for newsletter rows AND populated for non-newsletter rows.
+    const creatorForScoring = { ...creator, newsletter_name: creator.creator_name };
+    const result = scoreMatch(creatorForScoring, brand);
     return {
       creator_id: creator.id,
-      creator_name: creator.newsletter_name,
-      subscriber_count: creator.subscriber_count,
-      audience_reach: (creator.audience_reach as number) || (creator.subscriber_count as number) || null,
-      platform: creator.platform || "newsletter",
-      engagement_rate: creator.engagement_rate || null,
+      creator_type: creator.creator_type as string,
+      creator_name: creator.creator_name,
+      audience_reach: (creator.audience_reach as number) || null,
+      platform: creator.platform || (creator.creator_type === "newsletter" ? "newsletter" : "other"),
+      engagement_rate: creator.engagement_rate || creator.avg_open_rate || null,
       primary_niche: creator.primary_niche,
       counterparty_status: creator.onboarding_status as string,
       price_per_placement: (creator.price_per_placement as number) || null,
@@ -660,28 +721,39 @@ export async function getMatchesForBrand(
 
   // Phase 4 memory: pull the brand's last 5 decisions so the rerank can
   // demote past-decline lookalikes and boost past-acceptance lookalikes.
-  // Joined to creator_name so the model has a recognizable label, not
-  // just a UUID. Empty result → rerank prompt is unchanged from before.
-  type PriorRow = {
-    decided_at: string;
-    decision: string;
-    reason: string | null;
-    newsletter_profiles_all: { newsletter_name: string | null } | null;
-  };
+  // 2026-04-29: post-FK-drop, the PostgREST embed (newsletter_profiles_all:creator_id)
+  // no longer resolves — we fetch creator names by source in a follow-up pass.
   const { data: priorRows } = await supabase
     .from("match_decisions")
-    .select(`
-      decided_at, decision, reason,
-      newsletter_profiles_all:creator_id (newsletter_name)
-    `)
+    .select("decided_at, decision, reason, creator_id, creator_type")
     .eq("brand_id", brandId)
     .in("decision", ["brand_yes", "brand_no", "creator_yes", "creator_no", "introduced", "no_response_3d"])
     .order("decided_at", { ascending: false })
     .limit(5);
 
-  const priorDecisions = ((priorRows || []) as unknown as PriorRow[]).map(r => ({
+  const nameById = new Map<string, string>();
+  if (priorRows && priorRows.length) {
+    const nlIds = priorRows.filter(r => (r.creator_type || "newsletter") !== "other").map(r => r.creator_id as string);
+    const otherIds = priorRows.filter(r => r.creator_type === "other").map(r => r.creator_id as string);
+    if (nlIds.length) {
+      const { data } = await supabase
+        .from("newsletter_profiles_all")
+        .select("id, newsletter_name")
+        .in("id", nlIds);
+      for (const r of data || []) nameById.set(r.id as string, (r.newsletter_name as string) || "(unknown)");
+    }
+    if (otherIds.length) {
+      const { data } = await supabase
+        .from("other_profiles")
+        .select("id, name")
+        .in("id", otherIds);
+      for (const r of data || []) nameById.set(r.id as string, (r.name as string) || "(unknown)");
+    }
+  }
+
+  const priorDecisions = (priorRows || []).map(r => ({
     decided_at: (r.decided_at || "").slice(0, 10),  // YYYY-MM-DD
-    creator_name: r.newsletter_profiles_all?.newsletter_name || "(unknown creator)",
+    creator_name: nameById.get(r.creator_id as string) || "(unknown creator)",
     decision: r.decision,
     reason: r.reason ?? null,
   }));
@@ -763,10 +835,30 @@ export async function getMatchesForBrand(
 
 function creatorMissingFields(creator: Record<string, unknown>): string[] {
   const missing: string[] = [];
-  if (!creator.audience_reach) missing.push("audience_reach (subscribers/followers/downloads)");
-  if (!creator.engagement_rate && !creator.avg_open_rate) {
-    missing.push("engagement_rate or avg_open_rate (typical open rate or engagement signal)");
+  const platform = ((creator.platform as string) || "newsletter").toLowerCase();
+
+  // Per-platform label for audience_reach. Same field, different name to the user.
+  if (!creator.audience_reach) {
+    const reachLabel =
+      platform === "newsletter" ? "subscribers" :
+      platform === "podcast"    ? "monthly downloads" :
+      platform === "youtube"    ? "subscribers" :
+      platform === "blog"       ? "monthly visitors" :
+      "followers";
+    missing.push(`audience_reach (${reachLabel})`);
   }
+
+  // blog/other have no clean engagement metric — don't gate on it.
+  const needsEngagement = !["blog", "other"].includes(platform);
+  if (needsEngagement && !creator.engagement_rate && !creator.avg_open_rate) {
+    const engLabel =
+      platform === "newsletter" ? "open rate" :
+      platform === "youtube"    ? "view rate" :
+      platform === "podcast"    ? "completion rate" :
+      "engagement rate";
+    missing.push(`engagement_rate (typical ${engLabel})`);
+  }
+
   const desc = (creator.description as string) || "";
   if (desc.length < 100) missing.push("description (≥100 chars — describe your audience)");
   if (!creator.price_per_placement && !creator.open_to_inquiries) {
