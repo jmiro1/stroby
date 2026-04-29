@@ -5,6 +5,42 @@ import { getStripe } from "@/lib/stripe";
 import { updateUserInsights } from "@/lib/user-insights";
 import { verifyInternalBody, INTERNAL_SIG_HEADER } from "@/lib/internal-sig";
 
+// Phase 2/4: log every state transition into match_decisions so the
+// memory layer (Phase 4 — last-N-decisions injected into rerank prompt)
+// has data to read. Failure here is intentionally non-blocking — we
+// never want logging to take down the actual state transition. Only
+// log for newsletter introductions (other_profiles isn't tracked in
+// match_decisions yet).
+async function logMatchDecision(
+  supabase: ReturnType<typeof createServiceClient>,
+  args: {
+    creatorId: string;
+    creatorType: string;
+    brandId: string;
+    decision: "brand_yes" | "brand_no" | "creator_yes" | "creator_no" | "introduced";
+    decidedBy: "creator" | "brand" | "system";
+    matchScore: number | null;
+    introId: string;
+    reason?: string | null;
+  }
+): Promise<void> {
+  if (args.creatorType !== "newsletter") return;
+  try {
+    await supabase.from("match_decisions").insert({
+      creator_id: args.creatorId,
+      brand_id: args.brandId,
+      decision: args.decision,
+      decided_by: args.decidedBy,
+      source: "whatsapp",
+      match_score: args.matchScore,
+      reason: args.reason || null,
+      metadata: { introduction_id: args.introId },
+    });
+  } catch (e) {
+    console.error(`match_decisions log (${args.decision}) failed:`, e);
+  }
+}
+
 // Helper to get creator profile from either table
 async function getCreatorProfile(
   supabase: ReturnType<typeof createServiceClient>,
@@ -115,6 +151,16 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", introductionId);
 
+      await logMatchDecision(supabase, {
+        creatorId: creator.profile.id as string,
+        creatorType: creator.type,
+        brandId: business.id as string,
+        decision: "brand_yes",
+        decidedBy: "brand",
+        matchScore: (intro.match_score as number) ?? null,
+        introId: introductionId,
+      });
+
       await updateUserInsights(business.id as string, "business", {
         type: "match_accepted",
         niche: (creator.profile.primary_niche || creator.profile.niche || "Unknown") as string,
@@ -160,6 +206,16 @@ export async function POST(request: NextRequest) {
           declined_by: "business",
         })
         .eq("id", introductionId);
+
+      await logMatchDecision(supabase, {
+        creatorId: creator.profile.id as string,
+        creatorType: creator.type,
+        brandId: business.id as string,
+        decision: "brand_no",
+        decidedBy: "brand",
+        matchScore: (intro.match_score as number) ?? null,
+        introId: introductionId,
+      });
 
       await updateUserInsights(business.id as string, "business", {
         type: "match_declined",
@@ -236,6 +292,16 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", introductionId);
 
+      await logMatchDecision(supabase, {
+        creatorId: creator.profile.id as string,
+        creatorType: creator.type,
+        brandId: business.id as string,
+        decision: "creator_yes",
+        decidedBy: "creator",
+        matchScore: (intro.match_score as number) ?? null,
+        introId: introductionId,
+      });
+
       await updateUserInsights(creator.profile.id as string, creator.type, {
         type: "match_accepted",
         niche: (business.primary_niche || "Unknown") as string,
@@ -253,6 +319,16 @@ export async function POST(request: NextRequest) {
             introduction_method: "whatsapp_group",
           })
           .eq("id", introductionId);
+
+        await logMatchDecision(supabase, {
+          creatorId: creator.profile.id as string,
+          creatorType: creator.type,
+          brandId: business.id as string,
+          decision: "introduced",
+          decidedBy: "system",
+          matchScore: (intro.match_score as number) ?? null,
+          introId: introductionId,
+        });
 
         const introMessage = `Hey, Stroby here! Great news — I've connected you both. ${business.contact_name || business.company_name}, meet ${creator.name}. ${creator.name}, meet ${business.contact_name || business.company_name} (${business.company_name}). You two should discuss partnership details, timing, and creative.\n\nYou can work out the deal directly, or if you'd like Stroby to handle payment as a secure escrow (protecting both sides), just let me know!\n\n— Connected by Stroby ✨`;
 
@@ -355,6 +431,16 @@ export async function POST(request: NextRequest) {
           declined_by: creator.type === "newsletter" ? "newsletter" : "other",
         })
         .eq("id", introductionId);
+
+      await logMatchDecision(supabase, {
+        creatorId: creator.profile.id as string,
+        creatorType: creator.type,
+        brandId: business.id as string,
+        decision: "creator_no",
+        decidedBy: "creator",
+        matchScore: (intro.match_score as number) ?? null,
+        introId: introductionId,
+      });
 
       await updateUserInsights(creator.profile.id as string, creator.type, {
         type: "match_declined",

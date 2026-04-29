@@ -14,25 +14,46 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient();
 
-  // Find introductions with status 'suggested' older than 72 hours
-  const cutoff = new Date();
-  cutoff.setHours(cutoff.getHours() - 72);
+  // Two stale states to clean up:
+  //   - 'suggested' older than 72h → brand never responded
+  //   - 'business_accepted' older than 72h → creator never responded
+  // We use the right timestamp column for each so the timeout is measured
+  // from when that party was actually pinged, not when the intro was first
+  // created.
+  const cutoff72h = new Date();
+  cutoff72h.setHours(cutoff72h.getHours() - 72);
 
-  const { data: staleIntros, error } = await supabase
+  const { data: staleSuggested, error: errSuggested } = await supabase
     .from("introductions")
-    .select("id, business_id, newsletter_id, business_profiles(*), newsletter_profiles(*)")
+    .select("id, business_id, newsletter_id, creator_id, creator_type, match_score, status, business_profiles(*), newsletter_profiles(*)")
     .eq("status", "suggested")
-    .lt("created_at", cutoff.toISOString());
+    .lt("created_at", cutoff72h.toISOString());
 
-  if (error) {
-    console.error("Failed to fetch stale introductions:", error);
+  if (errSuggested) {
+    console.error("Failed to fetch stale 'suggested' introductions:", errSuggested);
     return Response.json(
       { error: "Failed to fetch stale introductions" },
       { status: 500 }
     );
   }
 
-  if (!staleIntros || staleIntros.length === 0) {
+  const { data: staleBusinessAccepted, error: errBA } = await supabase
+    .from("introductions")
+    .select("id, business_id, newsletter_id, creator_id, creator_type, match_score, status, business_profiles(*), newsletter_profiles(*)")
+    .eq("status", "business_accepted")
+    .lt("business_response_at", cutoff72h.toISOString());
+
+  if (errBA) {
+    console.error("Failed to fetch stale 'business_accepted' introductions:", errBA);
+    // Continue with whatever we have rather than failing the whole job
+  }
+
+  const staleIntros = [
+    ...(staleSuggested || []),
+    ...(staleBusinessAccepted || []),
+  ];
+
+  if (staleIntros.length === 0) {
     return Response.json({ expired: 0 });
   }
 
@@ -48,6 +69,28 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error(`Failed to expire introduction ${intro.id}:`, updateError);
       continue;
+    }
+
+    // Phase 2/4 prep: log expiry as a match_decision so the memory layer
+    // can learn from no-response patterns ("brand X tends to ignore
+    // suggestions; lower their proposal frequency").
+    if (intro.creator_type === "newsletter" || intro.newsletter_id) {
+      try {
+        await supabase.from("match_decisions").insert({
+          creator_id: (intro.creator_id || intro.newsletter_id) as string,
+          brand_id: intro.business_id as string,
+          decision: "no_response_3d",
+          decided_by: "system",
+          source: "cron",
+          match_score: (intro.match_score as number) ?? null,
+          metadata: {
+            expired_from_state: intro.status,
+            introduction_id: intro.id,
+          },
+        });
+      } catch (e) {
+        console.error("match_decisions log (expiry) failed:", e);
+      }
     }
 
     expiredCount++;
