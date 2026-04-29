@@ -744,6 +744,20 @@ async function maybeCaptureDeclineReason(
     })
     .eq("id", introId);
 
+  // Phase 4 memory layer: backfill the matching match_decisions row with
+  // the free-text reason. The reason then flows into the next rerank
+  // prompt for this brand. Best-effort — don't block the flow on failure.
+  try {
+    const declineDecisionType = userType === "business" ? "brand_no" : "creator_no";
+    await supabase
+      .from("match_decisions")
+      .update({ reason })
+      .eq("decision", declineDecisionType)
+      .filter("metadata->>introduction_id", "eq", introId);
+  } catch (e) {
+    console.error("match_decisions reason backfill failed:", e);
+  }
+
   await sendAndLog(
     phoneWithPlus,
     "Got it — thanks, that really helps me learn what works for you. 🙌",

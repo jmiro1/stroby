@@ -657,6 +657,34 @@ export async function getMatchesForBrand(
 
   const { rerankCandidates } = await import("./rerank");
   const brandIntel = (brand.brand_intelligence as Record<string, unknown>) || {};
+
+  // Phase 4 memory: pull the brand's last 5 decisions so the rerank can
+  // demote past-decline lookalikes and boost past-acceptance lookalikes.
+  // Joined to creator_name so the model has a recognizable label, not
+  // just a UUID. Empty result → rerank prompt is unchanged from before.
+  type PriorRow = {
+    decided_at: string;
+    decision: string;
+    reason: string | null;
+    newsletter_profiles_all: { newsletter_name: string | null } | null;
+  };
+  const { data: priorRows } = await supabase
+    .from("match_decisions")
+    .select(`
+      decided_at, decision, reason,
+      newsletter_profiles_all:creator_id (newsletter_name)
+    `)
+    .eq("brand_id", brandId)
+    .in("decision", ["brand_yes", "brand_no", "creator_yes", "creator_no", "introduced", "no_response_3d"])
+    .order("decided_at", { ascending: false })
+    .limit(5);
+
+  const priorDecisions = ((priorRows || []) as unknown as PriorRow[]).map(r => ({
+    decided_at: (r.decided_at || "").slice(0, 10),  // YYYY-MM-DD
+    creator_name: r.newsletter_profiles_all?.newsletter_name || "(unknown creator)",
+    decision: r.decision,
+    reason: r.reason ?? null,
+  }));
   const rerankResult = await rerankCandidates(
     brand as unknown as Record<string, unknown>,
     brandIntel,
@@ -679,7 +707,8 @@ export async function getMatchesForBrand(
         creator_summary: pieces.join(" | "),
       };
     }),
-    Math.min(limit, 50)
+    Math.min(limit, 50),
+    priorDecisions
   );
 
   // Merge rerank back onto match objects
@@ -709,6 +738,8 @@ export async function getMatchesForBrand(
         rerank_error: rerankResult.error,
         numerical_top50: top50.slice(0, 5).map(m => ({ id: m.creator_id, name: m.creator_name, score: m.score })),
         rerank_returned: rerankResult.ranked.length,
+        prior_decisions_injected: priorDecisions.length,
+        prior_decisions_sample: priorDecisions.slice(0, 3),
       },
     });
   }

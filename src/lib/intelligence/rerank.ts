@@ -54,7 +54,19 @@ export interface RerankResult {
   error?: string;
 }
 
+// Phase 4 memory: a compact record of one prior decision the brand made,
+// summarized for inclusion in the rerank prompt. Built by
+// getMatchesForBrand and passed in as priorDecisions.
+export interface PriorDecisionContext {
+  decided_at: string;        // ISO date string (or short label)
+  creator_name: string;      // who the prior decision was about
+  decision: string;          // brand_yes / brand_no / creator_no / introduced / no_response_3d
+  reason?: string | null;    // free-text reason from declines
+}
+
 const RERANK_SYSTEM_PROMPT = `You are Stroby's matchmaking advisor. A brand is looking for newsletter creators to sponsor. The numerical engine has already shortlisted candidates by audience fit, embedding similarity, engagement, price, and brand safety. Your job: rank the top candidates by ACTUAL likelihood the brand pays this creator, accounting for things the numerical engine misses — tonal fit, audience resonance with the specific product, recency of relevant content, and the gut-feel of "would the brand's marketing lead say yes."
+
+If "Brand's recent decisions" is provided, use it: demote candidates whose profile resembles past declines (same weak signal, same niche the brand passed on, same complaint they voiced) UNLESS your reasoning concretely addresses why this candidate is different. Boost candidates whose profile resembles past acceptances or successful intros.
 
 Return STRICT JSON with this shape:
 {
@@ -68,10 +80,16 @@ Rules:
 - Order by likelihood-of-paid-deal, best first.
 - Include EVERY candidate exactly once.
 - Reasoning under 80 chars per creator. Reference specifics — the creator's niche, audience, content style, or a tonal note about brand fit. NEVER write "good fit" or "great match" — those are useless.
+- When demoting because of a past decline, your reasoning should briefly cite the prior reason (e.g., "smaller audience than [past decline] — same concern").
 - If a candidate is a poor fit despite high numerical score, demote and explain why concretely.
 - Output the JSON object only. No prose before or after.`;
 
-function buildUserPrompt(brand: Record<string, unknown>, brandIntel: Record<string, unknown>, candidates: RerankCandidate[]): string {
+function buildUserPrompt(
+  brand: Record<string, unknown>,
+  brandIntel: Record<string, unknown>,
+  candidates: RerankCandidate[],
+  priorDecisions: PriorDecisionContext[] = []
+): string {
   const brandSynth = (brandIntel.synthesized as Record<string, unknown>) || brandIntel;
   const lines: string[] = [];
   lines.push(`# Brand: ${brand.company_name || "(unnamed)"}`);
@@ -81,6 +99,19 @@ function buildUserPrompt(brand: Record<string, unknown>, brandIntel: Record<stri
   if (brand.budget_range) lines.push(`Budget: ${brand.budget_range}`);
   if (brand.campaign_outcome) lines.push(`Goal: ${brand.campaign_outcome}`);
   if (brandSynth.competitors) lines.push(`Competitors: ${(brandSynth.competitors as string[]).join(", ")}`);
+
+  // Phase 4 memory: inject the brand's recent prior decisions so the
+  // model can demote past-decline lookalikes and boost past-acceptance
+  // lookalikes. Empty list → section omitted entirely; pre-Phase-4
+  // behavior is unchanged.
+  if (priorDecisions.length > 0) {
+    lines.push(`\n# Brand's recent decisions (most recent first — use these to inform ranking)\n`);
+    for (const d of priorDecisions) {
+      const tail = d.reason ? ` — reason: "${d.reason}"` : "";
+      lines.push(`- ${d.decided_at}: ${d.decision} on "${d.creator_name}"${tail}`);
+    }
+  }
+
   lines.push(`\n# Candidates (${candidates.length}, already shortlisted by the numerical engine)\n`);
   candidates.forEach((c, i) => {
     lines.push(`${i + 1}. ${c.creator_id}`);
@@ -95,7 +126,8 @@ export async function rerankCandidates(
   brand: Record<string, unknown>,
   brandIntel: Record<string, unknown>,
   candidates: RerankCandidate[],
-  topN: number = 20
+  topN: number = 20,
+  priorDecisions: PriorDecisionContext[] = []
 ): Promise<RerankResult> {
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
@@ -113,7 +145,7 @@ export async function rerankCandidates(
   const shortlist = candidates.slice(0, RERANK_TOP_N);
   if (shortlist.length === 0) return { used_llm: false, ranked: [] };
 
-  const userPrompt = buildUserPrompt(brand, brandIntel, shortlist);
+  const userPrompt = buildUserPrompt(brand, brandIntel, shortlist, priorDecisions);
 
   let parsed: { ranking?: Array<{ creator_id: string; reasoning: string }> } | null = null;
   try {
