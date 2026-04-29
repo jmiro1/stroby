@@ -177,6 +177,72 @@ export async function sendWhatsAppMessage(
   }
 }
 
+// ── Send an interactive message with reply buttons (Cloud API) ──
+// WhatsApp limits: max 3 buttons, max 20 chars per title, max 256 chars body.
+// User taps a button → inbound webhook receives `interactive.button_reply` with
+// `id` (our internal route key) and `title` (the visible label).
+export interface WhatsAppButton {
+  /** Internal id — used to route on the inbound side. ≤256 chars. */
+  id: string;
+  /** Visible label. Max 20 chars (Meta will reject longer). */
+  title: string;
+}
+
+export async function sendWhatsAppButtons(
+  to: string,
+  body: string,
+  buttons: WhatsAppButton[],
+): Promise<string | null> {
+  const config = getConfig();
+  if (!config) {
+    console.warn("WhatsApp Cloud API not configured");
+    return null;
+  }
+  if (buttons.length === 0 || buttons.length > 3) {
+    console.error("sendWhatsAppButtons: must pass 1-3 buttons, got", buttons.length);
+    return null;
+  }
+
+  try {
+    const res = await fetch(
+      `${WHATSAPP_API_URL}/${config.phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: cleanPhone(to),
+          type: "interactive",
+          interactive: {
+            type: "button",
+            body: { text: body.slice(0, 1024) },
+            action: {
+              buttons: buttons.slice(0, 3).map((b) => ({
+                type: "reply",
+                reply: { id: b.id.slice(0, 256), title: b.title.slice(0, 20) },
+              })),
+            },
+          },
+        }),
+      }
+    );
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.error("WhatsApp interactive send error:", res.status, errorData);
+      return null;
+    }
+    const data = await res.json();
+    return data?.messages?.[0]?.id || null;
+  } catch (err) {
+    console.error("WhatsApp interactive request failed:", err);
+    return null;
+  }
+}
+
 // ── Send a template message (works outside 24h window) ──
 // `buttonParams` is for templates with a URL button containing a {{1}} variable —
 // each entry is the dynamic suffix for that button (Meta only allows one var per button).

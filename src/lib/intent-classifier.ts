@@ -1,4 +1,13 @@
-// Pre-AI intent classification — handles simple messages without burning tokens
+// Pre-AI intent classification — handles simple messages without burning tokens.
+//
+// IMPORTANT — historical bug (2026-04-29): the previous version used
+// `normalized.includes(phrase)` for STATUS / STOP / VERIFY / STRIPE matching.
+// That over-matched any message containing the substring. Example:
+// "my profile pic" → contains "my profile" → classified as `status_check` →
+// routed to a profile dump → AI never saw the message → bot looped on the
+// same canned reply across 6 user turns. The classifier now uses exact
+// match against a normalized form (trailing punctuation stripped); short-
+// length cap kept as a sanity check.
 
 export type ClassifiedIntent =
   | { type: "accept" }
@@ -15,66 +24,98 @@ export type ClassifiedIntent =
 const ACCEPT = ["yes", "accept", "sounds good", "let's do it", "lets do it", "interested", "sure", "go ahead", "absolutely", "yeah", "yep", "yup", "ok", "okay", "connect us", "introduce us", "i'm in", "im in", "do it"];
 const DECLINE = ["no", "decline", "not right now", "pass", "skip", "not interested", "no thanks", "no thank you", "nah", "nope", "maybe later", "not now"];
 const MORE = ["tell me more", "more info", "more details", "details", "what else", "can you tell me more", "elaborate"];
-const STRIPE = ["stripe", "connect stripe", "stripe link", "send me stripe", "setup stripe", "stripe setup", "payment setup", "setup payment", "payment link", "get paid", "how do i get paid", "receive payment", "connect payment", "stroby pay", "setup stroby pay", "how does stroby pay work"];
-const GREETING = ["hey", "hi", "hello", "yo", "sup", "hola", "what's up", "whats up"];
-const STOP = ["stop", "unsubscribe", "opt out", "remove me", "delete my account"];
-const STATUS = ["status", "my profile", "my status", "profile", "show my profile", "what's my status", "whats my status", "how am i doing", "check my profile"];
-const VERIFY = ["verify", "verification", "verify me", "get verified", "send verification", "verify my account"];
+// Stripe-specific phrasings. Removed bare "stripe" / generic "payment link" /
+// "get paid" / "receive payment" — too easy to fire on natural conversation.
+// Keep only phrases that unambiguously mean "send me the Stripe setup link".
+const STRIPE_EXACT = new Set([
+  "stripe link", "send me stripe", "send me the stripe link", "send stripe link",
+  "connect stripe", "setup stripe", "stripe setup",
+  "setup stroby pay", "stroby pay setup",
+  "payment setup", "setup payment",
+  "how do i get paid",
+]);
+const GREETING = new Set(["hey", "hi", "hello", "yo", "sup", "hola", "what's up", "whats up"]);
+const STOP_EXACT = new Set([
+  "stop", "stop messages", "stop messaging me",
+  "unsubscribe",
+  "opt out", "opt-out",
+  "remove me",
+  "delete my account", "delete account",
+]);
+// Status/profile-summary phrasings. Drop bare "profile" entirely (too greedy)
+// and "my profile" alone too — it's a fragment that appears in MANY natural
+// asks like "my profile pic". Only match well-formed status questions.
+const STATUS_EXACT = new Set([
+  "status", "my status",
+  "show my profile", "show profile", "see my profile",
+  "what's my status", "whats my status",
+  "what's my profile", "whats my profile",
+  "how am i doing",
+  "check my profile", "check status",
+  "my current status", "what's my current status", "whats my current status",
+]);
+// Verification: drop the bare word "verify" (matches too many sentences) and
+// "verification" alone. Keep specific request phrasings.
+const VERIFY_EXACT = new Set([
+  "verify me", "get verified",
+  "send verification", "send verify link", "send me verification",
+  "verify my account", "verify my profile",
+  "i want to verify", "i want to get verified",
+  "verification link",
+]);
+
+/** Strip trailing punctuation/whitespace and normalize. */
+function normalize(message: string): string {
+  return message.toLowerCase().trim().replace(/[?!.,;\s]+$/, "");
+}
 
 export function classifyIntent(message: string, lastBotMessage?: string): ClassifiedIntent {
-  const normalized = message.toLowerCase().trim();
+  const normalized = normalize(message);
   const lastBot = (lastBotMessage || "").toLowerCase();
 
-  // Context-aware: if the bot just asked about verification and user says "yes"/"sure"/etc.,
-  // treat it as verify_request, not accept. Fixes the loop where "yes" to "Want me to send
-  // you a verification link?" was classified as "accept" (match intro acceptance).
+  // Empty
+  if (!normalized) return { type: "needs_ai" };
+
+  // Context-aware: if the bot just asked about verification and user says
+  // "yes"/"sure"/etc., treat it as verify_request, not accept. Fixes the loop
+  // where "yes" to "Want me to send you a verification link?" was classified
+  // as "accept" (match intro acceptance).
   if (lastBot.includes("verification") || lastBot.includes("verify") || lastBot.includes("verified")) {
     const affirmatives = ["yes", "yeah", "yep", "yup", "sure", "ok", "okay", "absolutely", "go ahead", "please", "send it", "do it"];
-    for (const phrase of affirmatives) {
-      if (normalized === phrase || normalized === phrase + "!") return { type: "verify_request" };
-    }
+    if (affirmatives.includes(normalized)) return { type: "verify_request" };
   }
 
-  // Rating: standalone digit 1-5
+  // Rating: standalone digit 1-5 (with optional /5 or "out of 5" suffix)
   const ratingMatch = normalized.match(/^(\d)(?:\s*(?:\/5|out of 5|stars?))?$/);
   if (ratingMatch) {
     const value = parseInt(ratingMatch[1], 10);
     if (value >= 1 && value <= 5) return { type: "rating", value };
   }
 
-  // Stop / unsubscribe
-  for (const phrase of STOP) {
-    if (normalized === phrase || normalized.startsWith(phrase)) return { type: "stop" };
+  // ── Exact-match buckets (no .includes() — that's how we got into the
+  //    profile-dump loop). Length cap as belt-and-braces.
+  if (normalized.length <= 50) {
+    if (STOP_EXACT.has(normalized)) return { type: "stop" };
+    if (STATUS_EXACT.has(normalized)) return { type: "status_check" };
+    if (VERIFY_EXACT.has(normalized)) return { type: "verify_request" };
+    if (STRIPE_EXACT.has(normalized)) return { type: "stripe_request" };
   }
 
-  // Status check
-  for (const phrase of STATUS) {
-    if (normalized === phrase || normalized.includes(phrase)) return { type: "status_check" };
+  // Tell me more — short messages only
+  if (normalized.length <= 40) {
+    for (const phrase of MORE) {
+      if (normalized === phrase) return { type: "tell_me_more" };
+    }
   }
 
-  // Verify request
-  for (const phrase of VERIFY) {
-    if (normalized === phrase || normalized.includes(phrase)) return { type: "verify_request" };
-  }
-
-  // Tell me more
-  for (const phrase of MORE) {
-    if (normalized === phrase || normalized.includes(phrase)) return { type: "tell_me_more" };
-  }
-
-  // Stripe request
-  for (const phrase of STRIPE) {
-    if (normalized === phrase || normalized.includes(phrase)) return { type: "stripe_request" };
-  }
-
-  // Accept (short messages only)
+  // Accept (short messages only, exact match)
   if (normalized.length < 30) {
     for (const phrase of ACCEPT) {
       if (normalized === phrase) return { type: "accept" };
     }
   }
 
-  // Decline (short messages only)
+  // Decline (short messages only, exact match)
   if (normalized.length < 30) {
     for (const phrase of DECLINE) {
       if (normalized === phrase) return { type: "decline" };
@@ -82,10 +123,8 @@ export function classifyIntent(message: string, lastBotMessage?: string): Classi
   }
 
   // Greeting (standalone only)
-  if (normalized.length < 20) {
-    for (const phrase of GREETING) {
-      if (normalized === phrase || normalized === phrase + "!") return { type: "greeting" };
-    }
+  if (normalized.length < 20 && GREETING.has(normalized)) {
+    return { type: "greeting" };
   }
 
   return { type: "needs_ai" };

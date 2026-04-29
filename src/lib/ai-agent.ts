@@ -4,6 +4,15 @@ import { readDecryptedMessages, insertMessage } from "./secure-messages";
 import { formatInsightsForAI } from "./user-insights";
 import { calculateCompleteness, formatCompletenessForAI } from "./profile-completeness";
 import { logApiUsage } from "./api-usage";
+import {
+  updateSlug,
+  updateDescription,
+  updateNiche,
+  updatePrice,
+  updateName,
+  setPendingIntent,
+  type ProfileUserType,
+} from "./profile-update";
 
 // Lazy-loaded Anthropic client
 let _anthropic: Anthropic | null = null;
@@ -102,16 +111,87 @@ YOU ARE THE SYSTEM — NO HUMAN TEAM:
 - When asked "when will I get matches?" → answer truthfully: "I scan for new matches every day. The moment I find one that fits, I message you right here." (Adapt to language and tone.) Do NOT invent specific timelines like "within 24 hours" or "within a week".
 - When asked "what happens next?" → explain what YOU will do next (matching, sending suggestions on WhatsApp), not what some team will do.
 
-PROFILE UPDATES:
-- If the user mentions updated info (new subscriber count, pricing, name change, etc.), acknowledge it and add [PROFILE_UPDATE] followed by JSON at the end. Example: [PROFILE_UPDATE]{"subscriber_count": 50000}
-- Valid newsletter fields: subscriber_count, avg_open_rate, avg_ctr, price_per_placement (cents), primary_niche, description
-- Valid business fields: target_customer, budget_range, primary_niche, campaign_goal, description
+PROFILE UPDATES — USE TOOLS, NOT WORDS:
+- When the user wants to change a profile field, CALL THE APPROPRIATE TOOL. Don't just say "okay, I'll update that" without calling the tool — that produces hallucinated success and the field never actually changes (real failure mode from 2026-04-29 user trace).
+- Tools available:
+  - update_profile_field — for slug, name, niche, description, or price_per_placement (newsletter only). Pass the new value; the tool validates and writes to DB.
+  - request_avatar_upload — for profile picture changes. The tool sets a pending state and the user's next photo gets stored as their avatar.
+- If the user is vague ("change my profile pic" with no photo yet), call request_avatar_upload — the tool's reply asks for the photo.
+- If the user gives a value but you're unsure which field they mean, ASK before calling the tool ("Do you mean your slug or your display name?"). Don't guess.
+- For numeric fields outside the tool list (subscriber_count, avg_open_rate, avg_ctr): legacy [PROFILE_UPDATE]{json} marker still works — example: [PROFILE_UPDATE]{"subscriber_count": 50000}.
 
 Only reference information from the user context and conversation summary below.`;
 
 interface AgentResponse {
   response: string;
   action?: { type: string; data: Record<string, unknown> };
+}
+
+// ── Profile-update tools (Anthropic tool use) ──────────────────────────
+// Replaces the dead-end "AI says 'sure I'll update'" pattern with actual
+// validated DB writes. Tools return the user-facing reply text, so we
+// don't need a second model call to compose the confirmation.
+
+const PROFILE_UPDATE_TOOLS: Anthropic.Messages.Tool[] = [
+  {
+    name: "update_profile_field",
+    description: "Update a single profile field for the current user. Use when the user clearly wants to change one of: slug (their public profile URL), name (newsletter or company name), niche, description, or price_per_placement. The tool validates the value, writes to the DB, and returns a confirmation message ready to send back to the user.",
+    input_schema: {
+      type: "object",
+      properties: {
+        field: {
+          type: "string",
+          enum: ["slug", "name", "niche", "description", "price_per_placement"],
+          description: "Which field to update.",
+        },
+        value: {
+          type: "string",
+          description: "The new value. For price_per_placement, pass dollars as a string (e.g. '500' or '$500/placement' — the tool parses it). For slug, lowercase letters/digits/hyphens only.",
+        },
+      },
+      required: ["field", "value"],
+    },
+  },
+  {
+    name: "request_avatar_upload",
+    description: "Ask the user to send a photo for their profile picture. Use when the user says they want to change/update their profile pic, avatar, or photo. The tool sets a pending state so the next inbound image becomes their avatar; reply text asks them to send the photo.",
+    input_schema: { type: "object", properties: {} },
+  },
+];
+
+async function executeProfileUpdateTool(
+  toolName: string,
+  input: Record<string, unknown>,
+  userType: ProfileUserType,
+  userId: string,
+): Promise<string> {
+  if (toolName === "update_profile_field") {
+    const field = String(input.field || "");
+    const value = String(input.value || "");
+    if (!value) return "What value should I set?";
+
+    switch (field) {
+      case "slug":
+        return (await updateSlug(userType, userId, value)).message;
+      case "name":
+        return (await updateName(userType, userId, value)).message;
+      case "niche":
+        return (await updateNiche(userType, userId, value)).message;
+      case "description":
+        return (await updateDescription(userType, userId, value)).message;
+      case "price_per_placement":
+        return (await updatePrice(userType, userId, value)).message;
+      default:
+        return `I can't update "${field}" yet — let me know what you want to change?`;
+    }
+  }
+
+  if (toolName === "request_avatar_upload") {
+    await setPendingIntent(userType, userId, "avatar_upload");
+    return "Send me the photo and I'll set it as your profile picture.";
+  }
+
+  return "Got it — but I don't know how to do that yet.";
 }
 
 export async function handleInboundMessage(
@@ -149,8 +229,11 @@ export async function handleInboundMessage(
   const profile = newsletterProfile || businessProfile;
   const userId = profile.id as string;
 
-  // Fetch last 5 messages + conversation summary for context
-  const recentMessages = await readDecryptedMessages(userId, 5);
+  // Fetch last 10 messages + conversation summary for context. The 5-message
+  // window left the bot in goldfish mode — when a user said "I already told
+  // you," the model literally couldn't see the prior turn. 10 covers a typical
+  // back-and-forth without bloating the prompt.
+  const recentMessages = await readDecryptedMessages(userId, 10);
 
   // Fetch pending introductions for this user
   const introColumn =
@@ -255,13 +338,23 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
     : messageBody || "";
   messages.push({ role: "user", content: currentContent });
 
-  // Call Claude
+  // Call Claude with profile-update tools. The model decides whether the
+  // user is asking to update something concrete (slug, description, niche,
+  // price, name, profile pic) and emits a structured tool call. Otherwise
+  // it replies with text. Single round-trip — we don't loop back for a
+  // text follow-up; the tool's UpdateResult.message IS the reply, so
+  // "Done. Your profile is now at …" lands in one Haiku call.
+  //
+  // 256 → 800 max_tokens because 256 was forcing mid-sentence truncation,
+  // making the bot sound robotic and abrupt. 800 is still cheap and gives
+  // Haiku room to think.
   const anthropic = getAnthropic();
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 256,
+    max_tokens: 800,
     system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${completenessContext}${insightsContext}${platformContext}${summaryContext}${introContext}`,
     messages,
+    tools: PROFILE_UPDATE_TOOLS,
   });
 
   logApiUsage({
@@ -272,9 +365,22 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
     tokensOut: completion.usage?.output_tokens || 0,
   });
 
-  const responseText =
-    completion.content[0].type === "text" ? completion.content[0].text : "";
+  // Tool-use path: execute the requested update and return its message.
+  // We don't make a second model call to "soften" the confirmation —
+  // the helpers in profile-update.ts return user-facing text already.
+  const toolBlock = completion.content.find((b) => b.type === "tool_use");
+  if (toolBlock && toolBlock.type === "tool_use") {
+    const toolMsg = await executeProfileUpdateTool(
+      toolBlock.name,
+      toolBlock.input as Record<string, unknown>,
+      userType,
+      userId,
+    );
+    return { response: toolMsg };
+  }
 
+  const textBlock = completion.content.find((b) => b.type === "text");
+  const responseText = textBlock && textBlock.type === "text" ? textBlock.text : "";
   return { response: responseText };
 }
 

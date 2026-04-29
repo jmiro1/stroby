@@ -79,9 +79,29 @@ export async function POST(request: NextRequest) {
 
   const message = value.messages[0];
   const rawPhone = message.from;
-  const messageText = message.text?.body || "";
   const messageId = message.id;
   const mediaUrl = message.image?.id || message.document?.id || null;
+
+  // Map interactive button replies (button_reply / list_reply) to text
+  // messages so the rest of the pipeline (classifier + AI) handles them
+  // uniformly. Each button's `id` is mapped to a deterministic phrase
+  // that the classifier will route correctly. Falls back to the visible
+  // title if the id isn't recognized.
+  let messageText = message.text?.body || "";
+  if (message.type === "interactive" && message.interactive) {
+    const buttonId = message.interactive.button_reply?.id || message.interactive.list_reply?.id;
+    const buttonTitle = message.interactive.button_reply?.title || message.interactive.list_reply?.title;
+    const ROUTE: Record<string, string> = {
+      btn_update_profile: "I want to update my profile",
+      btn_see_matches: "show me my matches",
+      btn_verify: "verify me",
+      btn_help: "help",
+      btn_intro_yes: "yes",
+      btn_intro_no: "no",
+      btn_intro_more: "tell me more",
+    };
+    messageText = ROUTE[String(buttonId || "")] || String(buttonTitle || "");
+  }
 
   if (!rawPhone) return new Response("OK", { status: 200 });
 
@@ -191,6 +211,31 @@ async function handleKnownUser(
 
   // Inbound already logged synchronously before after(). Just handle the response.
 
+  // ── Pending-intent image handling ───────────────────────────────────
+  // If the bot recently asked the user to send a photo (e.g. for a profile
+  // pic update), the next inbound image fulfills that intent — route to
+  // the matching action instead of the default verify/screenshot path.
+  // 10-min TTL inside consumePendingIntent.
+  if (mediaUrl) {
+    const { consumePendingIntent, writeAvatar } = await import("@/lib/profile-update");
+    const pending = await consumePendingIntent(userType, userId);
+    if (pending?.kind === "avatar_upload") {
+      try {
+        const media = await downloadWhatsAppMedia(mediaUrl);
+        if (media && media.mimeType.startsWith("image/")) {
+          const result = await writeAvatar(userType, userId, media.buffer, media.mimeType);
+          await sendAndLog(phoneWithPlus, result.message, userType, userId);
+          return;
+        }
+      } catch (err) {
+        console.error("WhatsApp avatar upload error:", err);
+        await sendAndLog(phoneWithPlus, "Couldn't save that photo — try again?", userType, userId);
+        return;
+      }
+    }
+    // Fall through to the existing image handlers below if no pending intent matched.
+  }
+
   // Handle image messages — run verification if from a newsletter owner
   if (mediaUrl && userType === "newsletter") {
     try {
@@ -290,9 +335,13 @@ async function handleKnownUser(
     return;
   }
 
-  // Status check — show profile summary
+  // Status check — show profile summary with interactive buttons.
+  // Replaces the old "Anything you'd like to update?" text-prompt with
+  // tappable buttons (Update profile / See matches / Verify) — feels native
+  // to WhatsApp and skips the typing step.
   if (intent.type === "status_check") {
     const { calculateCompleteness } = await import("@/lib/profile-completeness");
+    const { sendWhatsAppButtons } = await import("@/lib/whatsapp");
     const table = userType === "newsletter" ? "newsletter_profiles"
       : userType === "business" ? "business_profiles" : "other_profiles";
     const { data: fullProfile } = await supabase.from(table).select("*").eq("id", userId).single();
@@ -301,19 +350,33 @@ async function handleKnownUser(
       const { score, missing } = calculateCompleteness(fullProfile, userType === "other" ? "newsletter" : userType);
       const name = fullProfile.newsletter_name || fullProfile.company_name || fullProfile.name || "there";
       const niche = fullProfile.primary_niche || fullProfile.niche || "Not set";
-      const verified = fullProfile.verification_status && fullProfile.verification_status !== "unverified" ? "Yes ✅" : "Not yet";
+      const isVerified = fullProfile.verification_status && fullProfile.verification_status !== "unverified";
 
-      // Count potential matches
-      const matchTable = userType === "newsletter" ? "business_profiles" : "newsletter_profiles";
-      const { count: potentialMatches } = await supabase
-        .from(matchTable).select("id", { count: "exact", head: true })
-        .eq("primary_niche", niche).eq("is_active", true);
+      const profileLink = fullProfile.slug ? `\n🔗 ${process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai"}/creator/${fullProfile.slug}` : "";
+      const missingLine = missing.length > 0 ? `\n📝 Missing: ${missing.slice(0, 3).join(", ")}` : "";
 
-      const profileLink = fullProfile.slug ? `\n🔗 Your profile: ${process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai"}/creator/${fullProfile.slug}` : "";
+      const statusMsg = `Here's your Stroby profile, *${name}*\n\n🎯 ${niche}\n📊 ${score}% complete${missingLine}\n${isVerified ? "✅ Verified" : "⚠️ Not verified"}${profileLink}`;
 
-      const statusMsg = `Here's your Stroby profile, *${name}*:\n\n🎯 Niche: ${niche}\n📊 Profile: ${score}% complete${missing.length > 0 ? `\n📝 Missing: ${missing.slice(0, 3).join(", ")}` : ""}\n✅ Verified: ${verified}\n🔍 Potential matches in your niche: ${potentialMatches || 0}${profileLink}\n\nAnything you'd like to update?`;
+      // 3 contextual buttons — verify only if not verified yet, otherwise help
+      const buttons = [
+        { id: "btn_update_profile", title: "Update profile" },
+        { id: "btn_see_matches", title: "See matches" },
+        isVerified
+          ? { id: "btn_help", title: "Help" }
+          : { id: "btn_verify", title: "Verify" },
+      ];
 
-      await sendAndLog(phoneWithPlus, statusMsg, userType, userId);
+      const sent = await sendWhatsAppButtons(phoneWithPlus, statusMsg, buttons);
+      // Log outbound — buttons aren't text but we record the body for history
+      await supabase.from("agent_messages").insert({
+        direction: "outbound",
+        user_type: userType,
+        user_id: userId,
+        phone: phoneWithPlus,
+        content: statusMsg,
+        message_type: "status_with_buttons",
+        external_id: sent || null,
+      });
     }
     return;
   }
