@@ -349,10 +349,21 @@ Onboarding status: ${profile.onboarding_status || "Unknown"}`;
   // making the bot sound robotic and abrupt. 800 is still cheap and gives
   // Haiku room to think.
   const anthropic = getAnthropic();
+  // Prompt caching: split the system prompt into a STATIC block (the
+  // persona + rules — same on every call) and a DYNAMIC block (this user's
+  // context — different per user/turn). The static block is marked
+  // cache_control:ephemeral, which tells Anthropic to cache the first 5
+  // minutes of usage. Subsequent replies in the same conversation reuse
+  // the cached prefix → ~3K input tokens saved per reply, and ~50% lower
+  // p50 latency on the prefix.
+  const dynamicSystem = `--- User Context ---\n${userContext}${completenessContext}${insightsContext}${platformContext}${summaryContext}${introContext}`;
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 800,
-    system: `${SYSTEM_PROMPT}\n\n--- User Context ---\n${userContext}${completenessContext}${insightsContext}${platformContext}${summaryContext}${introContext}`,
+    system: [
+      { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+      { type: "text", text: dynamicSystem },
+    ],
     messages,
     tools: PROFILE_UPDATE_TOOLS,
   });

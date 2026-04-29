@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { findMatchesForBusiness } from "@/lib/matching";
-import { sendWhatsAppSmart } from "@/lib/whatsapp";
+import { sendWhatsAppButtonsSmart } from "@/lib/whatsapp";
 import { updateUserInsights } from "@/lib/user-insights";
 import { sendEngagementDrips, sendPostIntroFollowups, sendMonthlyRecaps } from "@/lib/engagement-drips";
 import { generateVoiceMessage, isVoiceEnabled } from "@/lib/tts";
@@ -135,18 +135,26 @@ export async function POST(request: NextRequest) {
 
       let messageBody: string;
 
+      // Concise body — buttons replace the typed CTA, so we drop "Reply YES,
+      // NO, or TELL ME MORE." Reasoning leads (it's the most-valuable line),
+      // metrics are secondary, profile link last. WhatsApp *bold* / _italic_
+      // for visual hierarchy without emoji-bullet noise.
       if (match.creatorType === "newsletter" && match.newsletter) {
         const nl = match.newsletter;
         const priceDisplay = nl.price_per_placement
           ? `$${(nl.price_per_placement / 100).toFixed(0)}`
-          : "TBD";
-
+          : "open to inquiries";
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://stroby.ai";
-        const profileLink = nl.slug ? `\n\n🔗 See their profile: ${appUrl}/creator/${nl.slug}` : "";
-        messageBody = `Hey, Stroby here! I found a newsletter that looks like a great fit for ${business.company_name}:\n\n📰 ${nl.newsletter_name}\n🎯 Niche: ${nl.primary_niche || "General"}\n👥 ${nl.subscriber_count || "N/A"} subscribers | ${nl.avg_open_rate || "N/A"}% open rate\n💰 ${priceDisplay} per placement\n\nWhy it's a match: ${match.reasoning}${profileLink}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+        const profileLink = nl.slug ? `\n${appUrl}/creator/${nl.slug}` : "";
+        const subs = nl.subscriber_count ? `${nl.subscriber_count.toLocaleString()} subs` : null;
+        const openRate = nl.avg_open_rate ? `${nl.avg_open_rate}% open rate` : null;
+        const metricLine = [subs, openRate, priceDisplay].filter(Boolean).join(" · ");
+        messageBody = `${match.reasoning}\n\n*${nl.newsletter_name}* — ${nl.primary_niche || "General"}\n${metricLine}${profileLink}`;
       } else if (match.otherProfile) {
         const cr = match.otherProfile;
-        messageBody = `Hey, Stroby here! I found a creator who could be a great partner for ${business.company_name}:\n\n🎨 ${cr.name}${cr.role ? ` (${cr.role})` : ""}${cr.organization ? ` at ${cr.organization}` : ""}\n🎯 Niche: ${cr.niche || "General"}\n📝 ${cr.description || "N/A"}\n💡 What they offer: ${cr.can_offer || "N/A"}\n\nWhy it's a match: ${match.reasoning}\n\nWant me to introduce you? Reply YES, NO, or TELL ME MORE.`;
+        const role = [cr.role, cr.organization].filter(Boolean).join(" at ");
+        const tail = cr.can_offer ? `\n_Offers:_ ${cr.can_offer.slice(0, 200)}` : "";
+        messageBody = `${match.reasoning}\n\n*${cr.name}*${role ? ` (${role})` : ""} — ${cr.niche || "General"}${tail}`;
       } else {
         continue;
       }
@@ -164,9 +172,18 @@ export async function POST(request: NextRequest) {
         matchDesc = `🎨 ${cr.name}${cr.role ? ` (${cr.role})` : ""}${cr.organization ? ` at ${cr.organization}` : ""}\n🎯 Niche: ${cr.niche || "General"}\n📝 ${cr.description || "N/A"}\n💡 Offers: ${cr.can_offer || "N/A"}\n\nWhy: ${match.reasoning}`;
       }
 
-      const messageSid = await sendWhatsAppSmart(
+      // Interactive buttons (in-window) → falls back to text → falls back to
+      // approved template. Button reply ids land in the inbound webhook's
+      // ROUTE table → mapped to "yes" / "no" / "tell me more" → existing
+      // intro-response flow handles them.
+      const messageSid = await sendWhatsAppButtonsSmart(
         business.phone,
         messageBody,
+        [
+          { id: "btn_intro_yes", title: "Yes" },
+          { id: "btn_intro_more", title: "Tell me more" },
+          { id: "btn_intro_no", title: "Pass" },
+        ],
         "match_found",
         [business.contact_name || business.company_name, matchDesc]
       );

@@ -363,6 +363,35 @@ export async function sendWelcomeWithFallback(
 }
 
 // ── Smart send: tries text first, falls back to template ──
+// ── Smart send: interactive buttons inside the 24h window, template outside ──
+// Buttons are richer UX (tap-to-reply) but Meta only allows them inside the
+// active customer-care window. Outside that window, Meta requires an
+// approved template — so we fall through to the same `sendWhatsAppSmart`
+// chain (free-form text → template). The button reply ids are mapped back
+// to text in the inbound webhook (ROUTE table in webhooks/whatsapp).
+export async function sendWhatsAppButtonsSmart(
+  to: string,
+  body: string,
+  buttons: WhatsAppButton[],
+  fallbackTemplateId: TemplateId,
+  fallbackTemplateParams: string[],
+): Promise<string | null> {
+  // Try interactive buttons (works in-window, fails silently outside)
+  const buttonsResult = await sendWhatsAppButtons(to, body, buttons);
+  if (buttonsResult) return buttonsResult;
+
+  // Fall back to free-form text (also requires in-window) — same body but
+  // with the button choices appended as a typed CTA so the user can still
+  // reply manually.
+  const buttonHints = buttons.map((b) => b.title).join(" / ");
+  const textBody = `${body}\n\nReply: ${buttonHints}`;
+  const textResult = await sendWhatsAppMessage(to, textBody);
+  if (textResult) return textResult;
+
+  // Last resort — Meta-approved template (works outside the 24h window).
+  return sendWhatsAppTemplate(to, fallbackTemplateId, fallbackTemplateParams);
+}
+
 // Use for proactive messages where user may or may not be in the 24h window
 export async function sendWhatsAppSmart(
   to: string,

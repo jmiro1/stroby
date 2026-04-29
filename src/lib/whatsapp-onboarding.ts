@@ -168,10 +168,17 @@ export async function handleOnboardingMessage(
   }
 
   const anthropic = getAnthropic();
+  // ONBOARDING_PROMPT is ~4K tokens of static persona + state-machine rules
+  // — cached on first call, reused for every subsequent turn in the same
+  // ~5-minute window. Onboarding is a multi-message back-and-forth, so this
+  // is where prompt caching pays off most. ~75% input-token savings + faster
+  // p50 once the cache warms.
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 400,
-    system: ONBOARDING_PROMPT,
+    system: [
+      { type: "text", text: ONBOARDING_PROMPT, cache_control: { type: "ephemeral" } },
+    ],
     messages,
   });
 
