@@ -558,31 +558,67 @@ export function scoreMatch(
   };
 }
 
+export interface ProfileIncompleteResult {
+  profile_incomplete: true;
+  match_eligibility_score: number;
+  missing_fields: string[];
+  message: string;
+}
+
+function brandMissingFields(brand: Record<string, unknown>): string[] {
+  const missing: string[] = [];
+  const productDesc = (brand.product_description as string) || "";
+  const targetCust = (brand.target_customer as string) || "";
+  if (productDesc.length < 50) missing.push("product_description (≥50 chars — what you sell)");
+  if (targetCust.length < 50) missing.push("target_customer (≥50 chars — who buys from you)");
+  if (!brand.budget_range) missing.push("budget_range (per-creator sponsorship budget)");
+  if (!brand.campaign_outcome) missing.push("campaign_outcome (reach / engagement / conversions / credibility)");
+  if (!brand.profile_embedding) missing.push("profile_embedding (auto-computed once intel is filled)");
+  return missing;
+}
+
 export async function getMatchesForBrand(
   brandId: string,
   limit = 20,
   opts?: { numericOnly?: boolean; explain?: boolean }
-) {
+): Promise<unknown[] | ProfileIncompleteResult> {
   const supabase = createServiceClient();
 
   // The requesting brand MUST be real (lookup in the filtered view — shadows are invisible).
   // Only real users ever ask for matches.
   const { data: brand } = await supabase
     .from("business_profiles")
-    .select("id, company_name, product_description, target_customer, primary_niche, budget_range, campaign_outcome, preferred_creator_type, preferred_creator_size, brand_intelligence, profile_embedding")
+    .select("id, company_name, product_description, target_customer, primary_niche, budget_range, campaign_outcome, preferred_creator_type, preferred_creator_size, brand_intelligence, profile_embedding, match_eligible, match_eligibility_score")
     .eq("id", brandId)
     .eq("is_active", true)
     .single();
 
   if (!brand) return [];
 
-  // Counterparty lookup hits the directory view — sees real + shadow creators.
-  // No hard filter on platform — cross-platform matches are allowed when
-  // audience fit is strong. Platform preference is a soft scoring signal.
+  // Quality gate: requesting brand must be match-eligible. If not, return
+  // a structured "profile_incomplete" response listing missing fields so
+  // the caller (WhatsApp bot, widget, dashboard) can nudge the user
+  // toward completion. Better than showing a low-quality match they'd
+  // distrust.
+  if (!brand.match_eligible) {
+    const missing = brandMissingFields(brand as Record<string, unknown>);
+    return {
+      profile_incomplete: true,
+      match_eligibility_score: (brand.match_eligibility_score as number) || 0,
+      missing_fields: missing,
+      message: `Your profile is ${(brand.match_eligibility_score as number) || 0}% complete. To unlock matches, fill in: ${missing.join(", ")}.`,
+    };
+  }
+
+  // Counterparty lookup — only match-eligible creators. The new
+  // match_eligible filter on the directory view is what enforces the
+  // quality bar. Pre-eligible creators stay in the DB for claim/onboarding
+  // but never surface as match candidates.
   const { data: creators } = await supabase
     .from("newsletter_directory")
-    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status, price_per_placement")
+    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, platform_metrics, content_intelligence, profile_embedding, onboarding_status, price_per_placement, match_eligibility_score")
     .eq("is_active", true)
+    .eq("match_eligible", true)
     .not("profile_embedding", "is", null);
 
   if (!creators?.length) return [];
@@ -679,22 +715,51 @@ export async function getMatchesForBrand(
   return out;
 }
 
-export async function getMatchesForCreator(creatorId: string, limit = 20) {
+function creatorMissingFields(creator: Record<string, unknown>): string[] {
+  const missing: string[] = [];
+  if (!creator.audience_reach) missing.push("audience_reach (subscribers/followers/downloads)");
+  if (!creator.engagement_rate && !creator.avg_open_rate) {
+    missing.push("engagement_rate or avg_open_rate (typical open rate or engagement signal)");
+  }
+  const desc = (creator.description as string) || "";
+  if (desc.length < 100) missing.push("description (≥100 chars — describe your audience)");
+  if (!creator.price_per_placement && !creator.open_to_inquiries) {
+    missing.push("price_per_placement OR open_to_inquiries=true (set a price or opt in to inquiries)");
+  }
+  if (!creator.profile_embedding) missing.push("profile_embedding (auto-computed once intel is filled)");
+  return missing;
+}
+
+export async function getMatchesForCreator(
+  creatorId: string,
+  limit = 20
+): Promise<unknown[] | ProfileIncompleteResult> {
   const supabase = createServiceClient();
 
   const { data: creator } = await supabase
     .from("newsletter_profiles")
-    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, platform, content_intelligence, profile_embedding")
+    .select("id, newsletter_name, primary_niche, subscriber_count, audience_reach, engagement_rate, avg_open_rate, description, platform, content_intelligence, profile_embedding, price_per_placement, open_to_inquiries, match_eligible, match_eligibility_score")
     .eq("id", creatorId)
     .eq("is_active", true)
     .single();
 
   if (!creator) return [];
 
+  if (!creator.match_eligible) {
+    const missing = creatorMissingFields(creator as Record<string, unknown>);
+    return {
+      profile_incomplete: true,
+      match_eligibility_score: (creator.match_eligibility_score as number) || 0,
+      missing_fields: missing,
+      message: `Your profile is ${(creator.match_eligibility_score as number) || 0}% complete. To unlock brand matches, fill in: ${missing.join(", ")}.`,
+    };
+  }
+
   const { data: brands } = await supabase
     .from("business_directory")
-    .select("id, company_name, primary_niche, budget_range, campaign_outcome, preferred_creator_type, preferred_creator_size, brand_intelligence, profile_embedding, onboarding_status")
+    .select("id, company_name, primary_niche, budget_range, campaign_outcome, preferred_creator_type, preferred_creator_size, brand_intelligence, profile_embedding, onboarding_status, match_eligibility_score")
     .eq("is_active", true)
+    .eq("match_eligible", true)
     .not("profile_embedding", "is", null);
 
   if (!brands?.length) return [];

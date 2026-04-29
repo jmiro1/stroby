@@ -16,7 +16,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const matches = await getMatchesForCreator(creatorId, limit);
+    const result = await getMatchesForCreator(creatorId, limit);
+    if (result && typeof result === "object" && !Array.isArray(result) && (result as unknown as Record<string, unknown>).profile_incomplete) {
+      return Response.json({ creator_id: creatorId, ...(result as unknown as Record<string, unknown>) }, { status: 200 });
+    }
+    const matches = result as unknown[];
     return Response.json({ creator_id: creatorId, matches, count: matches.length });
   } catch (e) {
     console.error("matches/creator failed:", e);

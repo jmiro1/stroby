@@ -18,7 +18,12 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const matches = await getMatchesForBrand(brandId, limit, { numericOnly, explain });
+    const result = await getMatchesForBrand(brandId, limit, { numericOnly, explain });
+    // Profile-incomplete branch: structured nudge response, no matches array
+    if (result && typeof result === "object" && !Array.isArray(result) && (result as unknown as Record<string, unknown>).profile_incomplete) {
+      return Response.json({ brand_id: brandId, ...(result as unknown as Record<string, unknown>) }, { status: 200 });
+    }
+    const matches = result as unknown[];
     const diag = (matches as unknown as { _diag?: unknown })._diag;
     return Response.json({
       brand_id: brandId,
