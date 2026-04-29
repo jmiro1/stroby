@@ -685,6 +685,15 @@ export async function getMatchesForBrand(
     decision: r.decision,
     reason: r.reason ?? null,
   }));
+
+  // Phase 5 — Implicit graph: pull creators flagged as "graph-recommended"
+  // for this brand (based on what similar brands have successfully sponsored).
+  // Returns [] until we have ≥30 completed deals globally; signal activates
+  // automatically as deal count grows. Pass to the rerank prompt as a
+  // boost-list — the LLM uses it to nudge those candidates upward.
+  const { getGraphRecommendedCreators } = await import("./graph");
+  const graphRecommended = await getGraphRecommendedCreators(supabase, brandId);
+  const graphCreatorIds = new Set(graphRecommended.map(g => g.creator_id));
   const rerankResult = await rerankCandidates(
     brand as unknown as Record<string, unknown>,
     brandIntel,
@@ -699,6 +708,12 @@ export async function getMatchesForBrand(
       if (m.audience_reach) pieces.push(`Reach: ${m.audience_reach.toLocaleString()}`);
       if (m.engagement_rate) pieces.push(`Engagement: ${(m.engagement_rate * 100).toFixed(1)}%`);
       if (m.price_per_placement) pieces.push(`Price: $${m.price_per_placement}`);
+      // Phase 5: graph-recommended boost — the LLM sees a small breadcrumb
+      // here and uses it as one signal among many. Not a hard override.
+      if (graphCreatorIds.has(m.creator_id)) {
+        const g = graphRecommended.find(x => x.creator_id === m.creator_id);
+        pieces.push(`★ Graph: similar brand "${g?.via_similar_brand}" successfully sponsored this creator`);
+      }
       return {
         creator_id: m.creator_id,
         creator_name: m.creator_name as string,

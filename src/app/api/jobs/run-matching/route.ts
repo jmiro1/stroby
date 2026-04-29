@@ -204,6 +204,21 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Phase 5: weekly implicit-graph recompute, gated to Sunday so it
+  // doesn't redo work every day. Cheap (≤14k brands × ≤6k creators
+  // sparse intersection) but pointless to run on data that didn't change
+  // since yesterday.
+  let graphRecompute: { brandPairs: number; creatorPairs: number; deals: number } | null = null;
+  if (today.getUTCDay() === 0) {
+    try {
+      const { recomputeGraph } = await import("@/lib/intelligence/graph");
+      graphRecompute = await recomputeGraph(supabase);
+      console.info(`recomputeGraph: brandPairs=${graphRecompute.brandPairs} creatorPairs=${graphRecompute.creatorPairs} deals=${graphRecompute.deals}`);
+    } catch (err) {
+      console.error("recomputeGraph error:", err);
+    }
+  }
+
   // Run engagement drips (day 1, 3, 7)
   let dripsSent = 0;
   try {
@@ -273,5 +288,5 @@ export async function POST(request: NextRequest) {
     console.error("Admin digest error:", err);
   }
 
-  return Response.json({ businessesProcessed, matchesSuggested, dripsSent, followupsSent, recapsSent });
+  return Response.json({ businessesProcessed, matchesSuggested, dripsSent, followupsSent, recapsSent, graphRecompute });
 }

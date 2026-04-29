@@ -68,6 +68,8 @@ const RERANK_SYSTEM_PROMPT = `You are Stroby's matchmaking advisor. A brand is l
 
 If "Brand's recent decisions" is provided, use it: demote candidates whose profile resembles past declines (same weak signal, same niche the brand passed on, same complaint they voiced) UNLESS your reasoning concretely addresses why this candidate is different. Boost candidates whose profile resembles past acceptances or successful intros.
 
+If a candidate has a "★ Graph: similar brand X successfully sponsored this creator" line in its summary, that's a strong real-world signal — the kind of brand who buys from this creator already paid for something and got value. Boost meaningfully. The graph signal beats most numerical signals because it's grounded in actual money changing hands.
+
 Return STRICT JSON with this shape:
 {
   "ranking": [
