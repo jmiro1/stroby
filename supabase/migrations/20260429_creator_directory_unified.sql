@@ -14,7 +14,11 @@
 
 BEGIN;
 
-CREATE OR REPLACE VIEW public.creator_directory_unified AS
+-- security_invoker=true so anon RLS on underlying tables applies (matches
+-- the pattern in 20260424_email_verified.sql for business_directory).
+CREATE OR REPLACE VIEW public.creator_directory_unified
+  WITH (security_invoker = true)
+AS
   SELECT
     n.id,
     'newsletter'                      AS creator_type,
