@@ -2,6 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createServiceClient } from "./supabase";
 import { readOnboardingMessages } from "./secure-messages";
 import { logApiUsage } from "./api-usage";
+import {
+  getOnboardingState,
+  setOnboardingField,
+  isOnboardingComplete,
+  formatStateForPrompt,
+  ONBOARDING_FIELD_NAMES,
+  type OnboardingState,
+} from "./onboarding-state";
 
 let _anthropic: Anthropic | null = null;
 function getAnthropic(): Anthropic {
@@ -10,6 +18,51 @@ function getAnthropic(): Anthropic {
   }
   return _anthropic;
 }
+
+// Tools the onboarding model can call. `record_field` is the workhorse —
+// every learned value is stored via this. `link_existing_account` and
+// `complete_onboarding` are control-flow signals back to the webhook.
+const ONBOARDING_TOOLS: Anthropic.Messages.Tool[] = [
+  {
+    name: "record_field",
+    description:
+      "Record a single profile field the user just gave you. Call this every time you learn something new — even minor things. The system stores it durably so the next turn already has it. Don't track state in your reply text — just call this and write a natural reply.",
+    input_schema: {
+      type: "object",
+      properties: {
+        field: {
+          type: "string",
+          enum: [...ONBOARDING_FIELD_NAMES],
+          description: "Field name. Use exactly one of the allowed values.",
+        },
+        value: {
+          type: "string",
+          description:
+            "The value the user gave. Numbers as strings (e.g. \"50000\"). Pass null/empty if the user said they don't know — the system records that as 'no data' and won't re-ask.",
+        },
+      },
+      required: ["field", "value"],
+    },
+  },
+  {
+    name: "link_existing_account",
+    description:
+      "User said they signed up before with a different phone or via email. Pass whichever identifier they gave you. The system looks them up and merges the WhatsApp number into the existing profile.",
+    input_schema: {
+      type: "object",
+      properties: {
+        email: { type: "string", description: "Email used previously, if given." },
+        phone: { type: "string", description: "Phone used previously, if given." },
+      },
+    },
+  },
+  {
+    name: "complete_onboarding",
+    description:
+      "All required fields are collected and the user has confirmed they're ready. Call this exactly once to finalize the profile. After this call, the system creates their profile and sends a welcome with their public profile link.",
+    input_schema: { type: "object", properties: {} },
+  },
+];
 
 const ONBOARDING_PROMPT = `You are Stroby — Stroby.ai, a free WhatsApp-based superconnector AI that connects brands with newsletter creators and influencers for sponsorship partnerships. A new user is messaging you on WhatsApp for the first time. Their phone number is already known. When you describe Stroby in a single sentence, always frame it as "Stroby.ai, a free WhatsApp-based superconnector AI" — paraphrase naturally, never recite.
 
@@ -21,7 +74,7 @@ YOUR JOB: Onboard them through a short, friendly conversation. Collect the info 
 
 FIRST MESSAGE FLOW:
 1. Welcome them warmly. Ask: "Are you new to Stroby, or did you already sign up on stroby.ai with a different phone number?"
-2. If they signed up before: ask for the email or phone they used. Output [LINK_ACCOUNT] followed by JSON: {"email":"...","phone":"..."} (whichever they give). Then stop — the system will handle the linking.
+2. If they signed up before: ask for the email or phone they used, then call the link_existing_account tool with whichever identifier they give. Write a brief "let me look that up" reply. The system handles the merge.
 3. If they're new: ask "Are you a business looking for partners, or an influencer/creator looking for brand deals?"
 
 FOR INFLUENCERS/CREATORS — collect these fields:
@@ -85,25 +138,20 @@ RULES:
 - Their WhatsApp number is already captured — don't ask for phone.
 - Do NOT invent or assume data. Only use what they explicitly told you.
 - "I don't know" / "not sure" / "don't remember" is a valid answer — accept it (store as null), move on. NEVER loop on the same question.
-- NEVER say "one more thing", "last thing", "final question", "one last question", "almost done", or anything implying you're at the end — UNLESS literally every other required field in [STATE] is already non-null and this is genuinely the very last one. Lying about being almost done destroys trust instantly. If you have 5 fields left, just ask the next one without preamble.
+- NEVER say "one more thing", "last thing", "final question", "one last question", "almost done", or anything implying you're at the end — UNLESS the current state in the system prompt shows literally every other required field is already filled and this is genuinely the very last one. Lying about being almost done destroys trust instantly. If you have 5 fields left, just ask the next one without preamble.
 
-OUTPUT FORMAT — CRITICAL:
-Every single response MUST start with a JSON state line on its own first line, then a blank line, then your natural reply. Format:
+STATE MANAGEMENT — VIA TOOLS, NOT TEXT:
+- The system tracks state for you. After each user message, you'll see "Current state (already collected — DO NOT ask again):" with everything we've recorded so far. NEVER ask for a field that's already in that list.
+- When the user gives you a value, immediately call the record_field tool with the field name and value. You can call it multiple times in a single turn (if they gave you 2 things at once, record both).
+- When the user says they don't know / not sure / can't remember a field, call record_field with value="" — that records "no data" and the system won't re-ask. Move on to the next field.
+- Don't put state in your reply text. Just call the tool and write a natural conversational reply.
 
-[STATE] {"user_type":"influencer","referral_source":"a friend","name":"Sam","platform":null,"channel_name":null,"url":null,"niche":null,"audience_size":null,"engagement_rate":null,"price_per_placement":null,"email":null}
+RETURNING USERS:
+- If the user says they signed up before with a different phone/email, call link_existing_account with whichever identifier they gave you, then write a brief "let me look that up" reply. The system handles the merge.
 
-Hey Sam! What platform do you publish on...
-
-Rules for [STATE]:
-- Include EVERY field for the user's type (use null for unknown).
-- Update it on every turn — copy forward what you already knew, add what's new.
-- The system strips this line before sending to the user.
-- Use the [STATE] as your single source of truth: only ask for fields whose value is null. NEVER ask about a field whose value is non-null. Ever.
-
-PROFILE COMPLETION:
-- The moment every required field in [STATE] is non-null, output [PROFILE_COMPLETE] followed by the same JSON on the next line, then a friendly wrap-up (3-5 short sentences, WhatsApp-style).
-- Do NOT do a "let me confirm everything before we wrap up" pass. The [STATE] is the truth — if it's full, you're done. No re-asking, no double-checking.
-- Do NOT mention verification links, verification badges, or "verify your metrics" in your wrap-up. The system handles verification separately.
+WHEN ONBOARDING IS DONE:
+- The moment all required fields are recorded (the system shows you completion in the prompt), call complete_onboarding once and write the wrap-up message. Don't do a confirmation pass — if the state is full, you're done.
+- Do NOT mention verification links or "verify your metrics" in the wrap-up. The system handles verification separately.
 
 WRAP-UP CONTENT (for CREATORS/INFLUENCERS — skip for businesses, use a simpler wrap-up):
 Your wrap-up message must cover these three things, in your own words, in this order:
@@ -167,19 +215,24 @@ export async function handleOnboardingMessage(
     }
   }
 
+  // ── Load durable state and inject it into the system prompt ──────────
+  const currentState = await getOnboardingState(phone);
+  const stateBlock = formatStateForPrompt(currentState);
+
   const anthropic = getAnthropic();
   // ONBOARDING_PROMPT is ~4K tokens of static persona + state-machine rules
-  // — cached on first call, reused for every subsequent turn in the same
-  // ~5-minute window. Onboarding is a multi-message back-and-forth, so this
-  // is where prompt caching pays off most. ~75% input-token savings + faster
-  // p50 once the cache warms.
+  // — cached on first call, reused for every subsequent turn within the
+  // ~5-minute window. The dynamic state block isn't cached (different
+  // per turn) but it's tiny relative to the persona.
   const completion = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 400,
+    max_tokens: 600,
     system: [
       { type: "text", text: ONBOARDING_PROMPT, cache_control: { type: "ephemeral" } },
+      { type: "text", text: stateBlock },
     ],
     messages,
+    tools: ONBOARDING_TOOLS,
   });
 
   logApiUsage({
@@ -190,85 +243,61 @@ export async function handleOnboardingMessage(
     tokensOut: completion.usage?.output_tokens || 0,
   });
 
-  const rawResponseText =
-    completion.content[0].type === "text" ? completion.content[0].text : "";
+  // Pull text + tool calls out of the response. A single completion can
+  // emit BOTH a text reply and one or more tool_use blocks.
+  let responseText = "";
+  let linkAccount: { email?: string; phone?: string } | null = null;
+  let completeRequested = false;
+  let nextState = currentState;
 
-  // Extract and strip the [STATE] line — it's for the model's own bookkeeping,
-  // not for the user.
-  let stateData: Record<string, unknown> | null = null;
-  const stateMatch = rawResponseText.match(/\[STATE\]\s*(\{[\s\S]*?\})/);
-  if (stateMatch) {
-    try {
-      stateData = JSON.parse(stateMatch[1]);
-    } catch { /* ignore */ }
-  }
-  const responseText = rawResponseText.replace(/\[STATE\]\s*\{[\s\S]*?\}\s*/g, "").trim();
-
-  // Check for [LINK_ACCOUNT]
-  if (responseText.includes("[LINK_ACCOUNT]")) {
-    const jsonMatch = responseText.match(/\[LINK_ACCOUNT\]\s*(\{[\s\S]*?\})/);
-    let linkData: { email?: string; phone?: string } = {};
-    if (jsonMatch) {
-      try {
-        linkData = JSON.parse(jsonMatch[1]);
-      } catch { /* ignore parse error */ }
+  for (const block of completion.content) {
+    if (block.type === "text") {
+      responseText += (responseText ? "\n" : "") + block.text;
+    } else if (block.type === "tool_use") {
+      if (block.name === "record_field") {
+        const input = block.input as { field?: string; value?: string };
+        if (input.field) {
+          try {
+            nextState = await setOnboardingField(phone, input.field as keyof OnboardingState, input.value ?? null);
+          } catch (e) {
+            console.error("onboarding record_field failed:", e);
+          }
+        }
+      } else if (block.name === "link_existing_account") {
+        const input = block.input as { email?: string; phone?: string };
+        linkAccount = { email: input.email, phone: input.phone };
+      } else if (block.name === "complete_onboarding") {
+        completeRequested = true;
+      }
     }
+  }
 
-    const cleanResponse = responseText
-      .replace(/\[LINK_ACCOUNT\]\s*\{[\s\S]*?\}/, "")
-      .trim();
+  // Fallback text if the model emitted only tool calls (rare with
+  // tool_choice:auto, but possible). Prevents the user seeing nothing back.
+  if (!responseText) {
+    responseText = "Got it — what about the next bit?";
+  }
 
+  if (linkAccount) {
     return {
-      response: cleanResponse || "Let me look that up for you!",
+      response: responseText,
       linkAccount: true,
-      linkData,
+      linkData: linkAccount,
     };
   }
 
-  // Check for [PROFILE_COMPLETE]
-  if (responseText.includes("[PROFILE_COMPLETE]")) {
-    const jsonMatch = responseText.match(/\[PROFILE_COMPLETE\]\s*(\{[\s\S]*?\})/);
-    let profileData: Record<string, unknown> | undefined;
-    if (jsonMatch) {
-      try {
-        profileData = JSON.parse(jsonMatch[1]);
-      } catch { /* ignore parse error */ }
-    }
-
-    const cleanResponse = responseText
-      .replace(/\[PROFILE_COMPLETE\]\s*\{[\s\S]*?\}/, "")
-      .trim();
-
+  // Completion: either the model called complete_onboarding, OR every
+  // required field is filled and the model forgot to call it (safety net,
+  // matches the prior [PROFILE_COMPLETE]-forgotten-but-state-full path).
+  if (completeRequested || isOnboardingComplete(nextState)) {
     return {
-      response: cleanResponse || "You're all set! I'll start finding matches for you.",
+      response: responseText,
       profileComplete: true,
-      profileData,
-    };
-  }
-
-  // Safety net: if the model populated every required field in [STATE] but
-  // forgot to emit [PROFILE_COMPLETE], finish onboarding anyway. Prevents
-  // the "let me confirm everything" loop the model loves to slide into.
-  if (stateData && isStateComplete(stateData)) {
-    return {
-      response: responseText || "Perfect — you're all set! I'll start looking for matches.",
-      profileComplete: true,
-      profileData: stateData,
+      profileData: nextState as Record<string, unknown>,
     };
   }
 
   return { response: responseText };
-}
-
-const REQUIRED_FIELDS: Record<"influencer" | "business", string[]> = {
-  influencer: ["user_type", "name", "platform", "channel_name", "niche", "audience_size", "email"],
-  business: ["user_type", "contact_name", "company_name", "product_description", "target_customer", "niche", "budget_range", "campaign_outcome", "email", "website_url"],
-};
-
-function isStateComplete(state: Record<string, unknown>): boolean {
-  const ut = state.user_type as string | undefined;
-  if (ut !== "influencer" && ut !== "business") return false;
-  return REQUIRED_FIELDS[ut].every((k) => state[k] != null && state[k] !== "");
 }
 
 // Create profile from onboarding data

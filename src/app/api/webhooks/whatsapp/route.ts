@@ -614,6 +614,15 @@ async function handleNewUser(
     let profile: { id: string; userType: "newsletter" | "business" | "other" } | null;
     try {
       profile = await createProfileFromOnboarding(phoneWithPlus, pd);
+      // Profile created — wipe the onboarding scratch state. Failure here
+      // is non-fatal (next createProfileFromOnboarding will overwrite the
+      // existing profile, not duplicate it, due to the phone-keyed lookup).
+      try {
+        const { clearOnboardingState } = await import("@/lib/onboarding-state");
+        await clearOnboardingState(phoneWithPlus);
+      } catch (e) {
+        console.error("clearOnboardingState failed (non-fatal):", e);
+      }
     } catch (err) {
       console.error("createProfileFromOnboarding failed:", err, "data:", result.profileData);
       // Don't lie to the user. Tell them something hit a snag and the
