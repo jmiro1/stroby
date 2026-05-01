@@ -225,10 +225,14 @@ export async function writeAvatar(
   const ext = contentType.split("/")[1] || "jpg";
   const crypto = await import("crypto");
   const hash = crypto.randomBytes(6).toString("hex");
-  const filename = `avatars/${userId}/${hash}.${ext}`;
+  // Avatars live in the dedicated public `avatars` bucket. The original
+  // path used `proof-screenshots/avatars/...` which was a private bucket
+  // — `getPublicUrl()` returned a /object/public/... URL that 400'd.
+  // Migration `20260501_avatars_bucket.sql` created the public bucket.
+  const filename = `${userId}/${hash}.${ext}`;
 
   const { error: uploadErr } = await supabase.storage
-    .from("proof-screenshots")
+    .from("avatars")
     .upload(filename, buffer, { contentType, upsert: true });
 
   let avatarUrl: string;
@@ -239,7 +243,7 @@ export async function writeAvatar(
       return { ok: false, message: "Couldn't save that photo — try a smaller image (under 5MB)?", detail: uploadErr.message };
     }
   } else {
-    const { data: urlData } = supabase.storage.from("proof-screenshots").getPublicUrl(filename);
+    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filename);
     avatarUrl = urlData.publicUrl;
   }
 

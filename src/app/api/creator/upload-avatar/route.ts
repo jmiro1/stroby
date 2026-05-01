@@ -54,14 +54,17 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Profile not found or phone doesn't match." }, { status: 403 });
   }
 
-  // Upload to Supabase Storage
+  // Upload to the dedicated public `avatars` bucket. Earlier code wrote
+  // to `proof-screenshots/avatars/...` (private bucket); getPublicUrl()
+  // returned URLs that 400'd. Migration 20260501_avatars_bucket.sql
+  // created the public bucket.
   const buffer = Buffer.from(await file.arrayBuffer());
   const ext = file.name.split(".").pop() || "png";
   const hash = crypto.randomBytes(6).toString("hex");
-  const filename = `avatars/${profileId}/${hash}.${ext}`;
+  const filename = `${profileId}/${hash}.${ext}`;
 
   const { error: uploadError } = await supabase.storage
-    .from("proof-screenshots")
+    .from("avatars")
     .upload(filename, buffer, { contentType: file.type, upsert: true });
 
   let avatarUrl: string;
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
   } else {
     const { data: urlData } = supabase.storage
-      .from("proof-screenshots")
+      .from("avatars")
       .getPublicUrl(filename);
     avatarUrl = urlData.publicUrl;
   }
